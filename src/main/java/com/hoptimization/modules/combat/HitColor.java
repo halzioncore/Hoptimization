@@ -7,15 +7,23 @@ import com.hoptimization.core.setting.ModeSetting;
 import com.hoptimization.core.setting.NumberSetting;
 
 /**
- * Placeholder module for customizing entity damage tint color and opacity.
+ * Customizes entity and armor damage flash tint color and opacity during hurt animations.
  */
 public class HitColor extends Module {
+    private static HitColor instance;
+
     private final ColorSetting color;
     private final NumberSetting opacity;
     private final ModeSetting mode;
 
+    private float cachedRed;
+    private float cachedGreen;
+    private float cachedBlue;
+    private float cachedAlpha;
+    private boolean cachedArmorMode;
+
     /**
-     * Creates the Hit Color placeholder module and registers its settings.
+     * Creates the Hit Color module and registers its tint settings.
      */
     public HitColor() {
         super("hit_color", Category.COMBAT);
@@ -28,6 +36,18 @@ public class HitColor extends Module {
         this.mode = addSetting(
             new ModeSetting("mode", "setting.hoptimization.hit_color.mode.name", "entity", "entity", "armor")
         );
+
+        Runnable cacheUpdater = new Runnable() {
+            @Override
+            public void run() {
+                refreshCachedValues();
+            }
+        };
+        this.color.addChangeListener(cacheUpdater);
+        this.opacity.addChangeListener(cacheUpdater);
+        this.mode.addChangeListener(cacheUpdater);
+        refreshCachedValues();
+        instance = this;
     }
 
     /**
@@ -57,13 +77,77 @@ public class HitColor extends Module {
         return this.mode;
     }
 
-    @Override
-    protected void onEnable() {
-        // TODO: 占位模块，无功能
+    /**
+     * Returns whether HitColor is currently enabled.
+     *
+     * @return true if active
+     */
+    public static boolean isActive() {
+        HitColor module = instance;
+        return module != null && module.isEnabled();
     }
 
-    @Override
-    protected void onDisable() {
-        // TODO: 占位模块，无功能
+    /**
+     * Returns whether HitColor is enabled and configured to tint worn armor as well.
+     *
+     * @return true when armor damage tinting should apply
+     */
+    public static boolean isArmorModeActive() {
+        HitColor module = instance;
+        return module != null && module.isEnabled() && module.cachedArmorMode;
+    }
+
+    /**
+     * Returns the cached normalized red channel in {@code [0, 1]}.
+     *
+     * @return red component
+     */
+    public static float getRed() {
+        HitColor module = instance;
+        return module != null ? module.cachedRed : 1.0F;
+    }
+
+    /**
+     * Returns the cached normalized green channel in {@code [0, 1]}.
+     *
+     * @return green component
+     */
+    public static float getGreen() {
+        HitColor module = instance;
+        return module != null ? module.cachedGreen : 0.0F;
+    }
+
+    /**
+     * Returns the cached normalized blue channel in {@code [0, 1]}.
+     *
+     * @return blue component
+     */
+    public static float getBlue() {
+        HitColor module = instance;
+        return module != null ? module.cachedBlue : 0.0F;
+    }
+
+    /**
+     * Returns the cached normalized hurt flash opacity in {@code [0, 1]}.
+     *
+     * @return alpha/tint weight
+     */
+    public static float getAlpha() {
+        HitColor module = instance;
+        return module != null ? module.cachedAlpha : 0.3F;
+    }
+
+    private void refreshCachedValues() {
+        this.cachedRed = this.color.getRed() / 255.0F;
+        this.cachedGreen = this.color.getGreen() / 255.0F;
+        this.cachedBlue = this.color.getBlue() / 255.0F;
+        float alpha = this.opacity.getFloatValue() / 100.0F;
+        if (alpha < 0.0F) {
+            alpha = 0.0F;
+        } else if (alpha > 1.0F) {
+            alpha = 1.0F;
+        }
+        this.cachedAlpha = alpha;
+        this.cachedArmorMode = this.mode.is("armor");
     }
 }
