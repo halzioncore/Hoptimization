@@ -1,0 +1,16 @@
+[
+  {
+    "modid": "${modid}",
+    "name": "Hoptimization",
+    "description": "Combat optimization mod for Minecraft 1.8.9.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "updateUrl": "",
+    "authorList": [],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
