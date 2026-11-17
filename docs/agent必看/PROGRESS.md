@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-11-17 · 首批战斗 / 移动 / 视觉 / 性能 / 杂项与 HUD 功能模块（v0.6.0）
+
+- **做了什么**：通过 `/swarm` 3 名并行工程师（`combat-modules`、`move-visual-perf`、`ui-hud-modules`）在各自独立工作副本完成 12 个新增功能模块与 11 个既有模块实装并合入集成，全仓共注册 **23 个模块**（按所有者筛选排除 `KeepSprint`、`SafeWalk`、`FreeLook`、`FastPlace`、`AutoRespawn`）：
+  1. **Combat (`feat/combat-modules`)**：实装作弊门禁模块 `AutoClicker`、`HitDelayFix`、`WTap`，与非作弊视觉/统计模块 `OldAnimations`、`HitColor`、`ComboCounter` 及 `mixin/combat/*`（含 OptiFine `require = 0` 保护与 zero `@Overwrite`）；
+  2. **Movement / Visual / Performance / Misc (`feat/move-visual-perf`)**：实装 `ToggleSprint`（切换/常驻 + 仅世界内安全 `ToggleSneak`）、作弊门禁 `NoJumpDelay`、`LowFire`、`BlockOutline`、`HurtCam`、`Zoom`（默认 `C`，支持 Hold/Toggle 与平滑相机恢复）、`TimeChanger`、`ParticleLimit`、`MouseDelayFix` 与 `Fullbright`；
+  3. **UI / HUD (`feat/ui-hud-modules`)**：新增轻量化 `ui/hud/` 覆盖层调度与交互式拖拽编辑界面 `HudEditScreen`（持久化至 `UiConfig.HudLayout`），实装并接入 `CpsDisplay`、`TargetHud`、`FPSDisplay`、`Coordinates`、`Keystrokes`，并在 ClickGUI 设置页接入“编辑 HUD 布局”快捷入口；
+  4. **集成发布 (`chore/release-v0.6.0`)**：在 `ModuleManager` 统一注册 23 个模块，合入并核验 196 条中英文 `en_US.lang` / `zh_CN.lang` 全量键对齐（无 BOM），同步三处版本号至 `0.6.0`。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/{combat,movement,visual,ui,performance,misc}/*`、`mixin/{combat,client,render}/*`、`ui/{hud,clickgui}/*`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline` ✅；`VerifyV060Integration`（206 项检查：6 分类计数、23 模块及全部设置项/枚举项中英文键一致性、作弊门禁与禁用模块排除校验）✅；`.\gradlew.bat launchClient --offline` 客户端实测启动 ✅（日志确认 23 模块初始化、Combat/Client/Render 全部 Mixin 加载且无 `InvalidInjectionException`/GL 错误；单人世界逐模块实时动作手测待后续游玩体验微调）
+- **Git**：分支 `feat/combat-modules` (`40b386a` → `c2ce906`) + `feat/ui-hud-modules` (`d8007f2` → `9de138d`) + `feat/move-visual-perf` (`41d1dbc` → `1350fed`) + `chore/release-v0.6.0` `--no-ff` 合入 `main`，标签 `v0.6.0`
+- **回退到上一版本**：`git revert -m 1 HEAD 1350fed 9de138d c2ce906`（按合并逆序执行，或直接 `git checkout -b fix/rollback v0.5.0`）
+- **已知问题**：ClickGUI 设置页的完整 6 主题预览网格、强调色面板、配置档切换弹窗及主题编辑器按规划留待后续 `v0.7.0`；`AutoClicker`/`WTap`/`NoJumpDelay`/`TimeChanger` 的多人服/单人世界手感与细节微调可在下一轮实玩验收后调整。
+- **下一步**：按 `03 §11` 第 5–6 步继续完善 ClickGUI 设置页（主题网格、强调色、配置档菜单与主题编辑器）。
+
+---
+
 ## 2026-11-17 · ClickGUI 通用组件库、ModuleCard、搜索筛选与作弊置灰门禁（v0.5.0）
 
 - **做了什么**：通过 `/swarm` 独立工作副本（`ui-components` + `clickgui-cards`）合入 `feat/ui-components`（`be7d63b`）与 `feat/clickgui-cards`（`96c2a69`），完成 `03_ClickGUI实现提示词.md §11` 第 4 步核心交互与门禁呈现：

@@ -15,6 +15,7 @@ import com.hoptimization.ui.component.TextFieldComponent;
 import com.hoptimization.ui.component.TooltipManager;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.font.TtfFontRenderer;
+import com.hoptimization.ui.hud.HudOverlayRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
@@ -527,6 +528,7 @@ public class ClickGuiScreen extends GuiScreen {
         if (!searchActive && settingsViewActive) {
             cancelAllKeybindCaptures();
             cancelAllInlineNumberEdits();
+            handleSettingsViewClick(lMouseX, lMouseY, contentX, contentY, contentW, contentH, mouseButton);
             return;
         }
 
@@ -742,6 +744,8 @@ public class ClickGuiScreen extends GuiScreen {
                 listX, listY, listW, listH,
                 bgMouseX, bgMouseY, windowAlpha, theme, searchActive
             );
+        } else if (settingsViewActive && listH > 0.0f) {
+            renderSettingsQuickView(listX, listY, listW, bgMouseX, bgMouseY, windowAlpha, theme);
         }
 
         // 最顶层渲染下拉菜单 / 取色器与延迟悬停提示
@@ -1370,6 +1374,100 @@ public class ClickGuiScreen extends GuiScreen {
             return 1.0f;
         }
         return value;
+    }
+
+    private void handleSettingsViewClick(
+        float mouseX,
+        float mouseY,
+        float contentX,
+        float contentY,
+        float contentW,
+        float contentH,
+        int mouseButton
+    ) {
+        if (mouseButton != 0) {
+            return;
+        }
+        float listY = contentY + ClickGuiContentHeader.HEIGHT;
+        float cardX = contentX + UiTokens.SPACE_20;
+        float cardW = Math.max(0.0f, contentW - UiTokens.SPACE_20 * 2.0f);
+        float cardH = 52.0f;
+        if (listY + cardH > contentY + contentH) {
+            return;
+        }
+        String btnLabel = I18n.format("ui.hoptimization.settings.hud.edit_layout");
+        float btnW = Math.max(96.0f, FontManager.caption().getWidth(btnLabel) + UiTokens.SPACE_16 * 2.0f);
+        float btnH = 26.0f;
+        float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
+        float btnY = listY + (cardH - btnH) * 0.5f;
+        if (isInside(mouseX, mouseY, btnX, btnY, btnW, btnH)) {
+            HudOverlayRenderer.openEditor(this);
+        }
+    }
+
+    private void renderSettingsQuickView(
+        float listX,
+        float listY,
+        float listW,
+        float mouseX,
+        float mouseY,
+        float windowAlpha,
+        ThemeData theme
+    ) {
+        float cardX = listX + UiTokens.SPACE_20;
+        float cardW = Math.max(0.0f, listW - UiTokens.SPACE_20 * 2.0f);
+        float cardH = 52.0f;
+        int cardBorder = theme.style().isCardBorder() ? RenderUtil.withAlpha(theme.border(), windowAlpha) : 0;
+
+        RenderUtil.drawRoundedRect(
+            cardX, listY, cardW, cardH,
+            theme.radiusCard(),
+            RenderUtil.withAlpha(theme.surface2(), windowAlpha),
+            cardBorder,
+            cardBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
+        );
+
+        String title = I18n.format("ui.hoptimization.settings.hud");
+        String subtitle = I18n.format("ui.hoptimization.settings.about.version") + " " + HoptimizationMod.VERSION;
+        TtfFontRenderer titleFont = FontManager.body();
+        TtfFontRenderer subFont = FontManager.caption();
+
+        float textX = cardX + UiTokens.SPACE_12;
+        float btnLabelW = FontManager.caption().getWidth(I18n.format("ui.hoptimization.settings.hud.edit_layout"));
+        float btnW = Math.max(96.0f, btnLabelW + UiTokens.SPACE_16 * 2.0f);
+        float btnH = 26.0f;
+        float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
+        float btnY = listY + (cardH - btnH) * 0.5f;
+        boolean hovered = isInside(mouseX, mouseY, btnX, btnY, btnW, btnH);
+
+        float maxTextW = Math.max(0.0f, btnX - UiTokens.SPACE_12 - textX);
+        String elidedTitle = titleFont.trimToWidth(title, maxTextW);
+        String elidedSub = subFont.trimToWidth(subtitle, maxTextW);
+        titleFont.drawString(elidedTitle, textX, listY + 12.0f, RenderUtil.withAlpha(theme.textPrimary(), windowAlpha));
+        subFont.drawString(elidedSub, textX, listY + 29.0f, RenderUtil.withAlpha(theme.textSecondary(), windowAlpha));
+
+        String btnLabel = I18n.format("ui.hoptimization.settings.hud.edit_layout");
+        int btnBg = hovered
+            ? RenderUtil.withAlpha(theme.accentMuted(), windowAlpha)
+            : RenderUtil.withAlpha(theme.surface3(), windowAlpha);
+        int btnBorder = hovered
+            ? RenderUtil.withAlpha(theme.accent(), windowAlpha)
+            : RenderUtil.withAlpha(theme.border(), windowAlpha);
+        RenderUtil.drawRoundedRect(
+            btnX, btnY, btnW, btnH,
+            theme.radiusControl(),
+            btnBg,
+            btnBorder,
+            UiTokens.BORDER_WIDTH
+        );
+        float tx = btnX + (btnW - subFont.getWidth(btnLabel)) * 0.5f;
+        float ty = btnY + (btnH - subFont.getHeight()) * 0.5f;
+        subFont.drawString(
+            btnLabel,
+            tx,
+            ty,
+            RenderUtil.withAlpha(hovered ? theme.accent() : theme.textPrimary(), windowAlpha)
+        );
     }
 
     private static final class GroupHeaderSlot {

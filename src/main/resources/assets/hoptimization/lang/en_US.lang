@@ -159,3 +159,107 @@ ui.hoptimization.theme_editor.group.accent=Accent
 ui.hoptimization.theme_editor.group.semantic=Semantic
 ui.hoptimization.theme_editor.group.effect=Effects
 ui.hoptimization.theme_editor.group.style=Style
+
+# Modules - Combat (Feature Pack)
+module.hoptimization.auto_clicker.name=Auto Clicker
+module.hoptimization.auto_clicker.desc=Automatically clicks mouse buttons at a randomized CPS rate
+module.hoptimization.hit_delay_fix.name=Hit Delay Fix
+module.hoptimization.hit_delay_fix.desc=Removes the 1.8.9 10-tick attack delay after missing a hit
+module.hoptimization.w_tap.name=W-Tap
+module.hoptimization.w_tap.desc=Briefly resets sprint on hit to increase knockback dealt
+
+# Modules - Movement
+module.hoptimization.toggle_sprint.name=Toggle Sprint
+module.hoptimization.toggle_sprint.desc=Keeps sprint toggled on with optional in-world toggle sneak
+module.hoptimization.no_jump_delay.name=No Jump Delay
+module.hoptimization.no_jump_delay.desc=Removes the 10-tick jump delay when holding space
+
+# Modules - Visual (Feature Pack)
+module.hoptimization.hurt_cam.name=Hurt Cam
+module.hoptimization.hurt_cam.desc=Scales or disables camera shake tilt when taking damage
+module.hoptimization.zoom.name=Zoom
+module.hoptimization.zoom.desc=Smoothly zooms camera FOV with optional cinematic camera
+module.hoptimization.time_changer.name=Time Changer
+module.hoptimization.time_changer.desc=Overrides client-side world time visually without server impact
+
+# Modules - Performance (Feature Pack)
+module.hoptimization.mouse_delay_fix.name=Mouse Delay Fix
+module.hoptimization.mouse_delay_fix.desc=Fixes the 1.8.9 one-tick head-yaw raytrace look delay
+
+# Modules - UI (HUD Feature Pack)
+module.hoptimization.fps_display.name=FPS Display
+module.hoptimization.fps_display.desc=Displays current client frame rate on the HUD
+module.hoptimization.coordinates.name=Coordinates
+module.hoptimization.coordinates.desc=Displays player coordinates, facing direction, and current biome
+module.hoptimization.keystrokes.name=Keystrokes
+module.hoptimization.keystrokes.desc=Displays movement, mouse clicks, and spacebar key presses
+
+# Settings - Auto Clicker
+setting.hoptimization.auto_clicker.left_click.name=Left Click
+setting.hoptimization.auto_clicker.min_cps.name=Min CPS
+setting.hoptimization.auto_clicker.max_cps.name=Max CPS
+setting.hoptimization.auto_clicker.right_click.name=Right Click
+setting.hoptimization.auto_clicker.right_cps.name=Right CPS
+setting.hoptimization.auto_clicker.break_blocks.name=Break Blocks
+setting.hoptimization.auto_clicker.weapons_only.name=Weapons Only
+
+# Settings - W-Tap
+setting.hoptimization.w_tap.hold_ticks.name=Hold Ticks
+setting.hoptimization.w_tap.chance.name=Chance
+setting.hoptimization.w_tap.only_moving.name=Only Moving
+
+# Settings - Toggle Sprint
+setting.hoptimization.toggle_sprint.mode.name=Mode
+setting.hoptimization.toggle_sprint.mode.option.toggle=Toggle
+setting.hoptimization.toggle_sprint.mode.option.always=Always
+setting.hoptimization.toggle_sprint.toggle_sneak.name=Toggle Sneak
+
+# Settings - Hurt Cam
+setting.hoptimization.hurt_cam.intensity.name=Intensity
+
+# Settings - Zoom
+setting.hoptimization.zoom.fov.name=FOV
+setting.hoptimization.zoom.smooth_zoom.name=Smooth Zoom
+setting.hoptimization.zoom.smooth_camera.name=Smooth Camera
+setting.hoptimization.zoom.mode.name=Mode
+setting.hoptimization.zoom.mode.option.hold=Hold
+setting.hoptimization.zoom.mode.option.toggle=Toggle
+
+# Settings - Time Changer
+setting.hoptimization.time_changer.mode.name=Mode
+setting.hoptimization.time_changer.mode.option.day=Day
+setting.hoptimization.time_changer.mode.option.sunset=Sunset
+setting.hoptimization.time_changer.mode.option.night=Night
+setting.hoptimization.time_changer.mode.option.midnight=Midnight
+setting.hoptimization.time_changer.mode.option.custom=Custom
+setting.hoptimization.time_changer.time.name=Time
+
+# Settings - UI HUD Modules
+setting.hoptimization.target_hud.style.name=Style
+setting.hoptimization.target_hud.style.option.card=Card
+setting.hoptimization.target_hud.style.option.text=Plain Text
+
+setting.hoptimization.fps_display.style.name=Style
+setting.hoptimization.fps_display.style.option.card=Card
+setting.hoptimization.fps_display.style.option.text=Plain Text
+
+setting.hoptimization.coordinates.show_facing.name=Show Facing
+setting.hoptimization.coordinates.show_biome.name=Show Biome
+setting.hoptimization.coordinates.style.name=Style
+setting.hoptimization.coordinates.style.option.card=Card
+setting.hoptimization.coordinates.style.option.text=Plain Text
+
+setting.hoptimization.keystrokes.show_mouse.name=Show Mouse
+setting.hoptimization.keystrokes.show_space.name=Show Space
+setting.hoptimization.keystrokes.show_cps.name=Show CPS
+
+# HUD Editor & Runtime Strings
+ui.hoptimization.hud_editor.title=HUD Layout
+ui.hoptimization.hud_editor.reset=Reset
+ui.hoptimization.hud_editor.done=Done
+ui.hoptimization.hud_editor.off=OFF
+ui.hoptimization.hud.facing.north=North (-Z)
+ui.hoptimization.hud.facing.south=South (+Z)
+ui.hoptimization.hud.facing.west=West (-X)
+ui.hoptimization.hud.facing.east=East (+X)
+ui.hoptimization.hud.biome.unknown=Plains

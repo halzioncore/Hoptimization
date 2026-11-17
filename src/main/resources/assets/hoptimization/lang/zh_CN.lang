@@ -159,3 +159,107 @@ ui.hoptimization.theme_editor.group.accent=强调
 ui.hoptimization.theme_editor.group.semantic=语义
 ui.hoptimization.theme_editor.group.effect=效果
 ui.hoptimization.theme_editor.group.style=风格参数
+
+# 模块 - 战斗（新增）
+module.hoptimization.auto_clicker.name=自动连点
+module.hoptimization.auto_clicker.desc=按住按键时以随机 CPS 自动执行左右键点击
+module.hoptimization.hit_delay_fix.name=攻击延迟修复
+module.hoptimization.hit_delay_fix.desc=移除 1.8.9 挥空后 10 tick 的强制攻击冷却延迟
+module.hoptimization.w_tap.name=自动 W-Tap
+module.hoptimization.w_tap.desc=命中目标后短暂重置疾跑以打出更高击退效果
+
+# 模块 - 移动
+module.hoptimization.toggle_sprint.name=自动疾跑
+module.hoptimization.toggle_sprint.desc=自动保持疾跑状态，可选切换世界内潜行
+module.hoptimization.no_jump_delay.name=无跳跃延迟
+module.hoptimization.no_jump_delay.desc=移除按住空格连续跳跃时的 10 tick 延迟
+
+# 模块 - 视觉（新增）
+module.hoptimization.hurt_cam.name=受击抖动
+module.hoptimization.hurt_cam.desc=自定义或取消角色受伤时的视角抖动强度
+module.hoptimization.zoom.name=视角缩放
+module.hoptimization.zoom.desc=按住或切换按键平滑放大视角以观察远处目标
+module.hoptimization.time_changer.name=时间修改
+module.hoptimization.time_changer.desc=仅在客户端本地自定义天空时间预设或具体时刻
+
+# 模块 - 性能（新增）
+module.hoptimization.mouse_delay_fix.name=鼠标延迟修复
+module.hoptimization.mouse_delay_fix.desc=修复 1.8.9 原版头部朝向 1 tick 延迟问题
+
+# 模块 - UI（HUD 新增）
+module.hoptimization.fps_display.name=FPS 显示
+module.hoptimization.fps_display.desc=在屏幕上实时显示当前客户端帧率
+module.hoptimization.coordinates.name=坐标显示
+module.hoptimization.coordinates.desc=显示当前坐标、朝向方位与所在生物群系
+module.hoptimization.keystrokes.name=按键显示
+module.hoptimization.keystrokes.desc=实时显示移动键、鼠标点击与空格键状态
+
+# 设置 - 自动连点
+setting.hoptimization.auto_clicker.left_click.name=左键连点
+setting.hoptimization.auto_clicker.min_cps.name=最小 CPS
+setting.hoptimization.auto_clicker.max_cps.name=最大 CPS
+setting.hoptimization.auto_clicker.right_click.name=右键连点
+setting.hoptimization.auto_clicker.right_cps.name=右键 CPS
+setting.hoptimization.auto_clicker.break_blocks.name=破坏方块暂停
+setting.hoptimization.auto_clicker.weapons_only.name=仅限武器
+
+# 设置 - 自动 W-Tap
+setting.hoptimization.w_tap.hold_ticks.name=重置持续时长
+setting.hoptimization.w_tap.chance.name=触发概率
+setting.hoptimization.w_tap.only_moving.name=仅移动时触发
+
+# 设置 - 自动疾跑
+setting.hoptimization.toggle_sprint.mode.name=模式
+setting.hoptimization.toggle_sprint.mode.option.toggle=切换
+setting.hoptimization.toggle_sprint.mode.option.always=始终
+setting.hoptimization.toggle_sprint.toggle_sneak.name=切换潜行
+
+# 设置 - 受击抖动
+setting.hoptimization.hurt_cam.intensity.name=强度
+
+# 设置 - 视角缩放
+setting.hoptimization.zoom.fov.name=视场角
+setting.hoptimization.zoom.smooth_zoom.name=平滑缩放
+setting.hoptimization.zoom.smooth_camera.name=平滑视角
+setting.hoptimization.zoom.mode.name=模式
+setting.hoptimization.zoom.mode.option.hold=按住
+setting.hoptimization.zoom.mode.option.toggle=切换
+
+# 设置 - 时间修改
+setting.hoptimization.time_changer.mode.name=模式
+setting.hoptimization.time_changer.mode.option.day=白天
+setting.hoptimization.time_changer.mode.option.sunset=日落
+setting.hoptimization.time_changer.mode.option.night=夜晚
+setting.hoptimization.time_changer.mode.option.midnight=午夜
+setting.hoptimization.time_changer.mode.option.custom=自定义
+setting.hoptimization.time_changer.time.name=时间
+
+# 设置 - UI HUD 模块
+setting.hoptimization.target_hud.style.name=样式
+setting.hoptimization.target_hud.style.option.card=卡片
+setting.hoptimization.target_hud.style.option.text=纯文本
+
+setting.hoptimization.fps_display.style.name=样式
+setting.hoptimization.fps_display.style.option.card=卡片
+setting.hoptimization.fps_display.style.option.text=纯文本
+
+setting.hoptimization.coordinates.show_facing.name=显示朝向
+setting.hoptimization.coordinates.show_biome.name=显示群系
+setting.hoptimization.coordinates.style.name=样式
+setting.hoptimization.coordinates.style.option.card=卡片
+setting.hoptimization.coordinates.style.option.text=纯文本
+
+setting.hoptimization.keystrokes.show_mouse.name=显示鼠标键
+setting.hoptimization.keystrokes.show_space.name=显示空格键
+setting.hoptimization.keystrokes.show_cps.name=显示 CPS
+
+# HUD 布局编辑器与本地化文本
+ui.hoptimization.hud_editor.title=HUD 布局
+ui.hoptimization.hud_editor.reset=重置默认
+ui.hoptimization.hud_editor.done=完成
+ui.hoptimization.hud_editor.off=关闭
+ui.hoptimization.hud.facing.north=北 (-Z)
+ui.hoptimization.hud.facing.south=南 (+Z)
+ui.hoptimization.hud.facing.west=西 (-X)
+ui.hoptimization.hud.facing.east=东 (+X)
+ui.hoptimization.hud.biome.unknown=平原

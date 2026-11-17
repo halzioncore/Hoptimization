@@ -1,16 +1,28 @@
 package com.hoptimization.core.module;
 
+import com.hoptimization.modules.combat.AutoClicker;
 import com.hoptimization.modules.combat.ComboCounter;
 import com.hoptimization.modules.combat.HitColor;
+import com.hoptimization.modules.combat.HitDelayFix;
 import com.hoptimization.modules.combat.OldAnimations;
+import com.hoptimization.modules.combat.WTap;
 import com.hoptimization.modules.misc.Fullbright;
+import com.hoptimization.modules.movement.NoJumpDelay;
+import com.hoptimization.modules.movement.ToggleSprint;
+import com.hoptimization.modules.performance.MouseDelayFix;
 import com.hoptimization.modules.performance.ParticleLimit;
 import com.hoptimization.modules.ui.CheatMode;
 import com.hoptimization.modules.ui.ClickGuiModule;
+import com.hoptimization.modules.ui.Coordinates;
 import com.hoptimization.modules.ui.CpsDisplay;
+import com.hoptimization.modules.ui.FPSDisplay;
+import com.hoptimization.modules.ui.Keystrokes;
 import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.BlockOutline;
+import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.LowFire;
+import com.hoptimization.modules.visual.TimeChanger;
+import com.hoptimization.modules.visual.Zoom;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,16 +62,33 @@ public class ModuleManager {
      * Registers all built-in placeholder and feature modules.
      */
     public void registerDefaultModules() {
+        register(new AutoClicker());
+        register(new HitDelayFix());
+        register(new WTap());
         register(new OldAnimations());
         register(new HitColor());
         register(new ComboCounter());
+
+        register(new ToggleSprint());
+        register(new NoJumpDelay());
+
         register(new LowFire());
         register(new BlockOutline());
-        register(new CpsDisplay());
-        register(new TargetHud());
+        register(new HurtCam());
+        register(new Zoom());
+        register(new TimeChanger());
+
         register(new ClickGuiModule());
         register(new CheatMode());
+        register(new CpsDisplay());
+        register(new TargetHud());
+        register(new FPSDisplay());
+        register(new Coordinates());
+        register(new Keystrokes());
+
         register(new ParticleLimit());
+        register(new MouseDelayFix());
+
         register(new Fullbright());
     }
 
