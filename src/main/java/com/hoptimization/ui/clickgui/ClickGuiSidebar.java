@@ -8,6 +8,7 @@ import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
+import com.hoptimization.ui.component.TextFieldComponent;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.font.FontStyle;
 import com.hoptimization.ui.font.FontToken;
@@ -47,9 +48,9 @@ public final class ClickGuiSidebar {
     private static final int SETTINGS_INDEX = CATEGORIES.length;
 
     private final Animation[] navHoverAnims = new Animation[NAV_COUNT];
-    private final Animation searchHoverAnim = new Animation(0.0f, AnimDuration.FAST, Easing.EASE_OUT_CUBIC);
     private final Animation profileHoverAnim = new Animation(0.0f, AnimDuration.FAST, Easing.EASE_OUT_CUBIC);
     private final Animation indicatorYAnim = new Animation(0.0f, AnimDuration.NORMAL, Easing.EASE_OUT_CUBIC);
+    private final TextFieldComponent searchField = new TextFieldComponent();
 
     private final String[] categoryLabels = new String[CATEGORIES.length];
     private String searchPlaceholder = "";
@@ -66,6 +67,8 @@ public final class ClickGuiSidebar {
         for (int i = 0; i < NAV_COUNT; i++) {
             navHoverAnims[i] = new Animation(0.0f, AnimDuration.FAST, Easing.EASE_OUT_CUBIC);
         }
+        searchField.setHeight(SEARCH_HEIGHT);
+        searchField.setLeadingIcon(ClickGuiIcons.SEARCH, INLINE_ICON_SIZE);
     }
 
     /**
@@ -79,6 +82,117 @@ public final class ClickGuiSidebar {
         searchShortcut = I18n.format("ui.hoptimization.search.shortcut");
         defaultProfileLabel = I18n.format("ui.hoptimization.profile.default");
         settingsLabel = I18n.format("ui.hoptimization.sidebar.settings");
+        searchField.setPlaceholder(searchPlaceholder);
+        searchField.setTrailingHint(searchShortcut);
+    }
+
+    /**
+     * 设置侧边栏搜索框文本变化监听。
+     *
+     * @param listener 搜索文本变化回调
+     */
+    public void setSearchChangeListener(TextFieldComponent.TextChangeListener listener) {
+        searchField.setTextChangeListener(listener);
+    }
+
+    /**
+     * 返回当前搜索输入文本。
+     *
+     * @return 搜索关键字
+     */
+    public String getSearchQuery() {
+        return searchField.getText();
+    }
+
+    /**
+     * 返回当前是否存在非空搜索关键字。
+     *
+     * @return 若去除首尾空白后非空则返回 {@code true}
+     */
+    public boolean hasSearchQuery() {
+        return !searchField.getText().trim().isEmpty();
+    }
+
+    /**
+     * 清空搜索框内容（会触发变更监听）。
+     */
+    public void clearSearch() {
+        searchField.setText("");
+    }
+
+    /**
+     * 返回搜索框当前是否拥有键盘焦点。
+     *
+     * @return 是否聚焦
+     */
+    public boolean isSearchFocused() {
+        return searchField.isFocused();
+    }
+
+    /**
+     * 聚焦搜索框，并可选全选已有内容。
+     *
+     * @param selectAll {@code true} 全选已有内容
+     */
+    public void focusSearch(boolean selectAll) {
+        searchField.setFocused(true);
+        if (selectAll && !searchField.getText().isEmpty()) {
+            searchField.selectAll();
+        }
+    }
+
+    /**
+     * 取消搜索框键盘焦点。
+     */
+    public void unfocusSearch() {
+        searchField.setFocused(false);
+    }
+
+    /**
+     * 将鼠标点击路由到搜索框；点击在搜索框外部时会自动失焦。
+     *
+     * @param mouseX      逻辑鼠标 X
+     * @param mouseY      逻辑鼠标 Y
+     * @param mouseButton 鼠标按键索引
+     * @return 若点击命中搜索框并被消费则返回 {@code true}
+     */
+    public boolean handleSearchMouseClicked(float mouseX, float mouseY, int mouseButton) {
+        return searchField.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
+    /**
+     * 将鼠标拖动路由到搜索框以支持拖选文本。
+     *
+     * @param mouseX      逻辑鼠标 X
+     * @param mouseY      逻辑鼠标 Y
+     * @param mouseButton 鼠标按键索引
+     * @return 若消费返回 {@code true}
+     */
+    public boolean handleSearchMouseDragged(float mouseX, float mouseY, int mouseButton) {
+        return searchField.mouseDragged(mouseX, mouseY, mouseButton);
+    }
+
+    /**
+     * 将鼠标释放路由到搜索框。
+     *
+     * @param mouseX      逻辑鼠标 X
+     * @param mouseY      逻辑鼠标 Y
+     * @param mouseButton 鼠标按键索引
+     * @return 若消费返回 {@code true}
+     */
+    public boolean handleSearchMouseReleased(float mouseX, float mouseY, int mouseButton) {
+        return searchField.mouseReleased(mouseX, mouseY, mouseButton);
+    }
+
+    /**
+     * 将键盘输入路由到搜索框。
+     *
+     * @param typedChar 输入字符
+     * @param keyCode   LWJGL 按键码
+     * @return 若搜索框聚焦并消费该按键则返回 {@code true}
+     */
+    public boolean handleSearchKeyTyped(char typedChar, int keyCode) {
+        return searchField.keyTyped(typedChar, keyCode);
     }
 
     /**
@@ -147,7 +261,7 @@ public final class ClickGuiSidebar {
     ) {
         this.windowHeight = winH;
         renderBrandHeader(winX, winY, windowAlpha, theme);
-        renderSearchAppearance(winX, winY, mouseX, mouseY, windowAlpha, theme);
+        renderSearchBox(winX, winY, mouseX, mouseY, windowAlpha, theme);
 
         int selectedIdx = resolveNavIndex(activeCategory, settingsActive);
         float targetY = getItemLocalY(selectedIdx);
@@ -277,7 +391,7 @@ public final class ClickGuiSidebar {
         );
     }
 
-    private void renderSearchAppearance(
+    private void renderSearchBox(
         float winX,
         float winY,
         float mouseX,
@@ -288,48 +402,7 @@ public final class ClickGuiSidebar {
         float boxX = winX + UiTokens.SPACE_12;
         float boxY = winY + BRAND_HEIGHT;
         float boxW = WIDTH - UiTokens.SPACE_12 * 2.0f;
-
-        boolean hovered = isInside(mouseX, mouseY, boxX, boxY, boxW, SEARCH_HEIGHT);
-        searchHoverAnim.setTarget(hovered ? 1.0f : 0.0f);
-        float hoverT = searchHoverAnim.get();
-
-        int bg = ThemeData.lerpColor(theme.surface3(), theme.surface4(), hoverT * 0.6f);
-        int border = theme.borderStrong();
-        RenderUtil.drawRoundedRect(
-            boxX, boxY, boxW, SEARCH_HEIGHT,
-            theme.radiusControl(),
-            RenderUtil.withAlpha(bg, windowAlpha),
-            RenderUtil.withAlpha(border, windowAlpha),
-            UiTokens.BORDER_WIDTH
-        );
-
-        float iconX = boxX + UiTokens.SPACE_8;
-        float iconY = boxY + (SEARCH_HEIGHT - INLINE_ICON_SIZE) * 0.5f;
-        RenderUtil.drawTintedIcon(
-            ClickGuiIcons.SEARCH,
-            iconX, iconY, INLINE_ICON_SIZE,
-            RenderUtil.withAlpha(theme.textTertiary(), windowAlpha)
-        );
-
-        TtfFontRenderer captionFont = FontManager.caption();
-        float textY = boxY + (SEARCH_HEIGHT - captionFont.getHeight()) * 0.5f;
-        float shortcutW = captionFont.getWidth(searchShortcut);
-        float placeholderX = iconX + INLINE_ICON_SIZE + UiTokens.SPACE_6;
-        float maxPlaceholderW = Math.max(0.0f, boxX + boxW - UiTokens.SPACE_8 - shortcutW - UiTokens.SPACE_6 - placeholderX);
-
-        captionFont.drawStringWithEllipsis(
-            searchPlaceholder,
-            placeholderX,
-            textY,
-            maxPlaceholderW,
-            RenderUtil.withAlpha(theme.textTertiary(), windowAlpha)
-        );
-        captionFont.drawStringRight(
-            searchShortcut,
-            boxX + boxW - UiTokens.SPACE_8,
-            textY,
-            RenderUtil.withAlpha(theme.textTertiary(), windowAlpha)
-        );
+        searchField.render(boxX, boxY, boxW, mouseX, mouseY, windowAlpha, theme);
     }
 
     private void renderBottomSection(

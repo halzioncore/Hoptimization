@@ -27,11 +27,13 @@ public final class ClickGuiContentHeader {
     private String filterEnabledLabel = "";
     private String settingsTitle = "";
     private String settingsSubtitle = "";
+    private String searchResultsTitle = "";
     private String cachedTitle = "";
     private String cachedSubtitle = "";
 
     private Category lastCategory;
     private boolean lastSettingsActive = false;
+    private boolean lastSearchActive = false;
     private int lastModuleCount = -1;
     private float segmentWidth = 48.0f;
 
@@ -43,6 +45,7 @@ public final class ClickGuiContentHeader {
         filterEnabledLabel = I18n.format("ui.hoptimization.filter.enabled");
         settingsTitle = I18n.format("ui.hoptimization.settings.title");
         settingsSubtitle = I18n.format("ui.hoptimization.settings.subtitle");
+        searchResultsTitle = I18n.format("ui.hoptimization.search.results");
 
         TtfFontRenderer bodyFont = FontManager.body();
         float maxLabelW = Math.max(bodyFont.getWidth(filterAllLabel), bodyFont.getWidth(filterEnabledLabel));
@@ -91,7 +94,45 @@ public final class ClickGuiContentHeader {
         int moduleCount,
         boolean enabledOnly
     ) {
-        updateTitleCache(activeCategory, settingsActive, moduleCount);
+        render(
+            contentX, contentY, contentW,
+            mouseX, mouseY, windowAlpha, theme,
+            activeCategory, settingsActive, false,
+            moduleCount, enabledOnly
+        );
+    }
+
+    /**
+     * 更新头部标题、模块数/匹配数副标题并渲染内容头部。
+     *
+     * @param contentX       内容面板逻辑 X
+     * @param contentY       内容面板逻辑 Y
+     * @param contentW       内容面板逻辑宽度
+     * @param mouseX         逻辑鼠标 X
+     * @param mouseY         逻辑鼠标 Y
+     * @param windowAlpha    窗口不透明度 [0, 1]
+     * @param theme          当前主题
+     * @param activeCategory 当前分类
+     * @param settingsActive 是否处于设置页
+     * @param searchActive   是否处于全局搜索结果视图
+     * @param moduleCount    当前展示模块数（或匹配数）
+     * @param enabledOnly    当前是否仅筛选已启用模块
+     */
+    public void render(
+        float contentX,
+        float contentY,
+        float contentW,
+        float mouseX,
+        float mouseY,
+        float windowAlpha,
+        ThemeData theme,
+        Category activeCategory,
+        boolean settingsActive,
+        boolean searchActive,
+        int moduleCount,
+        boolean enabledOnly
+    ) {
+        updateTitleCache(activeCategory, settingsActive, searchActive, moduleCount);
 
         TtfFontRenderer titleFont = FontManager.title();
         TtfFontRenderer captionFont = FontManager.caption();
@@ -111,7 +152,7 @@ public final class ClickGuiContentHeader {
             RenderUtil.withAlpha(theme.textTertiary(), windowAlpha)
         );
 
-        if (!settingsActive) {
+        if (searchActive || !settingsActive) {
             filterSlideAnim.setTarget(enabledOnly ? 1.0f : 0.0f);
             renderSegmentedControl(contentX, contentY, contentW, windowAlpha, theme);
         }
@@ -196,9 +237,21 @@ public final class ClickGuiContentHeader {
         );
     }
 
-    private void updateTitleCache(Category activeCategory, boolean settingsActive, int moduleCount) {
+    private void updateTitleCache(Category activeCategory, boolean settingsActive, boolean searchActive, int moduleCount) {
+        if (searchActive) {
+            if (!lastSearchActive || lastModuleCount != moduleCount || cachedTitle.isEmpty()) {
+                lastSearchActive = true;
+                lastSettingsActive = false;
+                lastCategory = null;
+                lastModuleCount = moduleCount;
+                cachedTitle = searchResultsTitle;
+                cachedSubtitle = I18n.format("ui.hoptimization.search.matches", Integer.valueOf(moduleCount));
+            }
+            return;
+        }
         if (settingsActive) {
-            if (!lastSettingsActive || cachedTitle.isEmpty()) {
+            if (lastSearchActive || !lastSettingsActive || cachedTitle.isEmpty()) {
+                lastSearchActive = false;
                 lastSettingsActive = true;
                 lastCategory = null;
                 lastModuleCount = -1;
@@ -208,7 +261,8 @@ public final class ClickGuiContentHeader {
             return;
         }
         Category resolved = activeCategory != null ? activeCategory : Category.COMBAT;
-        if (lastSettingsActive || lastCategory != resolved || lastModuleCount != moduleCount) {
+        if (lastSearchActive || lastSettingsActive || lastCategory != resolved || lastModuleCount != moduleCount) {
+            lastSearchActive = false;
             lastSettingsActive = false;
             lastCategory = resolved;
             lastModuleCount = moduleCount;
