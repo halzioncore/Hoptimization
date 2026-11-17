@@ -9,8 +9,9 @@ import java.util.Locale;
  */
 public enum Category {
     COMBAT("combat", "category.hoptimization.combat", "sword"),
+    MOVEMENT("movement", "category.hoptimization.movement", "wind"),
     VISUAL("visual", "category.hoptimization.visual", "eye"),
-    HUD("hud", "category.hoptimization.hud", "layout"),
+    UI("ui", "category.hoptimization.ui", "layout"),
     PERFORMANCE("performance", "category.hoptimization.performance", "gauge"),
     MISC("misc", "category.hoptimization.misc", "sliders");
 
@@ -62,6 +63,7 @@ public enum Category {
 
     /**
      * Finds a category matching the given identifier case-insensitively.
+     * Legacy {@code "hud"} identifiers are mapped to {@link #UI}.
      *
      * @param id candidate category id
      * @return matching category, or null if unknown
@@ -71,6 +73,9 @@ public enum Category {
             return null;
         }
         String normalized = id.trim().toLowerCase(Locale.ROOT);
+        if ("hud".equals(normalized)) {
+            return UI;
+        }
         Category[] values = values();
         for (int i = 0; i < values.length; i++) {
             if (values[i].id.equals(normalized)) {

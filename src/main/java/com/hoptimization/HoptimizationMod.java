@@ -32,7 +32,7 @@ import java.io.File;
 public class HoptimizationMod {
     public static final String MODID = "hoptimization";
     public static final String NAME = "Hoptimization";
-    public static final String VERSION = "0.3.0";
+    public static final String VERSION = "0.4.0";
     public static final Logger LOGGER = LogManager.getLogger(NAME);
 
     private static ModuleManager moduleManager;
@@ -55,6 +55,15 @@ public class HoptimizationMod {
      */
     public static ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    /**
+     * Returns whether Cheat Mode is currently enabled.
+     *
+     * @return true if Cheat Mode is active
+     */
+    public static boolean isCheatModeEnabled() {
+        return moduleManager != null && moduleManager.isCheatModeEnabled();
     }
 
     @Mod.EventHandler

@@ -9,6 +9,7 @@ import net.minecraft.util.ResourceLocation;
  */
 public final class ClickGuiIcons {
     public static final ResourceLocation SWORD = icon("sword");
+    public static final ResourceLocation WIND = icon("wind");
     public static final ResourceLocation EYE = icon("eye");
     public static final ResourceLocation LAYOUT = icon("layout");
     public static final ResourceLocation GAUGE = icon("gauge");
@@ -37,9 +38,11 @@ public final class ClickGuiIcons {
         switch (category) {
             case COMBAT:
                 return SWORD;
+            case MOVEMENT:
+                return WIND;
             case VISUAL:
                 return EYE;
-            case HUD:
+            case UI:
                 return LAYOUT;
             case PERFORMANCE:
                 return GAUGE;

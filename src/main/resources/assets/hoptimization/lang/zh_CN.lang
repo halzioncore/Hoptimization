@@ -1,7 +1,8 @@
 # 分类
 category.hoptimization.combat=战斗
+category.hoptimization.movement=移动
 category.hoptimization.visual=视觉
-category.hoptimization.hud=界面
+category.hoptimization.ui=UI
 category.hoptimization.performance=性能
 category.hoptimization.misc=杂项
 
@@ -19,11 +20,15 @@ module.hoptimization.low_fire.desc=降低着火时屏幕底部火焰的遮挡高
 module.hoptimization.block_outline.name=方块轮廓
 module.hoptimization.block_outline.desc=自定义准星指向方块的轮廓颜色与填充
 
-# 模块 - 界面
+# 模块 - UI
 module.hoptimization.cps_display.name=CPS 显示
 module.hoptimization.cps_display.desc=在屏幕上实时显示每秒鼠标点击次数
 module.hoptimization.target_hud.name=目标信息
 module.hoptimization.target_hud.desc=显示当前攻击目标的血量、护甲与状态
+module.hoptimization.clickgui.name=ClickGUI
+module.hoptimization.clickgui.desc=配置 ClickGUI 菜单缩放比例与打开快捷键
+module.hoptimization.cheat_mode.name=作弊模式
+module.hoptimization.cheat_mode.desc=解锁高风险功能模块，在多人服务器可能触发反作弊检测
 
 # 模块 - 性能
 module.hoptimization.particle_limit.name=粒子限制
@@ -73,6 +78,9 @@ setting.hoptimization.target_hud.show_armor.name=显示护甲
 setting.hoptimization.target_hud.show_health_number.name=显示血量数字
 setting.hoptimization.target_hud.animate.name=动画
 
+# 设置 - ClickGUI
+setting.hoptimization.clickgui.scale.name=缩放
+
 # 设置 - 粒子限制
 setting.hoptimization.particle_limit.limit.name=上限
 setting.hoptimization.particle_limit.mode.name=模式
@@ -95,6 +103,7 @@ ui.hoptimization.module.count=%d 个模块
 ui.hoptimization.filter.all=全部
 ui.hoptimization.filter.enabled=已启用
 ui.hoptimization.sidebar.settings=设置
+ui.hoptimization.cheat_locked=需要先开启作弊模式
 
 ui.hoptimization.profile.default=默认配置
 ui.hoptimization.profile.new=新建
