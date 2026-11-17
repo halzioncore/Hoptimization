@@ -1,4 +1,4 @@
-package com.hoptimization.modules.hud;
+package com.hoptimization.modules.ui;
 
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
@@ -6,7 +6,7 @@ import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.core.setting.ModeSetting;
 
 /**
- * Placeholder HUD module for displaying real-time clicks per second.
+ * Placeholder UI/HUD module for displaying real-time clicks per second.
  */
 public class CpsDisplay extends Module {
     private final BooleanSetting showRightClick;
@@ -16,7 +16,7 @@ public class CpsDisplay extends Module {
      * Creates the CPS Display placeholder module and registers its settings.
      */
     public CpsDisplay() {
-        super("cps_display", Category.HUD);
+        super("cps_display", Category.UI);
         this.showRightClick = addSetting(
             new BooleanSetting("show_right_click", "setting.hoptimization.cps_display.show_right_click.name", true)
         );

@@ -16,6 +16,8 @@ import com.hoptimization.core.setting.KeybindSetting;
 import com.hoptimization.core.setting.ModeSetting;
 import com.hoptimization.core.setting.NumberSetting;
 import com.hoptimization.core.setting.Setting;
+import com.hoptimization.modules.ui.CheatMode;
+import com.hoptimization.modules.ui.ClickGuiModule;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -75,6 +77,8 @@ public class ConfigManager {
     private long profileSequence = 0L;
     private long uiSequence = 0L;
     private boolean suppressAutoSave = false;
+    private boolean syncingClickGui = false;
+    private boolean clickGuiListenersBound = false;
     private volatile boolean isShutdown = false;
 
     /**
@@ -113,6 +117,7 @@ public class ConfigManager {
                 return thread;
             }
         });
+        bindClickGuiListeners();
     }
 
     /**
@@ -174,11 +179,10 @@ public class ConfigManager {
      */
     public void loadAll() {
         ensureDirectories();
+        bindClickGuiListeners();
         boolean uiExisted = Files.exists(this.uiConfigFile);
         loadUiConfig();
-        if (!uiExisted) {
-            saveUiConfigAsync();
-        }
+        boolean needSaveUi = !uiExisted;
 
         String requestedProfile = this.uiConfig.getActiveProfile();
         if (!isValidProfileName(requestedProfile)) {
@@ -189,7 +193,7 @@ public class ConfigManager {
             );
             requestedProfile = UiConfig.DEFAULT_PROFILE;
             this.uiConfig.setActiveProfile(requestedProfile);
-            saveUiConfigAsync();
+            needSaveUi = true;
         }
 
         Path profilePath = getProfilePath(requestedProfile);
@@ -202,17 +206,31 @@ public class ConfigManager {
                     UiConfig.DEFAULT_PROFILE
                 );
                 this.uiConfig.setActiveProfile(UiConfig.DEFAULT_PROFILE);
-                saveUiConfigAsync();
+                needSaveUi = true;
                 profilePath = getProfilePath(UiConfig.DEFAULT_PROFILE);
             }
             if (!Files.exists(profilePath)) {
                 resetModulesToDefaultsQuietly();
                 saveActiveProfileAsync();
+                if (needSaveUi) {
+                    saveUiConfigAsync();
+                }
                 return;
             }
         }
 
         loadProfileIntoModules(this.uiConfig.getActiveProfile());
+        if (needSaveUi) {
+            saveUiConfigAsync();
+        }
+    }
+
+    /**
+     * Synchronizes {@link ClickGuiModule}'s scale and keybind settings from {@link #getUiConfig()}.
+     */
+    public void syncClickGuiFromUiConfig() {
+        bindClickGuiListeners();
+        syncClickGuiFromUiConfigInternal();
     }
 
     /**
@@ -677,6 +695,11 @@ public class ConfigManager {
             this.uiConfig.setUiScaleMultiplier(uiScale.floatValue());
         }
 
+        Double clickGuiScale = readNumber(root, "clickGuiScale", "ui.json");
+        if (clickGuiScale != null) {
+            this.uiConfig.setClickGuiScale(clickGuiScale.floatValue());
+        }
+
         Boolean reduceMotion = readBoolean(root, "reduceMotion", "ui.json");
         if (reduceMotion != null) {
             this.uiConfig.setReduceMotion(reduceMotion.booleanValue());
@@ -772,7 +795,27 @@ public class ConfigManager {
         this.suppressAutoSave = true;
         try {
             JsonObject modulesObj = modulesElem.getAsJsonObject();
+            // Load cheat_mode first so Cheat Mode-gated modules restore accurately or stay blocked.
+            if (modulesObj.has(CheatMode.ID)) {
+                Module cheatMode = this.moduleManager.getModuleById(CheatMode.ID);
+                JsonElement cheatElem = modulesObj.get(CheatMode.ID);
+                if (cheatMode != null) {
+                    if (!cheatElem.isJsonObject()) {
+                        HoptimizationMod.LOGGER.warn(
+                            "Expected object for module '{}' in {}, keeping defaults",
+                            cheatMode.getId(),
+                            context
+                        );
+                    } else {
+                        applyModuleJson(cheatMode, cheatElem.getAsJsonObject(), context);
+                    }
+                }
+            }
+
             for (Map.Entry<String, JsonElement> entry : modulesObj.entrySet()) {
+                if (CheatMode.ID.equalsIgnoreCase(entry.getKey())) {
+                    continue;
+                }
                 Module module = this.moduleManager.getModuleById(entry.getKey());
                 if (module == null) {
                     // Ignore unknown module keys per 01 §7 so stale config entries never fail.
@@ -906,12 +949,67 @@ public class ConfigManager {
     }
 
     private void resetModulesToDefaultsQuietly() {
+        bindClickGuiListeners();
         this.suppressAutoSave = true;
+        this.syncingClickGui = true;
         try {
             this.moduleManager.resetAllToDefaults();
+            syncClickGuiFromUiConfigInternal();
         } finally {
+            this.syncingClickGui = false;
             this.suppressAutoSave = false;
         }
+    }
+
+    private void syncClickGuiFromUiConfigInternal() {
+        ClickGuiModule clickGuiModule = this.moduleManager.getModule(ClickGuiModule.class);
+        if (clickGuiModule == null) {
+            return;
+        }
+        boolean previousSync = this.syncingClickGui;
+        this.syncingClickGui = true;
+        try {
+            double cleanScale = Double.parseDouble(Float.toString(this.uiConfig.getClickGuiScale()));
+            clickGuiModule.getScaleSetting().setValue(Double.valueOf(cleanScale));
+            clickGuiModule.setKeybind(this.uiConfig.getClickGuiKeybind());
+        } finally {
+            this.syncingClickGui = previousSync;
+        }
+    }
+
+    private void bindClickGuiListeners() {
+        if (this.clickGuiListenersBound) {
+            return;
+        }
+        final ClickGuiModule clickGuiModule = this.moduleManager.getModule(ClickGuiModule.class);
+        if (clickGuiModule == null) {
+            return;
+        }
+        this.clickGuiListenersBound = true;
+        clickGuiModule.getScaleSetting().addChangeListener(new Runnable() {
+            @Override
+            public void run() {
+                if (syncingClickGui) {
+                    return;
+                }
+                uiConfig.setClickGuiScale(clickGuiModule.getScaleSetting().getFloatValue());
+                if (!suppressAutoSave) {
+                    saveUiConfigDebounced();
+                }
+            }
+        });
+        clickGuiModule.getKeybindSetting().addChangeListener(new Runnable() {
+            @Override
+            public void run() {
+                if (syncingClickGui) {
+                    return;
+                }
+                uiConfig.setClickGuiKeybind(clickGuiModule.getKeybind());
+                if (!suppressAutoSave) {
+                    saveUiConfigDebounced();
+                }
+            }
+        });
     }
 
     private String serializeActiveProfile() {
@@ -967,6 +1065,7 @@ public class ConfigManager {
         root.addProperty("themeId", snapshot.getThemeId());
         root.addProperty("accentOverride", snapshot.getAccentOverride());
         root.addProperty("uiScaleMultiplier", Float.valueOf(snapshot.getUiScaleMultiplier()));
+        root.addProperty("clickGuiScale", Float.valueOf(snapshot.getClickGuiScale()));
         root.addProperty("reduceMotion", Boolean.valueOf(snapshot.isReduceMotion()));
         root.addProperty("clickGuiKeybind", Integer.valueOf(snapshot.getClickGuiKeybind()));
         root.addProperty("lastCategory", snapshot.getLastCategory());

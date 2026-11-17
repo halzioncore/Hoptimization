@@ -5,16 +5,19 @@ import org.lwjgl.opengl.Display;
 
 /**
  * Independent UI logical-to-physical scale system decoupled from Minecraft's GUI Scale.
- * Computes {@code clamp(displayHeight / 1080.0f * userMultiplier, 0.75f, 2.0f)}.
+ * Computes {@code clamp(displayHeight / 1080.0f * userMultiplier, 0.75f, 2.5f)}.
  */
 public final class UiScale {
     public static final float MIN_SCALE = 0.75f;
-    public static final float MAX_SCALE = 2.0f;
+    public static final float MAX_SCALE = 2.5f;
     public static final float BASE_HEIGHT = 1080.0f;
     public static final float DEFAULT_MULTIPLIER = 1.0f;
+    public static final float DEFAULT_CLICKGUI_MULTIPLIER = 1.25f;
+    public static final float MIN_CLICKGUI_MULTIPLIER = 0.75f;
+    public static final float MAX_CLICKGUI_MULTIPLIER = 2.0f;
 
     private static final float[] PRESET_MULTIPLIERS = new float[] {
-        0.8f, 0.9f, 1.0f, 1.1f, 1.25f
+        0.8f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f
     };
 
     private static volatile float userMultiplier = DEFAULT_MULTIPLIER;
@@ -86,6 +89,27 @@ public final class UiScale {
     }
 
     /**
+     * Computes the independent ClickGUI scale factor for a ClickGUI multiplier clamped to
+     * [{@link #MIN_CLICKGUI_MULTIPLIER}, {@link #MAX_CLICKGUI_MULTIPLIER}].
+     *
+     * @param multiplier ClickGUI scale multiplier
+     * @return clamped scale factor in [{@link #MIN_SCALE}, {@link #MAX_SCALE}]
+     */
+    public static float getClickGuiScale(float multiplier) {
+        float safeMultiplier;
+        if (Float.isNaN(multiplier) || Float.isInfinite(multiplier) || multiplier <= 0.0f) {
+            safeMultiplier = DEFAULT_CLICKGUI_MULTIPLIER;
+        } else if (multiplier < MIN_CLICKGUI_MULTIPLIER) {
+            safeMultiplier = MIN_CLICKGUI_MULTIPLIER;
+        } else if (multiplier > MAX_CLICKGUI_MULTIPLIER) {
+            safeMultiplier = MAX_CLICKGUI_MULTIPLIER;
+        } else {
+            safeMultiplier = multiplier;
+        }
+        return compute(getDisplayHeight(), safeMultiplier);
+    }
+
+    /**
      * Returns the current physical display width in pixels (at least 1).
      *
      * @return display width in physical pixels
@@ -123,7 +147,18 @@ public final class UiScale {
      * @return logical width
      */
     public static float getLogicalWidth() {
-        return getDisplayWidth() / getScale();
+        return getLogicalWidth(getScale());
+    }
+
+    /**
+     * Returns the logical viewport width at an explicit scale factor.
+     *
+     * @param scale active UI scale factor
+     * @return logical width
+     */
+    public static float getLogicalWidth(float scale) {
+        float safeScale = scale > 0.0f ? scale : MIN_SCALE;
+        return getDisplayWidth() / safeScale;
     }
 
     /**
@@ -132,7 +167,18 @@ public final class UiScale {
      * @return logical height
      */
     public static float getLogicalHeight() {
-        return getDisplayHeight() / getScale();
+        return getLogicalHeight(getScale());
+    }
+
+    /**
+     * Returns the logical viewport height at an explicit scale factor.
+     *
+     * @param scale active UI scale factor
+     * @return logical height
+     */
+    public static float getLogicalHeight(float scale) {
+        float safeScale = scale > 0.0f ? scale : MIN_SCALE;
+        return getDisplayHeight() / safeScale;
     }
 
     /**
@@ -163,10 +209,22 @@ public final class UiScale {
      * @return logical mouse X
      */
     public static float mcScaledToLogicalX(int mcMouseX, double mcScaledWidth) {
+        return mcScaledToLogicalX(mcMouseX, mcScaledWidth, getScale());
+    }
+
+    /**
+     * Converts a Minecraft ScaledResolution mouse X coordinate to logical UI X for an explicit scale.
+     *
+     * @param mcMouseX      mouse X from GuiScreen
+     * @param mcScaledWidth ScaledResolution.getScaledWidth_double()
+     * @param scale         active UI scale factor
+     * @return logical mouse X
+     */
+    public static float mcScaledToLogicalX(int mcMouseX, double mcScaledWidth, float scale) {
         if (mcScaledWidth <= 0.0D) {
             return 0.0f;
         }
-        return (float) ((mcMouseX / mcScaledWidth) * getLogicalWidth());
+        return (float) ((mcMouseX / mcScaledWidth) * getLogicalWidth(scale));
     }
 
     /**
@@ -177,10 +235,22 @@ public final class UiScale {
      * @return logical mouse Y
      */
     public static float mcScaledToLogicalY(int mcMouseY, double mcScaledHeight) {
+        return mcScaledToLogicalY(mcMouseY, mcScaledHeight, getScale());
+    }
+
+    /**
+     * Converts a Minecraft ScaledResolution mouse Y coordinate to logical UI Y for an explicit scale.
+     *
+     * @param mcMouseY       mouse Y from GuiScreen
+     * @param mcScaledHeight ScaledResolution.getScaledHeight_double()
+     * @param scale          active UI scale factor
+     * @return logical mouse Y
+     */
+    public static float mcScaledToLogicalY(int mcMouseY, double mcScaledHeight, float scale) {
         if (mcScaledHeight <= 0.0D) {
             return 0.0f;
         }
-        return (float) ((mcMouseY / mcScaledHeight) * getLogicalHeight());
+        return (float) ((mcMouseY / mcScaledHeight) * getLogicalHeight(scale));
     }
 
     /**
@@ -190,7 +260,19 @@ public final class UiScale {
      * @return top-down logical mouse Y
      */
     public static float physicalMouseYToLogical(int lwjglMouseY) {
-        return (getDisplayHeight() - lwjglMouseY) / getScale();
+        return physicalMouseYToLogical(lwjglMouseY, getScale());
+    }
+
+    /**
+     * Converts a bottom-up LWJGL {@code Mouse.getY()} coordinate to top-down logical UI Y for an explicit scale.
+     *
+     * @param lwjglMouseY physical bottom-up mouse Y
+     * @param scale       active UI scale factor
+     * @return top-down logical mouse Y
+     */
+    public static float physicalMouseYToLogical(int lwjglMouseY, float scale) {
+        float safeScale = scale > 0.0f ? scale : MIN_SCALE;
+        return (getDisplayHeight() - lwjglMouseY) / safeScale;
     }
 
     /**

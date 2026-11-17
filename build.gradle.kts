@@ -134,3 +134,32 @@ tasks.shadowJar {
 }
 
 tasks.assemble.get().dependsOn(tasks.remapJar)
+
+// Architectury Loom 0.10.0.5's runClient (RunGameTask) fails Gradle 8.8's AbstractRunTask.getMain()
+// property validation; use `.\gradlew.bat launchClient` instead.
+afterEvaluate {
+    tasks.findByName("runClient")?.enabled = false
+    val clientRunConfig = net.fabricmc.loom.configuration.ide.RunConfig.runConfig(
+        project,
+        loom.runConfigs.getByName("client")
+    )
+    tasks.register("launchClient", JavaExec::class.java) {
+        group = "loom"
+        description = "Runs the Minecraft client via JavaExec for Gradle 8.8 compatibility."
+        dependsOn(tasks.named("classes"), tasks.named("downloadAssets"))
+        javaLauncher.set(
+            project.extensions.getByType(org.gradle.jvm.toolchain.JavaToolchainService::class.java).launcherFor {
+                languageVersion.set(JavaLanguageVersion.of(8))
+            }
+        )
+        workingDir = rootProject.file(clientRunConfig.runDir)
+        classpath = clientRunConfig.sourceSet.runtimeClasspath
+        mainClass.set(clientRunConfig.mainClass)
+        jvmArgs(clientRunConfig.vmArgs)
+        args(clientRunConfig.programArgs)
+        environment(clientRunConfig.envVariables)
+        doFirst {
+            workingDir.mkdirs()
+        }
+    }
+}

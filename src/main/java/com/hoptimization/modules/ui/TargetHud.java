@@ -1,11 +1,11 @@
-package com.hoptimization.modules.hud;
+package com.hoptimization.modules.ui;
 
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 
 /**
- * Placeholder HUD module for showing combat target health and armor info.
+ * Placeholder UI/HUD module for showing combat target health and armor info.
  */
 public class TargetHud extends Module {
     private final BooleanSetting showArmor;
@@ -16,7 +16,7 @@ public class TargetHud extends Module {
      * Creates the Target HUD placeholder module and registers its settings.
      */
     public TargetHud() {
-        super("target_hud", Category.HUD);
+        super("target_hud", Category.UI);
         this.showArmor = addSetting(
             new BooleanSetting("show_armor", "setting.hoptimization.target_hud.show_armor.name", true)
         );

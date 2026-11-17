@@ -27,6 +27,8 @@ public abstract class Module {
     private final String nameKey;
     private final String descKey;
     private final Category category;
+    private final boolean toggleable;
+    private final boolean requiresCheatMode;
     private boolean enabled;
     private int keybind;
     private final KeybindSetting keybindSetting;
@@ -34,26 +36,46 @@ public abstract class Module {
     private final List<Setting<?>> settingsView;
     private final boolean hasEventHandlers;
     private boolean registeredOnEventBus;
+    private ModuleManager ownerManager;
     private Runnable changeListener;
 
     /**
-     * Creates a disabled module with no default keybind.
+     * Creates a disabled, toggleable module with no default keybind.
      *
      * @param id stable lowercase snake_case identifier used in config profiles
      * @param category module category
      */
     protected Module(String id, Category category) {
-        this(id, category, Keyboard.KEY_NONE);
+        this(id, category, Keyboard.KEY_NONE, true, false);
     }
 
     /**
-     * Creates a disabled module with an optional default keybind.
+     * Creates a disabled, toggleable module with an optional default keybind.
      *
      * @param id stable lowercase snake_case identifier used in config profiles
      * @param category module category
      * @param defaultKeybind default LWJGL key code ({@link Keyboard#KEY_NONE} for unbound)
      */
     protected Module(String id, Category category, int defaultKeybind) {
+        this(id, category, defaultKeybind, true, false);
+    }
+
+    /**
+     * Creates a disabled module with explicit toggleability and Cheat Mode gating metadata.
+     *
+     * @param id stable lowercase snake_case identifier used in config profiles
+     * @param category module category
+     * @param defaultKeybind default LWJGL key code ({@link Keyboard#KEY_NONE} for unbound)
+     * @param toggleable whether this module can be enabled/toggled
+     * @param requiresCheatMode whether enabling this module requires Cheat Mode to be active
+     */
+    protected Module(
+        String id,
+        Category category,
+        int defaultKeybind,
+        boolean toggleable,
+        boolean requiresCheatMode
+    ) {
         if (id == null || id.trim().isEmpty()) {
             throw new IllegalArgumentException("Module id must not be blank");
         }
@@ -64,6 +86,8 @@ public abstract class Module {
         this.nameKey = "module.hoptimization." + id + ".name";
         this.descKey = "module.hoptimization." + id + ".desc";
         this.category = category;
+        this.toggleable = toggleable;
+        this.requiresCheatMode = requiresCheatMode;
         this.enabled = false;
         this.keybind = KeybindSetting.sanitizeKeyCode(defaultKeybind);
         this.keybindSetting = new KeybindSetting(
@@ -141,6 +165,39 @@ public abstract class Module {
     }
 
     /**
+     * Returns whether this module supports being toggled on or off.
+     *
+     * @return true if toggleable
+     */
+    public boolean isToggleable() {
+        return this.toggleable;
+    }
+
+    /**
+     * Returns whether this module requires Cheat Mode to be enabled before activation.
+     *
+     * @return true if gated behind Cheat Mode
+     */
+    public boolean isRequiresCheatMode() {
+        return this.requiresCheatMode;
+    }
+
+    /**
+     * Returns whether this module is currently unlocked and available for use.
+     *
+     * @return true if not gated or Cheat Mode is currently enabled
+     */
+    public boolean isAvailable() {
+        if (!this.requiresCheatMode) {
+            return true;
+        }
+        if (HoptimizationMod.getModuleManager() != null) {
+            return HoptimizationMod.isCheatModeEnabled();
+        }
+        return this.ownerManager != null && this.ownerManager.isCheatModeEnabled();
+    }
+
+    /**
      * Returns whether this module is currently enabled.
      *
      * @return true if enabled
@@ -150,18 +207,25 @@ public abstract class Module {
     }
 
     /**
-     * Toggles the enabled state of this module.
+     * Toggles the enabled state of this module when toggleable and available.
      */
     public void toggle() {
+        if (!this.toggleable || !isAvailable()) {
+            return;
+        }
         setEnabled(!this.enabled);
     }
 
     /**
      * Enables or disables this module, synchronizing Forge event bus registration and lifecycle hooks.
+     * Non-toggleable modules and unavailable Cheat Mode modules cannot be enabled.
      *
      * @param enabled target enabled state
      */
     public void setEnabled(boolean enabled) {
+        if (enabled && (!this.toggleable || !isAvailable())) {
+            return;
+        }
         if (this.enabled == enabled) {
             return;
         }
@@ -304,6 +368,19 @@ public abstract class Module {
      * Called when the module transitions from enabled to disabled.
      */
     protected void onDisable() {
+    }
+
+    /**
+     * Returns the owning module manager when registered.
+     *
+     * @return owning module manager, or null if unregistered
+     */
+    protected ModuleManager getOwnerManager() {
+        return this.ownerManager;
+    }
+
+    void setOwnerManager(ModuleManager ownerManager) {
+        this.ownerManager = ownerManager;
     }
 
     void setChangeListener(Runnable changeListener) {

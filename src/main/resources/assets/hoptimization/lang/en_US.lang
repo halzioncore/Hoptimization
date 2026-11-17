@@ -1,7 +1,8 @@
 # Categories
 category.hoptimization.combat=Combat
+category.hoptimization.movement=Movement
 category.hoptimization.visual=Visual
-category.hoptimization.hud=HUD
+category.hoptimization.ui=UI
 category.hoptimization.performance=Performance
 category.hoptimization.misc=Misc
 
@@ -19,11 +20,15 @@ module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
 module.hoptimization.block_outline.name=Block Outline
 module.hoptimization.block_outline.desc=Customizes targeted block outline color, width, and fill
 
-# Modules - HUD
+# Modules - UI
 module.hoptimization.cps_display.name=CPS Display
 module.hoptimization.cps_display.desc=Displays real-time clicks per second on the HUD
 module.hoptimization.target_hud.name=Target HUD
 module.hoptimization.target_hud.desc=Shows health, armor, and status of your current target
+module.hoptimization.clickgui.name=ClickGUI
+module.hoptimization.clickgui.desc=Configures the ClickGUI menu scale and open keybind
+module.hoptimization.cheat_mode.name=Cheat Mode
+module.hoptimization.cheat_mode.desc=Unlocks gameplay-altering modules that may trigger server anticheat
 
 # Modules - Performance
 module.hoptimization.particle_limit.name=Particle Limit
@@ -73,6 +78,9 @@ setting.hoptimization.target_hud.show_armor.name=Show Armor
 setting.hoptimization.target_hud.show_health_number.name=Show Health Value
 setting.hoptimization.target_hud.animate.name=Animation
 
+# Settings - ClickGUI
+setting.hoptimization.clickgui.scale.name=Scale
+
 # Settings - Particle Limit
 setting.hoptimization.particle_limit.limit.name=Limit
 setting.hoptimization.particle_limit.mode.name=Mode
@@ -87,6 +95,7 @@ setting.hoptimization.fullbright.brightness.name=Brightness
 
 # Common UI
 ui.hoptimization.search.placeholder=Search modules
+ui.hoptimization.search.shortcut=Ctrl F
 ui.hoptimization.search.results=Search Results
 ui.hoptimization.search.matches=%d matches
 ui.hoptimization.search.empty=No matching modules found
@@ -94,6 +103,7 @@ ui.hoptimization.module.count=%d modules
 ui.hoptimization.filter.all=All
 ui.hoptimization.filter.enabled=Enabled
 ui.hoptimization.sidebar.settings=Settings
+ui.hoptimization.cheat_locked=Requires Cheat Mode to be enabled
 
 ui.hoptimization.profile.default=Default
 ui.hoptimization.profile.new=New
@@ -102,6 +112,7 @@ ui.hoptimization.profile.rename=Rename
 ui.hoptimization.profile.delete=Delete
 
 ui.hoptimization.settings.title=Settings
+ui.hoptimization.settings.subtitle=Themes, appearance, and global preferences
 ui.hoptimization.settings.theme=Theme
 ui.hoptimization.settings.theme.new=+ New Theme
 ui.hoptimization.settings.theme.import_clipboard=Import from Clipboard

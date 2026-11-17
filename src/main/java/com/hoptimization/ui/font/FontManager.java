@@ -204,7 +204,8 @@ public final class FontManager {
         if (baseFont == null) {
             baseFont = new Font(Font.SANS_SERIF, resolvedStyle.getWeight().getAwtFallbackStyle(), 16);
         }
-        TtfFontRenderer created = new TtfFontRenderer(resolvedStyle, rasterPx, baseFont, cjkFallbackFamily);
+        TtfFontRenderer created = new TtfFontRenderer(resolvedStyle, rasterPx, clampedScale,
+                baseFont, cjkFallbackFamily);
         rendererCache.put(key, created);
         evictOldRenderersIfNeeded();
         return created;

@@ -3,10 +3,12 @@ package com.hoptimization.core.module;
 import com.hoptimization.modules.combat.ComboCounter;
 import com.hoptimization.modules.combat.HitColor;
 import com.hoptimization.modules.combat.OldAnimations;
-import com.hoptimization.modules.hud.CpsDisplay;
-import com.hoptimization.modules.hud.TargetHud;
 import com.hoptimization.modules.misc.Fullbright;
 import com.hoptimization.modules.performance.ParticleLimit;
+import com.hoptimization.modules.ui.CheatMode;
+import com.hoptimization.modules.ui.ClickGuiModule;
+import com.hoptimization.modules.ui.CpsDisplay;
+import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.BlockOutline;
 import com.hoptimization.modules.visual.LowFire;
 
@@ -55,6 +57,8 @@ public class ModuleManager {
         register(new BlockOutline());
         register(new CpsDisplay());
         register(new TargetHud());
+        register(new ClickGuiModule());
+        register(new CheatMode());
         register(new ParticleLimit());
         register(new Fullbright());
     }
@@ -81,6 +85,7 @@ public class ModuleManager {
         this.byId.put(key, module);
         this.byClass.put(module.getClass(), module);
         this.byCategory.get(module.getCategory()).add(module);
+        module.setOwnerManager(this);
         module.setChangeListener(new Runnable() {
             @Override
             public void run() {
@@ -175,7 +180,7 @@ public class ModuleManager {
     }
 
     /**
-     * Toggles any modules bound to the given LWJGL key code.
+     * Toggles available, toggleable modules bound to the given LWJGL key code.
      *
      * @param keyCode pressed LWJGL key code
      * @return true if at least one module was toggled
@@ -188,11 +193,40 @@ public class ModuleManager {
         for (int i = 0; i < this.modules.size(); i++) {
             Module module = this.modules.get(i);
             if (module.getKeybind() == keyCode) {
+                if (!module.isToggleable() || !module.isAvailable()) {
+                    continue;
+                }
                 module.toggle();
                 toggled = true;
             }
         }
         return toggled;
+    }
+
+    /**
+     * Returns whether Cheat Mode is currently enabled in this manager.
+     *
+     * @return true if {@link CheatMode} is registered and enabled
+     */
+    public boolean isCheatModeEnabled() {
+        CheatMode cheatMode = getModule(CheatMode.class);
+        if (cheatMode != null) {
+            return cheatMode.isEnabled();
+        }
+        Module fallback = getModuleById(CheatMode.ID);
+        return fallback != null && fallback.isEnabled();
+    }
+
+    /**
+     * Disables all enabled modules that require Cheat Mode.
+     */
+    public void disableAllCheatModules() {
+        for (int i = 0; i < this.modules.size(); i++) {
+            Module module = this.modules.get(i);
+            if (module.isRequiresCheatMode() && module.isEnabled()) {
+                module.setEnabled(false);
+            }
+        }
     }
 
     /**
