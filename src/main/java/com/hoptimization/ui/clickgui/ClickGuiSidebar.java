@@ -19,11 +19,11 @@ import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.resources.I18n;
 
 /**
- * ClickGUI 左侧导航栏（宽 176）：品牌拖动区、搜索框外观、分类列表与平滑滑动指示条、
+ * ClickGUI 左侧导航栏（宽 192）：品牌拖动区、搜索框外观、分类列表与平滑滑动指示条、
  * 底部配置档入口与设置入口。
  */
 public final class ClickGuiSidebar {
-    public static final float WIDTH = 176.0f;
+    public static final float WIDTH = 192.0f;
     public static final float BRAND_HEIGHT = 56.0f;
     private static final float SEARCH_HEIGHT = 28.0f;
     private static final float ITEM_HEIGHT = 32.0f;
@@ -57,7 +57,7 @@ public final class ClickGuiSidebar {
     private String defaultProfileLabel = "";
     private String settingsLabel = "";
 
-    private float windowHeight = 420.0f;
+    private float windowHeight = ClickGuiScreen.WINDOW_HEIGHT;
 
     /**
      * 构造侧边栏并预初始化所有悬停与指示条动画实例。

@@ -18,12 +18,16 @@ public class UiConfig {
     public static final String DEFAULT_THEME_ID = "graphite";
     public static final float MIN_UI_SCALE_MULTIPLIER = 0.5f;
     public static final float MAX_UI_SCALE_MULTIPLIER = 2.0f;
+    public static final float DEFAULT_CLICK_GUI_SCALE = 1.25f;
+    public static final float MIN_CLICK_GUI_SCALE = 0.75f;
+    public static final float MAX_CLICK_GUI_SCALE = 2.0f;
 
     private int schema = CURRENT_SCHEMA;
     private String activeProfile = DEFAULT_PROFILE;
     private String themeId = DEFAULT_THEME_ID;
     private String accentOverride = "";
     private float uiScaleMultiplier = 1.0f;
+    private float clickGuiScale = DEFAULT_CLICK_GUI_SCALE;
     private boolean reduceMotion = false;
     private int clickGuiKeybind = Keyboard.KEY_RSHIFT;
     private String lastCategory = Category.COMBAT.getId();
@@ -47,6 +51,7 @@ public class UiConfig {
         this.themeId = DEFAULT_THEME_ID;
         this.accentOverride = "";
         this.uiScaleMultiplier = 1.0f;
+        this.clickGuiScale = DEFAULT_CLICK_GUI_SCALE;
         this.reduceMotion = false;
         this.clickGuiKeybind = Keyboard.KEY_RSHIFT;
         this.lastCategory = Category.COMBAT.getId();
@@ -68,6 +73,7 @@ public class UiConfig {
         copy.themeId = this.themeId;
         copy.accentOverride = this.accentOverride;
         copy.uiScaleMultiplier = this.uiScaleMultiplier;
+        copy.clickGuiScale = this.clickGuiScale;
         copy.reduceMotion = this.reduceMotion;
         copy.clickGuiKeybind = this.clickGuiKeybind;
         copy.lastCategory = this.lastCategory;
@@ -192,6 +198,33 @@ public class UiConfig {
             this.uiScaleMultiplier = MAX_UI_SCALE_MULTIPLIER;
         } else {
             this.uiScaleMultiplier = uiScaleMultiplier;
+        }
+    }
+
+    /**
+     * Returns the independent ClickGUI scale multiplier (default {@code 1.25f}).
+     *
+     * @return ClickGUI scale multiplier
+     */
+    public float getClickGuiScale() {
+        return this.clickGuiScale;
+    }
+
+    /**
+     * Sets the independent ClickGUI scale multiplier, clamped to [{@code 0.75f}, {@code 2.0f}].
+     *
+     * @param clickGuiScale ClickGUI scale multiplier
+     */
+    public void setClickGuiScale(float clickGuiScale) {
+        if (Float.isNaN(clickGuiScale) || Float.isInfinite(clickGuiScale)) {
+            return;
+        }
+        if (clickGuiScale < MIN_CLICK_GUI_SCALE) {
+            this.clickGuiScale = MIN_CLICK_GUI_SCALE;
+        } else if (clickGuiScale > MAX_CLICK_GUI_SCALE) {
+            this.clickGuiScale = MAX_CLICK_GUI_SCALE;
+        } else {
+            this.clickGuiScale = clickGuiScale;
         }
     }
 

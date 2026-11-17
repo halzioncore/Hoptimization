@@ -6,6 +6,7 @@ import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.module.ModuleManager;
+import com.hoptimization.modules.ui.ClickGuiModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
@@ -33,8 +34,8 @@ import java.util.List;
  * 品牌区窗口拖动与 {@code ui.json} 位置/分类持久化；卡片列表区按规范裁剪并留空，待第 4 步填充。
  */
 public class ClickGuiScreen extends GuiScreen {
-    public static final float WINDOW_WIDTH = 680.0f;
-    public static final float WINDOW_HEIGHT = 420.0f;
+    public static final float WINDOW_WIDTH = 720.0f;
+    public static final float WINDOW_HEIGHT = 440.0f;
     private static final float CONTENT_MARGIN = UiTokens.SPACE_4;
     private static final float LIST_BOTTOM_PADDING = UiTokens.SPACE_20;
     private static final float OPEN_SCALE_MIN = 0.96f;
@@ -79,15 +80,15 @@ public class ClickGuiScreen extends GuiScreen {
             activeCategory = Category.fromIdOrDefault(uiConfig.getLastCategory(), Category.COMBAT);
         }
 
-        float uiScale = UiScale.getScale();
+        float uiScale = resolveClickGuiScale();
         lastUiScale = uiScale;
         FontManager.setUiScale(uiScale);
 
         sidebar.refreshLabels();
         contentHeader.refreshLabels();
 
-        float logicalW = UiScale.getLogicalWidth();
-        float logicalH = UiScale.getLogicalHeight();
+        float logicalW = UiScale.getLogicalWidth(uiScale);
+        float logicalH = UiScale.getLogicalHeight(uiScale);
         lastLogicalW = logicalW;
         lastLogicalH = logicalH;
 
@@ -127,6 +128,7 @@ public class ClickGuiScreen extends GuiScreen {
             uiConfig.setLastCategory(activeCategory);
             configManager.saveUiConfigAsync();
         }
+        FontManager.setUiScale(UiScale.getScale());
     }
 
     @Override
@@ -141,7 +143,7 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         ScaledResolution sr = new ScaledResolution(mc);
-        float uiScale = UiScale.getScale();
+        float uiScale = resolveClickGuiScale();
         if (Math.abs(uiScale - lastUiScale) > 0.0001f) {
             lastUiScale = uiScale;
             FontManager.setUiScale(uiScale);
@@ -149,8 +151,8 @@ public class ClickGuiScreen extends GuiScreen {
             contentHeader.refreshLabels();
         }
 
-        float logicalW = UiScale.getLogicalWidth();
-        float logicalH = UiScale.getLogicalHeight();
+        float logicalW = UiScale.getLogicalWidth(uiScale);
+        float logicalH = UiScale.getLogicalHeight(uiScale);
         if (Math.abs(logicalW - lastLogicalW) > 0.5f || Math.abs(logicalH - lastLogicalH) > 0.5f) {
             lastLogicalW = logicalW;
             lastLogicalH = logicalH;
@@ -222,12 +224,21 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     @Override
+    public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel != 0 && isCtrlKeyDown() && !closing) {
+            adjustClickGuiScale(wheel > 0 ? 1 : -1);
+        }
+    }
+
+    @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         if (mouseButton != 0 || closing || this.mc == null) {
             return;
         }
         ScaledResolution sr = new ScaledResolution(this.mc);
-        float uiScale = UiScale.getScale();
+        float uiScale = resolveClickGuiScale();
         float lMouseX = resolveLogicalMouseX(mouseX, sr, uiScale);
         float lMouseY = resolveLogicalMouseY(mouseY, sr, uiScale);
 
@@ -275,12 +286,12 @@ public class ClickGuiScreen extends GuiScreen {
             return;
         }
         ScaledResolution sr = new ScaledResolution(this.mc);
-        float uiScale = UiScale.getScale();
+        float uiScale = resolveClickGuiScale();
         float lMouseX = resolveLogicalMouseX(mouseX, sr, uiScale);
         float lMouseY = resolveLogicalMouseY(mouseY, sr, uiScale);
         windowX = lMouseX - dragOffsetX;
         windowY = lMouseY - dragOffsetY;
-        clampWindowPosition(UiScale.getLogicalWidth(), UiScale.getLogicalHeight());
+        clampWindowPosition(UiScale.getLogicalWidth(uiScale), UiScale.getLogicalHeight(uiScale));
         positionModified = true;
     }
 
@@ -452,6 +463,69 @@ public class ClickGuiScreen extends GuiScreen {
         windowY = Math.round(windowY);
     }
 
+    private void adjustClickGuiScale(int direction) {
+        ModuleManager moduleManager = HoptimizationMod.getModuleManager();
+        ConfigManager configManager = HoptimizationMod.getConfigManager();
+        ClickGuiModule clickGuiModule = moduleManager != null ? moduleManager.getModule(ClickGuiModule.class) : null;
+
+        double baseScale;
+        if (clickGuiModule != null) {
+            baseScale = clickGuiModule.getScaleSetting().getDoubleValue();
+        } else if (configManager != null) {
+            baseScale = configManager.getUiConfig().getClickGuiScale();
+        } else {
+            baseScale = UiConfig.DEFAULT_CLICK_GUI_SCALE;
+        }
+
+        double candidate = baseScale + direction * ClickGuiModule.SCALE_STEP;
+        float nextMultiplier;
+        if (clickGuiModule != null) {
+            clickGuiModule.getScaleSetting().setSteppedValue(candidate, false);
+            nextMultiplier = clickGuiModule.getScaleSetting().getFloatValue();
+        } else {
+            double snapped = Math.round(candidate / ClickGuiModule.SCALE_STEP) * ClickGuiModule.SCALE_STEP;
+            if (snapped < UiConfig.MIN_CLICK_GUI_SCALE) {
+                snapped = UiConfig.MIN_CLICK_GUI_SCALE;
+            } else if (snapped > UiConfig.MAX_CLICK_GUI_SCALE) {
+                snapped = UiConfig.MAX_CLICK_GUI_SCALE;
+            }
+            nextMultiplier = (float) snapped;
+        }
+
+        if (configManager != null) {
+            configManager.getUiConfig().setClickGuiScale(nextMultiplier);
+            configManager.saveUiConfigDebounced();
+        }
+
+        float resolvedUiScale = UiScale.getClickGuiScale(nextMultiplier);
+        lastUiScale = resolvedUiScale;
+        FontManager.setUiScale(resolvedUiScale);
+        sidebar.refreshLabels();
+        contentHeader.refreshLabels();
+
+        float logicalW = UiScale.getLogicalWidth(resolvedUiScale);
+        float logicalH = UiScale.getLogicalHeight(resolvedUiScale);
+        lastLogicalW = logicalW;
+        lastLogicalH = logicalH;
+        if (!dragging) {
+            if (positionModified || hasSavedWindowPosition()) {
+                clampWindowPosition(logicalW, logicalH);
+            } else {
+                windowX = (logicalW - WINDOW_WIDTH) * 0.5f;
+                windowY = (logicalH - WINDOW_HEIGHT) * 0.5f;
+                clampWindowPosition(logicalW, logicalH);
+            }
+        }
+    }
+
+    private static float resolveClickGuiScale() {
+        ConfigManager configManager = HoptimizationMod.getConfigManager();
+        float multiplier = configManager != null
+            ? configManager.getUiConfig().getClickGuiScale()
+            : UiConfig.DEFAULT_CLICK_GUI_SCALE;
+        return UiScale.getClickGuiScale(multiplier);
+    }
+
     private static boolean hasSavedWindowPosition() {
         ConfigManager configManager = HoptimizationMod.getConfigManager();
         return configManager != null && configManager.getUiConfig().isWindowPositionSet();
@@ -469,14 +543,14 @@ public class ClickGuiScreen extends GuiScreen {
         if (Mouse.isCreated()) {
             return Mouse.getX() / uiScale;
         }
-        return UiScale.mcScaledToLogicalX(mcMouseX, sr.getScaledWidth_double());
+        return UiScale.mcScaledToLogicalX(mcMouseX, sr.getScaledWidth_double(), uiScale);
     }
 
     private static float resolveLogicalMouseY(int mcMouseY, ScaledResolution sr, float uiScale) {
         if (Mouse.isCreated()) {
-            return UiScale.physicalMouseYToLogical(Mouse.getY());
+            return UiScale.physicalMouseYToLogical(Mouse.getY(), uiScale);
         }
-        return UiScale.mcScaledToLogicalY(mcMouseY, sr.getScaledHeight_double());
+        return UiScale.mcScaledToLogicalY(mcMouseY, sr.getScaledHeight_double(), uiScale);
     }
 
     private static boolean isInside(float px, float py, float x, float y, float w, float h) {
