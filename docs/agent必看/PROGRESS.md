@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-17 · ClickGUI 通用组件库、ModuleCard、搜索筛选与作弊置灰门禁（v0.5.0）
+
+- **做了什么**：通过 `/swarm` 独立工作副本（`ui-components` + `clickgui-cards`）合入 `feat/ui-components`（`be7d63b`）与 `feat/clickgui-cards`（`96c2a69`），完成 `03_ClickGUI实现提示词.md §11` 第 4 步核心交互与门禁呈现：
+  1. **通用组件库 (`ui/component/`)**：新增 `UiComponent`、`PopupOverlay`、`PopupHost`、`PopupManager`、`SwitchComponent`、`SliderComponent`、`SegmentedComponent`、`DropdownComponent`、`KeybindComponent`、`ColorComponent`、`ColorPickerPopup`、`TextFieldComponent`、`TooltipManager` 与 `TooltipRenderer` 共 14 个零硬编码主题色可复用组件；
+  2. **模块卡片 (`ModuleCard`)**：实现 52px 收起态与 180ms 展开高度/透明动画、全部设定行渲染（含 `visibleWhen` 动态显隐）、中键快速绑键（`Esc` 取消/`Delete` 清空）、`!toggleable`（`ClickGuiModule`）无开关配置卡模式，以及 `!isAvailable()` 作弊模式未开启时整体 **40% 不透明度置灰锁定** + `ui.hoptimization.cheat_locked` Tooltip 提示；
+  3. **搜索、筛选、滚动与弹出层**：接入侧边栏实时搜索框、`Ctrl+F` / 闲置直接打字触发全局分类分组搜索、`All | Enabled` 筛选、80ms 指数平滑滚动、`ScissorStack` 裁剪、12px 上下渐隐遮罩、800ms 自动淡出 3px 滚动条、顶层 `PopupManager` 与分级 `Esc` 回退。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`src/main/java/com/hoptimization/ui/component/*`、`src/main/java/com/hoptimization/ui/clickgui/{ModuleCard,ClickGuiSidebar,ClickGuiContentHeader,ClickGuiScreen}.java`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline` ✅；`.\gradlew.bat launchClient --offline` 客户端实测启动及 ClickGUI 交互、弹出层与作弊门禁 40% 锁态 ✅（`ui-components` 100 项组件逻辑断言 & `clickgui-cards` 9 张实机截图验收通过，合入 `main` 后已再次验证）
+- **Git**：分支 `feat/ui-components` (`be7d63b`) → `feat/clickgui-cards` (`96c2a69`) `--no-ff` 合入 `main` (`2dc4082`)，同步三处版本号 `0.5.0`，标签 `v0.5.0`
+- **回退到上一版本**：`git revert -m 1 2dc4082`（或 `git checkout -b fix/rollback v0.4.0`）
+- **已知问题**：设置页卡片内容（主题切换网格、强调色选择与“编辑 HUD 布局”按钮跳转）与主题编辑器留待后续专题版本接入；首批真实功能模块合入见 `v0.6.0`。
+- **下一步**：合入 Wave 2 并行分支（`feat/combat-modules`、`feat/move-visual-perf`、`feat/ui-hud-modules`），统一接入 `ModuleManager`、中英文语言键与 Settings HUD 编辑器入口，完成实测后发布 `v0.6.0`。
+
+---
+
 ## 2026-11-17 · ClickGUI 窗口框架、六大分类、独立缩放与作弊模式门禁（v0.4.0）
 
 - **做了什么**：在实测关修复图集 Mipmap（`GlyphAtlas` Level-1 盒式降采样 + 物理像素基线对齐）后，完成 `03_ClickGUI实现提示词.md §11` 第 3 步及架构扩展：
