@@ -20,7 +20,7 @@ public class ModeSetting extends Setting<String> {
     private int cachedIndex;
 
     /**
-     * Creates a mode setting without a description key.
+     * Creates a mode setting. Use {@link #withDescription(String)} to attach an optional tooltip description.
      *
      * @param id stable setting id
      * @param nameKey localization key for label
@@ -28,20 +28,7 @@ public class ModeSetting extends Setting<String> {
      * @param modes ordered list of valid mode identifiers
      */
     public ModeSetting(String id, String nameKey, String defaultMode, String... modes) {
-        this(id, nameKey, "", defaultMode, modes);
-    }
-
-    /**
-     * Creates a mode setting with an optional description key.
-     *
-     * @param id stable setting id
-     * @param nameKey localization key for label
-     * @param descKey localization key for description tooltip
-     * @param defaultMode default mode identifier (must exist in {@code modes})
-     * @param modes ordered list of valid mode identifiers
-     */
-    public ModeSetting(String id, String nameKey, String descKey, String defaultMode, String... modes) {
-        super(id, nameKey, descKey, canonicalizeRequired(defaultMode, modes));
+        super(id, nameKey, "", canonicalizeRequired(defaultMode, modes));
         if (modes == null || modes.length == 0) {
             throw new IllegalArgumentException("ModeSetting requires at least one mode");
         }
