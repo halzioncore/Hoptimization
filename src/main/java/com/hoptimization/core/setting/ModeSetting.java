@@ -164,7 +164,12 @@ public class ModeSetting extends Setting<String> {
     protected String coerceValue(String rawValue) {
         int index = indexOfMode(rawValue);
         if (index < 0) {
-            HoptimizationMod.LOGGER.warn("Unknown mode '{}' for setting '{}', keeping '{}'", rawValue, getId(), this.value);
+            HoptimizationMod.LOGGER.warn(
+                "Unknown mode '{}' for setting '{}', keeping '{}'",
+                rawValue,
+                getId(),
+                this.value
+            );
             return this.value;
         }
         return this.modes.get(index);

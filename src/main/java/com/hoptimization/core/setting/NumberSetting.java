@@ -76,7 +76,12 @@ public class NumberSetting extends Setting<Double> {
         double step,
         String unit
     ) {
-        super(id, nameKey, descKey, Double.valueOf(clampStatic(validateFinite(defaultValue, "defaultValue"), min, max)));
+        super(
+            id,
+            nameKey,
+            descKey,
+            Double.valueOf(clampStatic(validateFinite(defaultValue, "defaultValue"), min, max))
+        );
         validateFinite(min, "min");
         validateFinite(max, "max");
         validateFinite(step, "step");

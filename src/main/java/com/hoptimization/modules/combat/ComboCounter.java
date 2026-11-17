@@ -16,7 +16,15 @@ public class ComboCounter extends Module {
     public ComboCounter() {
         super("combo_counter", Category.COMBAT);
         this.timeout = addSetting(
-            new NumberSetting("timeout", "setting.hoptimization.combo_counter.timeout.name", 3.0D, 1.0D, 5.0D, 0.5D, "s")
+            new NumberSetting(
+                "timeout",
+                "setting.hoptimization.combo_counter.timeout.name",
+                3.0D,
+                1.0D,
+                5.0D,
+                0.5D,
+                "s"
+            )
         );
     }
 

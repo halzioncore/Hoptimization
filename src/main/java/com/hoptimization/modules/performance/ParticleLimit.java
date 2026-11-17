@@ -18,7 +18,14 @@ public class ParticleLimit extends Module {
     public ParticleLimit() {
         super("particle_limit", Category.PERFORMANCE);
         this.limit = addSetting(
-            new NumberSetting("limit", "setting.hoptimization.particle_limit.limit.name", 1000.0D, 0.0D, 4000.0D, 100.0D)
+            new NumberSetting(
+                "limit",
+                "setting.hoptimization.particle_limit.limit.name",
+                1000.0D,
+                0.0D,
+                4000.0D,
+                100.0D
+            )
         );
         this.mode = addSetting(
             new ModeSetting(
