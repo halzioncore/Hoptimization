@@ -87,6 +87,7 @@ setting.hoptimization.fullbright.brightness.name=Brightness
 
 # Common UI
 ui.hoptimization.search.placeholder=Search modules
+ui.hoptimization.search.shortcut=Ctrl F
 ui.hoptimization.search.results=Search Results
 ui.hoptimization.search.matches=%d matches
 ui.hoptimization.search.empty=No matching modules found
@@ -102,6 +103,7 @@ ui.hoptimization.profile.rename=Rename
 ui.hoptimization.profile.delete=Delete
 
 ui.hoptimization.settings.title=Settings
+ui.hoptimization.settings.subtitle=Themes, appearance, and global preferences
 ui.hoptimization.settings.theme=Theme
 ui.hoptimization.settings.theme.new=+ New Theme
 ui.hoptimization.settings.theme.import_clipboard=Import from Clipboard

@@ -4,6 +4,7 @@ import com.hoptimization.core.config.ConfigManager;
 import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.ui.anim.Animation;
+import com.hoptimization.ui.clickgui.ClickGuiScreen;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeManager;
@@ -106,6 +107,10 @@ public class HoptimizationMod {
         }
         int keyCode = Keyboard.getEventKey();
         if (keyCode <= Keyboard.KEY_NONE) {
+            return;
+        }
+        if (configManager != null && keyCode == configManager.getUiConfig().getClickGuiKeybind()) {
+            mc.displayGuiScreen(new ClickGuiScreen());
             return;
         }
         moduleManager.handleKeyPress(keyCode);

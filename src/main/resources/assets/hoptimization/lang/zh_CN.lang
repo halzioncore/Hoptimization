@@ -87,6 +87,7 @@ setting.hoptimization.fullbright.brightness.name=亮度
 
 # 通用界面
 ui.hoptimization.search.placeholder=搜索模块
+ui.hoptimization.search.shortcut=Ctrl F
 ui.hoptimization.search.results=搜索结果
 ui.hoptimization.search.matches=%d 个匹配
 ui.hoptimization.search.empty=没有找到相关模块
@@ -102,6 +103,7 @@ ui.hoptimization.profile.rename=重命名
 ui.hoptimization.profile.delete=删除
 
 ui.hoptimization.settings.title=设置
+ui.hoptimization.settings.subtitle=外观、主题与全局配置
 ui.hoptimization.settings.theme=主题
 ui.hoptimization.settings.theme.new=+ 新建主题
 ui.hoptimization.settings.theme.import_clipboard=从剪贴板导入
