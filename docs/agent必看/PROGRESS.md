@@ -4,7 +4,23 @@
 
 ## 待决策
 
-- **首次 GitHub 推送授权待所有者触发**：已初始化本地仓库并关联 `https://github.com/halzioncore/Hoptimization.git`（`user.name=halzioncore`、`user.email=halzioncore@gmail.com`），待所有者在本地终端执行一次 `git push -u origin main --tags` 完成 Git Credential Manager 浏览器登录授权。
+- 暂无（首次 GitHub 推送已完成；第 3 步起改为单智能体顺序开发）。
+
+---
+
+## 2026-11-17 · 模块系统骨架、渲染基础设施与字体主题系统（v0.3.0）
+
+- **做了什么**：通过 3 人独立工作副本与独立分支并行开发并依次合入 `main`，完成 `03_ClickGUI实现提示词.md §11` 第 1–2 步：
+  1. `feat/module-system`：实现 `Category`、`Module`、`ModuleManager`、五种 `Setting`（含 `visibleWhen`）、`UiConfig` 与容错 `ConfigManager`（原子写盘、500ms 防抖异步保存、配置档管理）、9 个占位模块及中英文语言文件（`en_US.lang`、`zh_CN.lang`）；
+  2. `feat/render-core`：实现 GLSL 120 SDF 圆角矩形与柔和阴影着色器、三角形扇+边缘羽化回退、`RenderUtil`、`ScissorStack`、`UiScale` 及帧率无关的 `Easing`/`AnimDuration`/`Animation`/`ColorAnimation`；
+  3. `feat/font-theme`：引入静态 Inter TTF 字体（SIL OFL）与 2× 超采样 AWT/GL 图集字体渲染器（中文系统字体回退、宽度 LRU 缓存、省略号截断）、`UiTokens`、`ThemeData`、`BuiltinThemes`（6 套内置主题 + 8 个强调色预设）、`ThemeSerializer` 与平滑插值 `ThemeManager`；
+  4. `chore/release-v0.3.0`：在 `HoptimizationMod` 串联 UI 状态与主题/缩放初始化，同步三处版本号至 `0.3.0`。
+- **改动文件**：`HoptimizationMod.java`、`gradle.properties`、`src/main/java/com/hoptimization/core/{module,setting,config}/*`、`src/main/java/com/hoptimization/modules/{combat,visual,hud,performance,misc}/*`、`src/main/java/com/hoptimization/ui/{render,anim,font,theme}/*`、`src/main/resources/assets/hoptimization/{lang,shader,font}/*`、`docs/agent必看/PROGRESS.md`
+- **验证**：合并集成后 `.\gradlew.bat clean build --offline` ✅；各分支独立通过纯 Java 单元测试/自检；`runClient` 未运行（GL 着色器、字体图集与实机渲染待第 3 步接入画面后实测）
+- **Git**：分支 `feat/module-system` (`1911cd2`) + `feat/render-core` (`862051e`) + `feat/font-theme` (`80c20c5`) + `chore/release-v0.3.0` (`1c919b5`) → `main`，标签 `v0.3.0`，推送 ✅
+- **回退到上一版本**：`git revert -m 1 1c919b5 80c20c5 862051e 1911cd2`（或直接从 `v0.1.0-init` 重建分支 `git checkout -b fix/rollback v0.1.0-init`）
+- **已知问题**：`runClient` 尚未运行，OpenGL 着色器编译、SDF 圆角/阴影视觉效果及 TTF 字形图集渲染尚未在游戏窗口内实测。
+- **下一步**：按 `03 §11` 第 3 步改为单智能体顺序开发：实现 ClickGUI 窗口框架（打开/关闭动画、侧边栏、分类切换指示条滑动动画、内容头部与滚动裁剪），并执行 `runClient` 实测。
 
 ---
 
