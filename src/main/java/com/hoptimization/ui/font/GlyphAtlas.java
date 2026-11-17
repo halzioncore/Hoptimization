@@ -22,12 +22,13 @@ import java.util.List;
 public final class GlyphAtlas {
 
     private static final int DEFAULT_PAGE_SIZE = 512;
-    /** 字形槽位之间的安全间隔，杜绝线性插值采样到相邻字形。 */
-    private static final int ATLAS_GAP = 2;
+    /** 字形槽位之间的安全间隔（偶数），确保 level 0 与 1/2 分辨率 mipmap 都不发生邻居串色。 */
+    private static final int ATLAS_GAP = 4;
 
     private final List<Page> pages = new ArrayList<Page>(2);
     private int pageSize = 0;
     private IntBuffer uploadBuffer = BufferUtils.createIntBuffer(64 * 64);
+    private IntBuffer mipBuffer = BufferUtils.createIntBuffer(32 * 32);
 
     /**
      * 描述字形在图集纹理页中的分配位置与 UV 坐标。
@@ -98,15 +99,16 @@ public final class GlyphAtlas {
 
         if (targetPage.cursorX + width + ATLAS_GAP > targetPage.size) {
             targetPage.cursorX = ATLAS_GAP;
-            targetPage.cursorY += targetPage.shelfHeight + ATLAS_GAP;
+            targetPage.cursorY += alignEven(targetPage.shelfHeight) + ATLAS_GAP;
             targetPage.shelfHeight = 0;
         }
 
         int slotX = targetPage.cursorX;
         int slotY = targetPage.cursorY;
-        targetPage.cursorX += width + ATLAS_GAP;
-        if (height > targetPage.shelfHeight) {
-            targetPage.shelfHeight = height;
+        targetPage.cursorX += alignEven(width) + ATLAS_GAP;
+        int alignedHeight = alignEven(height);
+        if (alignedHeight > targetPage.shelfHeight) {
+            targetPage.shelfHeight = alignedHeight;
         }
 
         uploadSubImage(targetPage.textureId, slotX, slotY, width, height, argbPixels);
@@ -144,11 +146,17 @@ public final class GlyphAtlas {
     }
 
     private boolean canFit(Page page, int width, int height) {
-        if (page.cursorX + width + ATLAS_GAP <= page.size) {
-            return page.cursorY + Math.max(page.shelfHeight, height) + ATLAS_GAP <= page.size;
+        int alignedW = alignEven(width);
+        int alignedH = alignEven(height);
+        if (page.cursorX + alignedW + ATLAS_GAP <= page.size) {
+            return page.cursorY + Math.max(page.shelfHeight, alignedH) + ATLAS_GAP <= page.size;
         }
-        int nextY = page.cursorY + page.shelfHeight + ATLAS_GAP;
-        return nextY + height + ATLAS_GAP <= page.size && ATLAS_GAP + width + ATLAS_GAP <= page.size;
+        int nextY = page.cursorY + alignEven(page.shelfHeight) + ATLAS_GAP;
+        return nextY + alignedH + ATLAS_GAP <= page.size && ATLAS_GAP + alignedW + ATLAS_GAP <= page.size;
+    }
+
+    private static int alignEven(int value) {
+        return (value + 1) & ~1;
     }
 
     private int resolvePageSize() {
@@ -176,8 +184,10 @@ public final class GlyphAtlas {
         int texId = GlStateManager.generateTexture();
         try {
             GlStateManager.bindTexture(texId);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_BASE_LEVEL, 0);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, 1);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
@@ -186,7 +196,7 @@ public final class GlyphAtlas {
             GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
             GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
 
-            // 使用透明白 0x00FFFFFF 清空整页，保证 GL_LINEAR 采样字形边缘不混入黑色 RGB
+            // 使用透明白 0x00FFFFFF 清空整页（level 0 与 level 1），防止线性过滤与 mipmap 在字形边缘混入黑边
             int pixelCount = size * size;
             IntBuffer clearBuf = ensureBufferCapacity(pixelCount);
             int[] row = new int[size];
@@ -198,6 +208,12 @@ public final class GlyphAtlas {
             clearBuf.flip();
 
             GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, size, size, 0,
+                    GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, clearBuf);
+
+            int halfSize = size >> 1;
+            clearBuf.position(0);
+            clearBuf.limit(halfSize * halfSize);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, halfSize, halfSize, 0,
                     GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, clearBuf);
         } finally {
             GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, prevUnpackRowLength);
@@ -234,6 +250,28 @@ public final class GlyphAtlas {
 
             GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, x, y, width, height,
                     GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, buf);
+
+            int halfW = (width + 1) >> 1;
+            int halfH = (height + 1) >> 1;
+            IntBuffer mip = ensureMipBufferCapacity(halfW * halfH);
+            mip.clear();
+            for (int my = 0; my < halfH; my++) {
+                int sy0 = my << 1;
+                int sy1 = sy0 + 1;
+                for (int mx = 0; mx < halfW; mx++) {
+                    int sx0 = mx << 1;
+                    int sx1 = sx0 + 1;
+                    int a00 = sampleAlpha(pixels, width, height, sx0, sy0);
+                    int a10 = sampleAlpha(pixels, width, height, sx1, sy0);
+                    int a01 = sampleAlpha(pixels, width, height, sx0, sy1);
+                    int a11 = sampleAlpha(pixels, width, height, sx1, sy1);
+                    int avgA = (a00 + a10 + a01 + a11 + 2) >> 2;
+                    mip.put((avgA << 24) | 0x00FFFFFF);
+                }
+            }
+            mip.flip();
+            GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 1, x >> 1, y >> 1, halfW, halfH,
+                    GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, mip);
         } finally {
             GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, prevUnpackRowLength);
             GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, prevUnpackSkipPixels);
@@ -250,5 +288,20 @@ public final class GlyphAtlas {
             uploadBuffer = BufferUtils.createIntBuffer(nextCapacity);
         }
         return uploadBuffer;
+    }
+
+    private IntBuffer ensureMipBufferCapacity(int requiredInts) {
+        if (mipBuffer.capacity() < requiredInts) {
+            int nextCapacity = Math.max(requiredInts, mipBuffer.capacity() * 2);
+            mipBuffer = BufferUtils.createIntBuffer(nextCapacity);
+        }
+        return mipBuffer;
+    }
+
+    private static int sampleAlpha(int[] pixels, int width, int height, int x, int y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            return 0;
+        }
+        return (pixels[y * width + x] >>> 24) & 0xFF;
     }
 }

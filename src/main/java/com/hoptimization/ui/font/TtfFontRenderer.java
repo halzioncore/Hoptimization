@@ -40,6 +40,7 @@ public final class TtfFontRenderer {
     private final FontStyle style;
     private final int rasterSizePx;
     private final float logicalPerRasterPx;
+    private final float snapScale;
     private final float ascent;
     private final float descent;
     private final float lineHeight;
@@ -203,9 +204,19 @@ public final class TtfFontRenderer {
      * @param cjkFallbackFamily 已解析的 CJK 回退字体族名
      */
     TtfFontRenderer(FontStyle style, int rasterSizePx, Font primaryBaseFont, String cjkFallbackFamily) {
+        this(style, rasterSizePx, rasterSizePx / (2.0f * Math.max(1.0f, style.getSize())),
+                primaryBaseFont, cjkFallbackFamily);
+    }
+
+    /**
+     * 构造特定样式、栅格化像素尺寸与物理像素对齐倍率的字体渲染器。
+     */
+    TtfFontRenderer(FontStyle style, int rasterSizePx, float uiScale,
+                    Font primaryBaseFont, String cjkFallbackFamily) {
         this.style = style;
         this.rasterSizePx = Math.max(8, rasterSizePx);
         this.logicalPerRasterPx = style.getSize() / (float) this.rasterSizePx;
+        this.snapScale = Math.max(0.5f, uiScale);
 
         this.primaryFont = primaryBaseFont.deriveFont((float) this.rasterSizePx);
         this.cjkFallbackFont = new Font(cjkFallbackFamily, style.getWeight().getAwtFallbackStyle(), this.rasterSizePx);
@@ -567,8 +578,8 @@ public final class TtfFontRenderer {
         boolean batchOpen = false;
         int boundTexId = 0;
 
-        float penX = x;
-        float baselineY = y + ascent;
+        float penX = snapToPhysicalPixel(x);
+        float baselineY = snapToPhysicalPixel(y + ascent);
         float letterSpacing = style.getLetterSpacing();
         boolean uppercase = style.isUppercase();
         boolean hasPrintable = false;
@@ -810,6 +821,10 @@ public final class TtfFontRenderer {
             return genericFallbackFont;
         }
         return primaryFont;
+    }
+
+    private float snapToPhysicalPixel(float logicalCoord) {
+        return Math.round(logicalCoord * snapScale) / snapScale;
     }
 
     private static boolean isPrintableCodePoint(int codePoint) {
