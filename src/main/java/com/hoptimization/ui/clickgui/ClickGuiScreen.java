@@ -10,7 +10,11 @@ import com.hoptimization.modules.ui.ClickGuiModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
+import com.hoptimization.ui.component.PopupManager;
+import com.hoptimization.ui.component.TextFieldComponent;
+import com.hoptimization.ui.component.TooltipManager;
 import com.hoptimization.ui.font.FontManager;
+import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
@@ -21,33 +25,87 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ChatAllowedCharacters;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.Display;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * ClickGUI 主窗口屏幕（第 3 步：窗口框架）。
+ * ClickGUI 主窗口屏幕（第 4 步：模块卡片列表、全套设置控件、平滑展开、搜索与滚动裁剪）。
  * <p>
- * 负责打开/关闭缓动动画、侧边栏导航与指示条平滑滑动、内容区头部与“全部 | 已启用”切换、
- * 品牌区窗口拖动与 {@code ui.json} 位置/分类持久化；卡片列表区按规范裁剪并留空，待第 4 步填充。
+ * 负责打开/关闭缓动动画、侧边栏导航与搜索框、内容区头部与“全部 | 已启用”筛选、
+ * 品牌区窗口拖动、80ms 指数插值滚动与 12px 边缘渐隐遮罩、3px 滚动条、顶层弹出层/提示渲染
+ * 以及分级 Esc 交互；会话内记忆各分类滚动位置与已展开卡片。
  */
 public class ClickGuiScreen extends GuiScreen {
     public static final float WINDOW_WIDTH = 720.0f;
     public static final float WINDOW_HEIGHT = 440.0f;
+
     private static final float CONTENT_MARGIN = UiTokens.SPACE_4;
-    private static final float LIST_BOTTOM_PADDING = UiTokens.SPACE_20;
+    private static final float LIST_VIEWPORT_BOTTOM_INSET = UiTokens.SPACE_4;
+    private static final float LIST_BOTTOM_SCROLL_PADDING = UiTokens.SPACE_16;
+    private static final float FADE_MASK_HEIGHT = 12.0f;
+    private static final float SCROLLBAR_WIDTH = 3.0f;
+    private static final float SCROLLBAR_HIT_HALF_W = 6.0f;
+    private static final float SCROLLBAR_MIN_THUMB_H = 20.0f;
+    private static final float SCROLL_PER_NOTCH = 36.0f;
+    private static final double SCROLL_TIME_CONSTANT_MS = 80.0D;
+    private static final long SCROLLBAR_IDLE_NANOS = 800_000_000L;
+    private static final float EMPTY_ICON_SIZE = 32.0f;
     private static final float OPEN_SCALE_MIN = 0.96f;
+
+    private static final Category[] CATEGORIES = Category.values();
+    private static final float[] SESSION_CATEGORY_SCROLL = new float[CATEGORIES.length];
+    private static final Set<String> SESSION_EXPANDED_IDS = new HashSet<String>();
 
     private final ClickGuiSidebar sidebar = new ClickGuiSidebar();
     private final ClickGuiContentHeader contentHeader = new ClickGuiContentHeader();
+    private final PopupManager popupManager = new PopupManager();
+    private final TooltipManager tooltipManager = new TooltipManager();
+
     private final Animation openCloseAnim = new Animation(0.0f, 1.0f, AnimDuration.SLOW, Easing.EASE_OUT_QUINT);
+    private final Animation scrollbarAlphaAnim = new Animation(0.0f, AnimDuration.FAST, Easing.EASE_OUT_CUBIC);
+
+    private final List<ModuleCard> allCards = new ArrayList<ModuleCard>();
+    private final Map<Module, ModuleCard> cardByModule = new HashMap<Module, ModuleCard>();
+    @SuppressWarnings("unchecked")
+    private final List<ModuleCard>[] cardsByCategory = new List[CATEGORIES.length];
+    private final GroupHeaderSlot[] groupSlots = new GroupHeaderSlot[CATEGORIES.length];
+    private final List<ModuleCard> activeRenderCards = new ArrayList<ModuleCard>();
 
     private Category activeCategory = Category.COMBAT;
     private boolean settingsViewActive = false;
     private boolean filterEnabledOnly = false;
     private boolean closing = false;
+    private boolean displayListDirty = true;
+    private long lastEnabledMask = 0L;
+
+    private float targetScroll = 0.0f;
+    private float currentScroll = 0.0f;
+    private float maxScroll = 0.0f;
+    private float searchScrollTarget = 0.0f;
+    private long lastFrameNanos = 0L;
+    private long lastScrollActivityNanos = 0L;
+
+    private boolean draggingScrollbar = false;
+    private float scrollbarDragGrabOffset = 0.0f;
+    private float cachedSbTrackY = 0.0f;
+    private float cachedSbTrackH = 0.0f;
+    private float cachedSbThumbH = 0.0f;
+    private float cachedSbThumbY = 0.0f;
+    private float cachedSbX = 0.0f;
+
+    private ModuleCard activeMouseCard = null;
+    private String emptySearchLabel = "";
 
     private float windowX;
     private float windowY;
@@ -60,6 +118,22 @@ public class ClickGuiScreen extends GuiScreen {
     private float lastUiScale = -1.0f;
     private float lastLogicalW = -1.0f;
     private float lastLogicalH = -1.0f;
+
+    /**
+     * 构造 ClickGUI 屏幕并预分配分类容器与搜索监听器。
+     */
+    public ClickGuiScreen() {
+        for (int i = 0; i < CATEGORIES.length; i++) {
+            this.cardsByCategory[i] = new ArrayList<ModuleCard>();
+            this.groupSlots[i] = new GroupHeaderSlot(CATEGORIES[i]);
+        }
+        this.sidebar.setSearchChangeListener(new TextFieldComponent.TextChangeListener() {
+            @Override
+            public void onTextChanged(String newText) {
+                onSearchQueryChanged(newText);
+            }
+        });
+    }
 
     @Override
     public boolean doesGuiPauseGame() {
@@ -84,13 +158,15 @@ public class ClickGuiScreen extends GuiScreen {
         lastUiScale = uiScale;
         FontManager.setUiScale(uiScale);
 
-        sidebar.refreshLabels();
-        contentHeader.refreshLabels();
+        ensureCardsInitialized();
+        refreshAllLabels();
 
         float logicalW = UiScale.getLogicalWidth(uiScale);
         float logicalH = UiScale.getLogicalHeight(uiScale);
         lastLogicalW = logicalW;
         lastLogicalH = logicalH;
+        popupManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
+        tooltipManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
 
         if (!positionInitialized) {
             if (uiConfig != null && uiConfig.isWindowPositionSet()) {
@@ -107,6 +183,15 @@ public class ClickGuiScreen extends GuiScreen {
         sidebar.snapSelection(activeCategory, settingsViewActive, WINDOW_HEIGHT);
         contentHeader.snapFilter(filterEnabledOnly);
 
+        float restoredScroll = SESSION_CATEGORY_SCROLL[activeCategory.ordinal()];
+        targetScroll = Math.max(0.0f, restoredScroll);
+        currentScroll = targetScroll;
+        lastFrameNanos = System.nanoTime();
+        lastScrollActivityNanos = 0L;
+        draggingScrollbar = false;
+        activeMouseCard = null;
+        displayListDirty = true;
+
         closing = false;
         if (Animation.isReduceMotion()) {
             openCloseAnim.snapTo(1.0f);
@@ -119,6 +204,19 @@ public class ClickGuiScreen extends GuiScreen {
     public void onGuiClosed() {
         ScissorStack.clear();
         dragging = false;
+        draggingScrollbar = false;
+        activeMouseCard = null;
+
+        sidebar.unfocusSearch();
+        Keyboard.enableRepeatEvents(false);
+        cancelAllKeybindCaptures();
+        cancelAllInlineNumberEdits();
+        popupManager.closeActivePopup();
+        tooltipManager.clear();
+
+        saveCurrentScrollToSession();
+        saveExpandedStateToSession();
+
         ConfigManager configManager = HoptimizationMod.getConfigManager();
         if (configManager != null) {
             UiConfig uiConfig = configManager.getUiConfig();
@@ -147,8 +245,7 @@ public class ClickGuiScreen extends GuiScreen {
         if (Math.abs(uiScale - lastUiScale) > 0.0001f) {
             lastUiScale = uiScale;
             FontManager.setUiScale(uiScale);
-            sidebar.refreshLabels();
-            contentHeader.refreshLabels();
+            refreshAllLabels();
         }
 
         float logicalW = UiScale.getLogicalWidth(uiScale);
@@ -156,6 +253,8 @@ public class ClickGuiScreen extends GuiScreen {
         if (Math.abs(logicalW - lastLogicalW) > 0.5f || Math.abs(logicalH - lastLogicalH) > 0.5f) {
             lastLogicalW = logicalW;
             lastLogicalH = logicalH;
+            popupManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
+            tooltipManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
             if (!dragging) {
                 if (positionModified || hasSavedWindowPosition()) {
                     clampWindowPosition(logicalW, logicalH);
@@ -178,6 +277,14 @@ public class ClickGuiScreen extends GuiScreen {
                 windowY = lMouseY - dragOffsetY;
                 clampWindowPosition(logicalW, logicalH);
                 positionModified = true;
+            }
+        }
+
+        if (draggingScrollbar) {
+            if (!Mouse.isButtonDown(0)) {
+                draggingScrollbar = false;
+            } else {
+                updateScrollFromScrollbarMouseY(lMouseY);
             }
         }
 
@@ -218,8 +325,70 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (keyCode == Keyboard.KEY_ESCAPE || keyCode == getOpenKeybind()) {
+        if (closing) {
+            return;
+        }
+        boolean ctrl = isCtrlKeyDown();
+
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            if (sidebar.isSearchFocused()) {
+                if (sidebar.hasSearchQuery()) {
+                    sidebar.clearSearch();
+                }
+                sidebar.unfocusSearch();
+                return;
+            }
+            if (hasActiveKeybindCapture()) {
+                cancelAllKeybindCaptures();
+                return;
+            }
+            if (popupManager.hasActivePopup()) {
+                popupManager.closeActivePopup();
+                return;
+            }
+            if (hasActiveInlineNumberEdit()) {
+                cancelAllInlineNumberEdits();
+                return;
+            }
+            if (sidebar.hasSearchQuery()) {
+                sidebar.clearSearch();
+                return;
+            }
             beginClose();
+            return;
+        }
+
+        if (hasActiveKeybindCapture()) {
+            dispatchKeyToCapturingCard(typedChar, keyCode);
+            return;
+        }
+
+        if (popupManager.hasActivePopup() && popupManager.keyTyped(typedChar, keyCode)) {
+            return;
+        }
+
+        if (hasActiveInlineNumberEdit() && dispatchKeyToEditingCard(typedChar, keyCode)) {
+            return;
+        }
+
+        if (!popupManager.hasActivePopup() && ctrl && keyCode == Keyboard.KEY_F) {
+            sidebar.focusSearch(true);
+            return;
+        }
+
+        if (sidebar.isSearchFocused()) {
+            sidebar.handleSearchKeyTyped(typedChar, keyCode);
+            return;
+        }
+
+        if (keyCode == getOpenKeybind()) {
+            beginClose();
+            return;
+        }
+
+        if (!popupManager.hasActivePopup() && !ctrl && ChatAllowedCharacters.isAllowedCharacter(typedChar)) {
+            sidebar.focusSearch(false);
+            sidebar.handleSearchKeyTyped(typedChar, keyCode);
         }
     }
 
@@ -227,14 +396,47 @@ public class ClickGuiScreen extends GuiScreen {
     public void handleMouseInput() throws IOException {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
-        if (wheel != 0 && isCtrlKeyDown() && !closing) {
+        if (wheel == 0 || closing || this.mc == null) {
+            return;
+        }
+        if (isCtrlKeyDown()) {
             adjustClickGuiScale(wheel > 0 ? 1 : -1);
+            return;
+        }
+
+        ScaledResolution sr = new ScaledResolution(this.mc);
+        float uiScale = resolveClickGuiScale();
+        float lMouseX = resolveLogicalMouseX(Mouse.getEventX(), sr, uiScale);
+        float lMouseY = resolveLogicalMouseY(Mouse.getEventY(), sr, uiScale);
+
+        if (popupManager.hasActivePopup()) {
+            if (popupManager.getActivePopup().isPointInsideOverlay(lMouseX, lMouseY)) {
+                popupManager.mouseScrolled(lMouseX, lMouseY, wheel);
+                return;
+            }
+            popupManager.closeActivePopup();
+        }
+
+        if (isSearchActive() || !settingsViewActive) {
+            float contentX = windowX + ClickGuiSidebar.WIDTH;
+            float contentY = windowY + CONTENT_MARGIN;
+            float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
+            float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
+            float listY = contentY + ClickGuiContentHeader.HEIGHT;
+            float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
+
+            if (maxScroll > 0.0f && isInside(lMouseX, lMouseY, contentX, listY, contentW, listH)) {
+                float delta = -(wheel / 120.0f) * SCROLL_PER_NOTCH;
+                targetScroll = clamp(targetScroll + delta, 0.0f, maxScroll);
+                lastScrollActivityNanos = System.nanoTime();
+                saveCurrentScrollToSession();
+            }
         }
     }
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        if (mouseButton != 0 || closing || this.mc == null) {
+        if (closing || this.mc == null) {
             return;
         }
         ScaledResolution sr = new ScaledResolution(this.mc);
@@ -242,63 +444,208 @@ public class ClickGuiScreen extends GuiScreen {
         float lMouseX = resolveLogicalMouseX(mouseX, sr, uiScale);
         float lMouseY = resolveLogicalMouseY(mouseY, sr, uiScale);
 
+        if (popupManager.hasActivePopup()) {
+            popupManager.mouseClicked(lMouseX, lMouseY, mouseButton);
+            sidebar.unfocusSearch();
+            cancelAllKeybindCaptures();
+            return;
+        }
+
+        boolean searchHit = sidebar.handleSearchMouseClicked(lMouseX, lMouseY, mouseButton);
+        if (searchHit) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
+            return;
+        }
+
         if (!isInside(lMouseX, lMouseY, windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT)) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
             return;
         }
 
         float localX = lMouseX - windowX;
         float localY = lMouseY - windowY;
-        if (sidebar.isInBrandDragArea(localX, localY)) {
+        if (mouseButton == 0 && sidebar.isInBrandDragArea(localX, localY)) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
             dragging = true;
             dragOffsetX = localX;
             dragOffsetY = localY;
             return;
         }
 
-        ClickGuiSidebar.ClickResult sidebarClick = sidebar.handleClick(windowX, windowY, WINDOW_HEIGHT, lMouseX, lMouseY);
-        if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.CATEGORY) {
-            selectCategory(sidebarClick.getCategory());
-            return;
-        }
-        if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.SETTINGS) {
-            selectSettings();
-            return;
-        }
-        if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.PROFILE_TRIGGERED) {
-            HoptimizationMod.LOGGER.debug("Profile switcher clicked (dropdown scheduled for Step 5).");
-            return;
+        if (mouseButton == 0) {
+            ClickGuiSidebar.ClickResult sidebarClick =
+                sidebar.handleClick(windowX, windowY, WINDOW_HEIGHT, lMouseX, lMouseY);
+            if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.CATEGORY) {
+                cancelAllKeybindCaptures();
+                cancelAllInlineNumberEdits();
+                if (sidebar.hasSearchQuery()) {
+                    sidebar.clearSearch();
+                }
+                selectCategory(sidebarClick.getCategory());
+                return;
+            }
+            if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.SETTINGS) {
+                cancelAllKeybindCaptures();
+                cancelAllInlineNumberEdits();
+                if (sidebar.hasSearchQuery()) {
+                    sidebar.clearSearch();
+                }
+                selectSettings();
+                return;
+            }
+            if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.PROFILE_TRIGGERED) {
+                cancelAllKeybindCaptures();
+                cancelAllInlineNumberEdits();
+                HoptimizationMod.LOGGER.debug("Profile switcher clicked (dropdown scheduled for Step 5).");
+                return;
+            }
         }
 
         float contentX = windowX + ClickGuiSidebar.WIDTH;
         float contentY = windowY + CONTENT_MARGIN;
         float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
-        int segmentHit = contentHeader.handleClick(contentX, contentY, contentW, lMouseX, lMouseY, settingsViewActive);
-        if (segmentHit == 0) {
-            filterEnabledOnly = false;
-        } else if (segmentHit == 1) {
-            filterEnabledOnly = true;
+        float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
+
+        boolean searchActive = isSearchActive();
+        if (mouseButton == 0) {
+            int segmentHit = contentHeader.handleClick(
+                contentX, contentY, contentW,
+                lMouseX, lMouseY,
+                settingsViewActive && !searchActive
+            );
+            if (segmentHit == 0 || segmentHit == 1) {
+                cancelAllKeybindCaptures();
+                cancelAllInlineNumberEdits();
+                setFilterEnabledOnly(segmentHit == 1);
+                return;
+            }
+        }
+
+        if (!searchActive && settingsViewActive) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
+            return;
+        }
+
+        float listY = contentY + ClickGuiContentHeader.HEIGHT;
+        float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
+
+        if (mouseButton == 0 && maxScroll > 0.5f && cachedSbTrackH > 0.0f
+            && isInside(lMouseX, lMouseY,
+                cachedSbX - SCROLLBAR_HIT_HALF_W, cachedSbTrackY,
+                SCROLLBAR_WIDTH + SCROLLBAR_HIT_HALF_W * 2.0f, cachedSbTrackH)) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
+            draggingScrollbar = true;
+            lastScrollActivityNanos = System.nanoTime();
+            if (lMouseY >= cachedSbThumbY && lMouseY <= cachedSbThumbY + cachedSbThumbH) {
+                scrollbarDragGrabOffset = lMouseY - cachedSbThumbY;
+            } else {
+                scrollbarDragGrabOffset = cachedSbThumbH * 0.5f;
+                updateScrollFromScrollbarMouseY(lMouseY);
+            }
+            return;
+        }
+
+        if (!isInside(lMouseX, lMouseY, contentX, listY, contentW, listH)) {
+            cancelAllKeybindCaptures();
+            cancelAllInlineNumberEdits();
+            return;
+        }
+
+        ModuleCard hitCard = null;
+        for (int i = 0; i < activeRenderCards.size(); i++) {
+            ModuleCard card = activeRenderCards.get(i);
+            float cardTop = card.getLayoutY() - currentScroll;
+            float cardH = card.getHeight();
+            if (cardTop + cardH < listY || cardTop > listY + listH) {
+                continue;
+            }
+            if (card.mouseClicked(lMouseX, lMouseY, mouseButton)) {
+                hitCard = card;
+                break;
+            }
+        }
+
+        this.activeMouseCard = hitCard;
+        for (int i = 0; i < this.allCards.size(); i++) {
+            ModuleCard card = this.allCards.get(i);
+            if (card != hitCard) {
+                card.cancelAllInputCaptures();
+            }
+        }
+        if (hitCard != null) {
+            saveExpandedStateToSession();
         }
     }
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
-        if (!dragging || clickedMouseButton != 0 || this.mc == null) {
+        if (closing || this.mc == null) {
             return;
         }
         ScaledResolution sr = new ScaledResolution(this.mc);
         float uiScale = resolveClickGuiScale();
         float lMouseX = resolveLogicalMouseX(mouseX, sr, uiScale);
         float lMouseY = resolveLogicalMouseY(mouseY, sr, uiScale);
-        windowX = lMouseX - dragOffsetX;
-        windowY = lMouseY - dragOffsetY;
-        clampWindowPosition(UiScale.getLogicalWidth(uiScale), UiScale.getLogicalHeight(uiScale));
-        positionModified = true;
+
+        if (dragging && clickedMouseButton == 0) {
+            windowX = lMouseX - dragOffsetX;
+            windowY = lMouseY - dragOffsetY;
+            clampWindowPosition(UiScale.getLogicalWidth(uiScale), UiScale.getLogicalHeight(uiScale));
+            positionModified = true;
+            return;
+        }
+
+        if (popupManager.hasActivePopup()) {
+            popupManager.mouseDragged(lMouseX, lMouseY, clickedMouseButton);
+            return;
+        }
+
+        if (draggingScrollbar && clickedMouseButton == 0) {
+            updateScrollFromScrollbarMouseY(lMouseY);
+            return;
+        }
+
+        if (sidebar.handleSearchMouseDragged(lMouseX, lMouseY, clickedMouseButton)) {
+            return;
+        }
+
+        if (activeMouseCard != null) {
+            activeMouseCard.mouseDragged(lMouseX, lMouseY, clickedMouseButton);
+        }
     }
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         if (state == 0 && dragging) {
             finishDragging();
+        }
+        if (state == 0 && draggingScrollbar) {
+            draggingScrollbar = false;
+        }
+        if (this.mc == null) {
+            return;
+        }
+        ScaledResolution sr = new ScaledResolution(this.mc);
+        float uiScale = resolveClickGuiScale();
+        float lMouseX = resolveLogicalMouseX(mouseX, sr, uiScale);
+        float lMouseY = resolveLogicalMouseY(mouseY, sr, uiScale);
+
+        if (popupManager.hasActivePopup()) {
+            popupManager.mouseReleased(lMouseX, lMouseY, state);
+        }
+
+        sidebar.handleSearchMouseReleased(lMouseX, lMouseY, state);
+
+        if (activeMouseCard != null) {
+            activeMouseCard.mouseReleased(lMouseX, lMouseY, state);
+            if (state == 0) {
+                activeMouseCard = null;
+            }
         }
     }
 
@@ -311,6 +658,14 @@ public class ClickGuiScreen extends GuiScreen {
         }
         closing = true;
         dragging = false;
+        draggingScrollbar = false;
+        activeMouseCard = null;
+        sidebar.unfocusSearch();
+        cancelAllKeybindCaptures();
+        cancelAllInlineNumberEdits();
+        popupManager.closeActivePopup();
+        tooltipManager.clear();
+
         if (Animation.isReduceMotion() && this.mc != null) {
             this.mc.displayGuiScreen(null);
             return;
@@ -320,6 +675,8 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private void renderWindowContents(float mouseX, float mouseY, float windowAlpha, ThemeData theme) {
+        tooltipManager.beginFrame();
+
         // 主窗口阴影（offsetY=16, blur=48）+ 窗口底板 surface0 + 外沿 1px border
         RenderUtil.drawRoundedRectWithShadow(
             windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -351,52 +708,475 @@ public class ClickGuiScreen extends GuiScreen {
 
         ModuleManager moduleManager = HoptimizationMod.getModuleManager();
         ConfigManager configManager = HoptimizationMod.getConfigManager();
+        boolean popupOpen = popupManager.hasActivePopup();
+        float bgMouseX = popupOpen ? -99999.0f : mouseX;
+        float bgMouseY = popupOpen ? -99999.0f : mouseY;
 
         sidebar.render(
             windowX, windowY, WINDOW_HEIGHT,
-            mouseX, mouseY,
+            bgMouseX, bgMouseY,
             windowAlpha, theme,
             activeCategory, settingsViewActive,
             moduleManager, configManager
         );
 
-        int headerCount = countHeaderModules(moduleManager);
+        boolean searchActive = isSearchActive();
+        rebuildDisplayListIfNeeded(searchActive);
+
+        int headerCount = (searchActive || !settingsViewActive) ? activeRenderCards.size() : 0;
         contentHeader.render(
             contentX, contentY, contentW,
-            mouseX, mouseY,
+            bgMouseX, bgMouseY,
             windowAlpha, theme,
-            activeCategory, settingsViewActive,
+            activeCategory, settingsViewActive, searchActive,
             headerCount, filterEnabledOnly
         );
 
-        // 卡片列表区先留空，建立按变换矩阵对齐的裁剪视口供第 4 步填充模块卡片
+        float listX = contentX;
         float listY = contentY + ClickGuiContentHeader.HEIGHT;
-        float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_BOTTOM_PADDING);
-        if (listH > 0.0f) {
-            ScissorStack.pushTransformed(contentX, listY, contentW, listH);
-            ScissorStack.pop();
+        float listW = contentW;
+        float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
+
+        if ((searchActive || !settingsViewActive) && listH > 0.0f) {
+            renderModuleListViewport(
+                listX, listY, listW, listH,
+                bgMouseX, bgMouseY, windowAlpha, theme, searchActive
+            );
+        }
+
+        // 最顶层渲染下拉菜单 / 取色器与延迟悬停提示
+        popupManager.render(mouseX, mouseY, windowAlpha, theme);
+        tooltipManager.render(mouseX, mouseY, windowAlpha, theme);
+    }
+
+    private void renderModuleListViewport(
+        float listX,
+        float listY,
+        float listW,
+        float listH,
+        float bgMouseX,
+        float bgMouseY,
+        float windowAlpha,
+        ThemeData theme,
+        boolean searchActive
+    ) {
+        float cardX = listX + UiTokens.SPACE_20;
+        float cardW = Math.max(0.0f, listW - UiTokens.SPACE_20 * 2.0f);
+
+        float totalContentH = updateListLayoutAndScroll(cardX, listY, cardW, listH, searchActive);
+
+        boolean inListViewport = isInside(bgMouseX, bgMouseY, listX, listY, listW, listH);
+        float listMouseX = inListViewport ? bgMouseX : -99999.0f;
+        float listMouseY = inListViewport ? bgMouseY : -99999.0f;
+
+        boolean pushedScissor = false;
+        if (Display.isCreated()) {
+            ScissorStack.pushTransformed(listX, listY, listW, listH);
+            pushedScissor = true;
+        }
+        try {
+            if (searchActive && activeRenderCards.isEmpty()) {
+                renderSearchEmptyState(listX, listY, listW, listH, windowAlpha, theme);
+                return;
+            }
+
+            if (searchActive) {
+                TtfFontRenderer overlineFont = FontManager.overline();
+                int groupHeaderColor = RenderUtil.withAlpha(theme.textTertiary(), windowAlpha);
+                float overlineH = overlineFont.getHeight();
+                for (int c = 0; c < groupSlots.length; c++) {
+                    GroupHeaderSlot slot = groupSlots[c];
+                    if (!slot.active) {
+                        continue;
+                    }
+                    float headerY = slot.layoutY - currentScroll;
+                    if (headerY + overlineH >= listY && headerY <= listY + listH) {
+                        overlineFont.drawString(slot.label, cardX, headerY, groupHeaderColor);
+                    }
+                }
+            }
+
+            for (int i = 0; i < activeRenderCards.size(); i++) {
+                ModuleCard card = activeRenderCards.get(i);
+                float drawY = card.getLayoutY() - currentScroll;
+                float cardH = card.getHeight();
+                if (drawY + cardH < listY || drawY > listY + listH) {
+                    continue;
+                }
+                card.render(cardX, drawY, cardW, listMouseX, listMouseY, windowAlpha, theme, tooltipManager);
+            }
+
+            // 12px 列表上下边缘渐隐遮罩（仅在存在可滚动隐藏内容时显示）
+            int maskSurface = RenderUtil.withAlpha(theme.surface1(), windowAlpha);
+            if (currentScroll > 0.5f) {
+                RenderUtil.drawScrollFadeMask(cardX, listY, cardW, FADE_MASK_HEIGHT, maskSurface, true);
+            }
+            if (maxScroll > 0.5f && currentScroll < maxScroll - 0.5f) {
+                RenderUtil.drawScrollFadeMask(
+                    cardX, listY + listH - FADE_MASK_HEIGHT, cardW, FADE_MASK_HEIGHT, maskSurface, false
+                );
+            }
+
+            renderScrollbar(listX, listY, listW, listH, totalContentH, inListViewport, windowAlpha, theme);
+        } finally {
+            if (pushedScissor) {
+                ScissorStack.pop();
+            }
         }
     }
 
-    private int countHeaderModules(ModuleManager moduleManager) {
-        if (moduleManager == null || settingsViewActive) {
-            return 0;
-        }
-        List<Module> list = moduleManager.getModules(activeCategory);
-        if (!filterEnabledOnly) {
-            return list.size();
-        }
-        int count = 0;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).isEnabled()) {
-                count++;
+    private float updateListLayoutAndScroll(
+        float cardX,
+        float listY,
+        float cardW,
+        float listH,
+        boolean searchActive
+    ) {
+        float curY = listY;
+        if (searchActive) {
+            boolean firstGroup = true;
+            float groupHeaderH = FontManager.overline().getHeight() + UiTokens.SPACE_6;
+            for (int c = 0; c < groupSlots.length; c++) {
+                GroupHeaderSlot slot = groupSlots[c];
+                if (!slot.active) {
+                    continue;
+                }
+                if (!firstGroup) {
+                    curY += UiTokens.GAP_GROUP;
+                }
+                firstGroup = false;
+                slot.layoutY = curY;
+                curY += groupHeaderH;
+
+                for (int i = slot.startCardIndex; i < slot.endCardIndex; i++) {
+                    ModuleCard card = activeRenderCards.get(i);
+                    curY += card.updateLayout(cardX, curY, cardW);
+                    if (i + 1 < slot.endCardIndex) {
+                        curY += UiTokens.GAP_LIST_ITEM;
+                    }
+                }
+            }
+        } else {
+            int count = activeRenderCards.size();
+            for (int i = 0; i < count; i++) {
+                ModuleCard card = activeRenderCards.get(i);
+                curY += card.updateLayout(cardX, curY, cardW);
+                if (i + 1 < count) {
+                    curY += UiTokens.GAP_LIST_ITEM;
+                }
             }
         }
-        return count;
+
+        float totalContentH = activeRenderCards.isEmpty() ? 0.0f : ((curY - listY) + LIST_BOTTOM_SCROLL_PADDING);
+        this.maxScroll = Math.max(0.0f, totalContentH - listH);
+        this.targetScroll = clamp(this.targetScroll, 0.0f, this.maxScroll);
+
+        long nowNanos = System.nanoTime();
+        float dtMs = this.lastFrameNanos > 0L
+            ? Math.min(100.0f, Math.max(0.0f, (nowNanos - this.lastFrameNanos) / 1_000_000.0f))
+            : 16.67f;
+        this.lastFrameNanos = nowNanos;
+
+        if (Animation.isReduceMotion()) {
+            this.currentScroll = this.targetScroll;
+        } else {
+            float factor = 1.0f - (float) Math.exp(-dtMs / SCROLL_TIME_CONSTANT_MS);
+            this.currentScroll += (this.targetScroll - this.currentScroll) * factor;
+            if (Math.abs(this.targetScroll - this.currentScroll) < 0.25f) {
+                this.currentScroll = this.targetScroll;
+            }
+        }
+        this.currentScroll = clamp(this.currentScroll, 0.0f, this.maxScroll);
+
+        if (searchActive) {
+            this.searchScrollTarget = this.targetScroll;
+        } else if (!settingsViewActive && activeCategory != null) {
+            SESSION_CATEGORY_SCROLL[activeCategory.ordinal()] = this.targetScroll;
+        }
+        return totalContentH;
+    }
+
+    private void renderScrollbar(
+        float listX,
+        float listY,
+        float listW,
+        float listH,
+        float totalContentH,
+        boolean listHovered,
+        float windowAlpha,
+        ThemeData theme
+    ) {
+        if (this.maxScroll <= 0.5f || totalContentH <= listH) {
+            this.scrollbarAlphaAnim.snapTo(0.0f);
+            this.cachedSbTrackH = 0.0f;
+            return;
+        }
+
+        long nowNanos = System.nanoTime();
+        boolean recentlyScrolled = (nowNanos - this.lastScrollActivityNanos) < SCROLLBAR_IDLE_NANOS;
+        this.scrollbarAlphaAnim.setTarget((listHovered || recentlyScrolled || this.draggingScrollbar) ? 1.0f : 0.0f);
+        float sbAlpha = clamp01(this.scrollbarAlphaAnim.get()) * windowAlpha;
+
+        float sbX = listX + listW - UiTokens.SPACE_6 - SCROLLBAR_WIDTH;
+        float sbTrackY = listY + UiTokens.SPACE_4;
+        float sbTrackH = Math.max(0.0f, listH - UiTokens.SPACE_8);
+        float thumbH = Math.min(sbTrackH, Math.max(SCROLLBAR_MIN_THUMB_H, sbTrackH * (listH / totalContentH)));
+        float scrollRatio = this.maxScroll > 0.0f ? (this.currentScroll / this.maxScroll) : 0.0f;
+        float thumbY = sbTrackY + (sbTrackH - thumbH) * clamp01(scrollRatio);
+
+        this.cachedSbX = sbX;
+        this.cachedSbTrackY = sbTrackY;
+        this.cachedSbTrackH = sbTrackH;
+        this.cachedSbThumbH = thumbH;
+        this.cachedSbThumbY = thumbY;
+
+        if (sbAlpha <= 0.005f) {
+            return;
+        }
+        RenderUtil.drawRoundedRect(
+            sbX,
+            thumbY,
+            SCROLLBAR_WIDTH,
+            thumbH,
+            theme.radiusPill(SCROLLBAR_WIDTH),
+            RenderUtil.withAlpha(theme.scrollbar(), sbAlpha)
+        );
+    }
+
+    private void renderSearchEmptyState(
+        float listX,
+        float listY,
+        float listW,
+        float listH,
+        float windowAlpha,
+        ThemeData theme
+    ) {
+        TtfFontRenderer bodyFont = FontManager.body();
+        float gap = UiTokens.SPACE_12;
+        float blockH = EMPTY_ICON_SIZE + gap + bodyFont.getHeight();
+        float startY = listY + (listH - blockH) * 0.5f;
+        float iconX = listX + (listW - EMPTY_ICON_SIZE) * 0.5f;
+
+        RenderUtil.drawTintedIcon(
+            ClickGuiIcons.SEARCH,
+            iconX,
+            startY,
+            EMPTY_ICON_SIZE,
+            RenderUtil.withAlpha(theme.textTertiary(), windowAlpha)
+        );
+        bodyFont.drawStringCentered(
+            this.emptySearchLabel,
+            listX + listW * 0.5f,
+            startY + EMPTY_ICON_SIZE + gap,
+            RenderUtil.withAlpha(theme.textSecondary(), windowAlpha)
+        );
+    }
+
+    private void updateScrollFromScrollbarMouseY(float mouseY) {
+        float travel = this.cachedSbTrackH - this.cachedSbThumbH;
+        if (travel <= 0.0f || this.maxScroll <= 0.0f) {
+            return;
+        }
+        float desiredThumbTop = mouseY - this.scrollbarDragGrabOffset;
+        float ratio = clamp01((desiredThumbTop - this.cachedSbTrackY) / travel);
+        this.targetScroll = ratio * this.maxScroll;
+        this.currentScroll = this.targetScroll;
+        this.lastScrollActivityNanos = System.nanoTime();
+        saveCurrentScrollToSession();
+    }
+
+    private void ensureCardsInitialized() {
+        ModuleManager moduleManager = HoptimizationMod.getModuleManager();
+        if (moduleManager == null) {
+            return;
+        }
+        List<Module> modules = moduleManager.getModules();
+        if (this.allCards.size() == modules.size() && !this.allCards.isEmpty()) {
+            return;
+        }
+        this.allCards.clear();
+        this.cardByModule.clear();
+        for (int c = 0; c < this.cardsByCategory.length; c++) {
+            this.cardsByCategory[c].clear();
+        }
+        for (int i = 0; i < modules.size(); i++) {
+            Module module = modules.get(i);
+            ModuleCard card = new ModuleCard(module, this.popupManager);
+            if (SESSION_EXPANDED_IDS.contains(module.getId())) {
+                card.setExpanded(true, true);
+            }
+            this.allCards.add(card);
+            this.cardByModule.put(module, card);
+            this.cardsByCategory[module.getCategory().ordinal()].add(card);
+        }
+        this.displayListDirty = true;
+    }
+
+    private void refreshAllLabels() {
+        this.sidebar.refreshLabels();
+        this.contentHeader.refreshLabels();
+        this.emptySearchLabel = I18n.format("ui.hoptimization.search.empty");
+        for (int c = 0; c < CATEGORIES.length; c++) {
+            this.groupSlots[c].label = I18n.format(CATEGORIES[c].getNameKey());
+        }
+        for (int i = 0; i < this.allCards.size(); i++) {
+            this.allCards.get(i).refreshLabels();
+        }
+        this.displayListDirty = true;
+    }
+
+    private void onSearchQueryChanged(String newText) {
+        String normalized = newText == null ? "" : newText.trim();
+        for (int i = 0; i < this.allCards.size(); i++) {
+            this.allCards.get(i).updateSearchQuery(normalized);
+        }
+        if (normalized.isEmpty()) {
+            float restored = this.settingsViewActive
+                ? 0.0f
+                : Math.max(0.0f, SESSION_CATEGORY_SCROLL[this.activeCategory.ordinal()]);
+            this.targetScroll = restored;
+            this.currentScroll = restored;
+        } else {
+            this.searchScrollTarget = 0.0f;
+            this.targetScroll = 0.0f;
+            this.currentScroll = 0.0f;
+        }
+        this.popupManager.closeActivePopup();
+        cancelAllKeybindCaptures();
+        cancelAllInlineNumberEdits();
+        this.displayListDirty = true;
+    }
+
+    private void rebuildDisplayListIfNeeded(boolean searchActive) {
+        long enabledSig = computeEnabledMask();
+        if (this.filterEnabledOnly && enabledSig != this.lastEnabledMask) {
+            this.displayListDirty = true;
+        }
+        if (!this.displayListDirty) {
+            return;
+        }
+        this.displayListDirty = false;
+        this.lastEnabledMask = enabledSig;
+        this.activeRenderCards.clear();
+        for (int c = 0; c < this.groupSlots.length; c++) {
+            this.groupSlots[c].active = false;
+        }
+
+        if (searchActive) {
+            for (int c = 0; c < CATEGORIES.length; c++) {
+                List<ModuleCard> catCards = this.cardsByCategory[c];
+                int startIdx = this.activeRenderCards.size();
+                for (int i = 0; i < catCards.size(); i++) {
+                    ModuleCard card = catCards.get(i);
+                    if (card.matchesSearch() && (!this.filterEnabledOnly || card.getModule().isEnabled())) {
+                        this.activeRenderCards.add(card);
+                    }
+                }
+                int endIdx = this.activeRenderCards.size();
+                if (endIdx > startIdx) {
+                    this.groupSlots[c].active = true;
+                    this.groupSlots[c].startCardIndex = startIdx;
+                    this.groupSlots[c].endCardIndex = endIdx;
+                }
+            }
+            return;
+        }
+
+        if (!this.settingsViewActive && this.activeCategory != null) {
+            List<ModuleCard> catCards = this.cardsByCategory[this.activeCategory.ordinal()];
+            for (int i = 0; i < catCards.size(); i++) {
+                ModuleCard card = catCards.get(i);
+                if (!this.filterEnabledOnly || card.getModule().isEnabled()) {
+                    this.activeRenderCards.add(card);
+                }
+            }
+        }
+    }
+
+    private long computeEnabledMask() {
+        long sig = 17L;
+        for (int i = 0; i < this.allCards.size(); i++) {
+            if (this.allCards.get(i).getModule().isEnabled()) {
+                sig = sig * 31L + (i + 1L);
+            }
+        }
+        return sig;
+    }
+
+    private boolean isSearchActive() {
+        return this.sidebar.hasSearchQuery();
+    }
+
+    private boolean hasActiveKeybindCapture() {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            if (this.allCards.get(i).isListeningKeybind()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void cancelAllKeybindCaptures() {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            this.allCards.get(i).cancelKeybindListening();
+        }
+    }
+
+    private void dispatchKeyToCapturingCard(char typedChar, int keyCode) {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            ModuleCard card = this.allCards.get(i);
+            if (card.isListeningKeybind()) {
+                card.keyTyped(typedChar, keyCode);
+                return;
+            }
+        }
+    }
+
+    private boolean hasActiveInlineNumberEdit() {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            if (this.allCards.get(i).isEditingInlineNumber()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void cancelAllInlineNumberEdits() {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            this.allCards.get(i).cancelInlineNumberEdit();
+        }
+    }
+
+    private boolean dispatchKeyToEditingCard(char typedChar, int keyCode) {
+        for (int i = 0; i < this.allCards.size(); i++) {
+            ModuleCard card = this.allCards.get(i);
+            if (card.isEditingInlineNumber()) {
+                return card.keyTyped(typedChar, keyCode);
+            }
+        }
+        return false;
+    }
+
+    private void saveCurrentScrollToSession() {
+        if (isSearchActive()) {
+            this.searchScrollTarget = this.targetScroll;
+        } else if (!this.settingsViewActive && this.activeCategory != null) {
+            SESSION_CATEGORY_SCROLL[this.activeCategory.ordinal()] = this.targetScroll;
+        }
+    }
+
+    private void saveExpandedStateToSession() {
+        SESSION_EXPANDED_IDS.clear();
+        for (int i = 0; i < this.allCards.size(); i++) {
+            ModuleCard card = this.allCards.get(i);
+            if (card.isExpanded()) {
+                SESSION_EXPANDED_IDS.add(card.getModule().getId());
+            }
+        }
     }
 
     /**
-     * 切换到指定模块分类并播放侧边栏指示条滑动动画。
+     * 切换到指定模块分类并播放侧边栏指示条滑动动画，同时记忆并恢复各分类滚动偏移。
      *
      * @param category 目标分类
      */
@@ -404,9 +1184,16 @@ public class ClickGuiScreen extends GuiScreen {
         if (category == null) {
             return;
         }
+        saveCurrentScrollToSession();
         boolean changed = settingsViewActive || activeCategory != category;
         settingsViewActive = false;
         activeCategory = category;
+        popupManager.closeActivePopup();
+
+        targetScroll = Math.max(0.0f, SESSION_CATEGORY_SCROLL[category.ordinal()]);
+        currentScroll = targetScroll;
+        displayListDirty = true;
+
         if (changed) {
             sidebar.animateSelectionTo(activeCategory, false, WINDOW_HEIGHT);
             ConfigManager configManager = HoptimizationMod.getConfigManager();
@@ -421,8 +1208,11 @@ public class ClickGuiScreen extends GuiScreen {
      * 切换到设置页并播放侧边栏指示条滑动动画。
      */
     public void selectSettings() {
+        saveCurrentScrollToSession();
+        popupManager.closeActivePopup();
         if (!settingsViewActive) {
             settingsViewActive = true;
+            displayListDirty = true;
             sidebar.animateSelectionTo(activeCategory, true, WINDOW_HEIGHT);
         }
     }
@@ -433,7 +1223,11 @@ public class ClickGuiScreen extends GuiScreen {
      * @param enabledOnly {@code true} 仅显示已启用模块
      */
     public void setFilterEnabledOnly(boolean enabledOnly) {
-        this.filterEnabledOnly = enabledOnly;
+        if (this.filterEnabledOnly != enabledOnly) {
+            this.filterEnabledOnly = enabledOnly;
+            this.popupManager.closeActivePopup();
+            this.displayListDirty = true;
+        }
     }
 
     private void finishDragging() {
@@ -500,13 +1294,14 @@ public class ClickGuiScreen extends GuiScreen {
         float resolvedUiScale = UiScale.getClickGuiScale(nextMultiplier);
         lastUiScale = resolvedUiScale;
         FontManager.setUiScale(resolvedUiScale);
-        sidebar.refreshLabels();
-        contentHeader.refreshLabels();
+        refreshAllLabels();
 
         float logicalW = UiScale.getLogicalWidth(resolvedUiScale);
         float logicalH = UiScale.getLogicalHeight(resolvedUiScale);
         lastLogicalW = logicalW;
         lastLogicalH = logicalH;
+        popupManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
+        tooltipManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
         if (!dragging) {
             if (positionModified || hasSavedWindowPosition()) {
                 clampWindowPosition(logicalW, logicalH);
@@ -554,6 +1349,39 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private static boolean isInside(float px, float py, float x, float y, float w, float h) {
-        return px >= x && px <= x + w && py >= y && py <= y + h;
+        return w > 0.0f && h > 0.0f && px >= x && px <= x + w && py >= y && py <= y + h;
+    }
+
+    private static float clamp(float value, float min, float max) {
+        if (value <= min) {
+            return min;
+        }
+        if (value >= max) {
+            return max;
+        }
+        return value;
+    }
+
+    private static float clamp01(float value) {
+        if (value <= 0.0f || Float.isNaN(value)) {
+            return 0.0f;
+        }
+        if (value >= 1.0f) {
+            return 1.0f;
+        }
+        return value;
+    }
+
+    private static final class GroupHeaderSlot {
+        final Category category;
+        String label = "";
+        boolean active = false;
+        float layoutY = 0.0f;
+        int startCardIndex = 0;
+        int endCardIndex = 0;
+
+        GroupHeaderSlot(Category category) {
+            this.category = category;
+        }
     }
 }
