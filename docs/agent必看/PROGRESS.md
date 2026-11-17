@@ -4,7 +4,23 @@
 
 ## 待决策
 
-- 暂无（首次 GitHub 推送已完成；第 3 步起改为单智能体顺序开发）。
+- 暂无（`build.gradle.kts` 已通过新增 `launchClient` `JavaExec` 任务解决 Gradle 8.8 + Loom `0.10.0.5` 启动报错；若后续升级 Loom 可切回 `runClient`）。
+
+---
+
+## 2026-11-17 · ClickGUI 窗口框架、六大分类、独立缩放与作弊模式门禁（v0.4.0）
+
+- **做了什么**：在实测关修复图集 Mipmap（`GlyphAtlas` Level-1 盒式降采样 + 物理像素基线对齐）后，完成 `03_ClickGUI实现提示词.md §11` 第 3 步及架构扩展：
+  1. **构建修复**：在 `build.gradle.kts` 新增 Java 8 toolchain `launchClient` (`JavaExec`) 任务并禁用受 Gradle 8.8 `AbstractRunTask.getMain()` 校验限制的 `runClient`；
+  2. **六大分类与门禁**：`Category` 重构为 `COMBAT`、`MOVEMENT`（新增，Lucide `wind` 图标）、`VISUAL`、`UI`（由 `HUD` 重命名并兼容读取旧 `"hud"`）、`PERFORMANCE`、`MISC`；`Module` 新增 `toggleable` 与 `requiresCheatMode` / `isAvailable()`，`ModuleManager` 在快捷键与触发路径执行门禁；
+  3. **核心系统模块**：新增 `UI -> ClickGuiModule`（`clickgui`，不可开关配置模块，默认快捷键 `RSHIFT`，`scale` `0.75–2.0` 步进 `0.05` 默认 `1.25x`）与 `UI -> CheatMode`（`cheat_mode`，默认关闭，关闭时自动关闭全部作弊模块并持久化）；将 `CpsDisplay`/`TargetHud` 迁移至 `modules/ui/`；
+  4. **窗口框架与独立缩放**：完成 `ClickGuiScreen` (`720×440`)、`ClickGuiSidebar` (`192` 宽、品牌区、搜索框外观、滑动选中指示条、底部配置档与设置入口)、`ClickGuiContentHeader`、13 枚 Lucide 单色图标、`UiConfig.clickGuiScale` 双向同步及 ClickGUI 内 `Ctrl + 滚轮` ±0.05× 缩放。
+- **改动文件**：`build.gradle.kts`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/{module,config}/*`、`modules/ui/*`、`ui/{clickgui,font,render}/*`、`src/main/resources/assets/hoptimization/{lang,texture/icon}/*`、`docs/agent必看/*`
+- **验证**：`.\gradlew.bat clean build --offline` ✅；`.\gradlew.bat launchClient`（首次联网缓存 `:runtimeClasspath`）与 `.\gradlew.bat launchClient --offline` ✅（`Hoptimization 0.4.0` 初始化 11 模块与 Mixin 正常加载，无 GL/Mixin 错误）；第 3 步框架及中英混排 4 张 1080p 截图目视确认通过
+- **Git**：分支 `feat/clickgui-frame` (`2272fa5`) `--no-ff` 合入 `main` (`dc26e84`)，同步三处版本号 `0.4.0`，标签 `v0.4.0`
+- **回退到上一版本**：`git revert -m 1 dc26e84`（或 `git checkout -b fix/rollback v0.3.0`）
+- **已知问题**：卡片列表区（`ui/component/` 控件与 `ModuleCard`）仍按第 4 步规划留空，待 `v0.5.0` 接入。
+- **下一步**：并行推进 Wave 2：`v0.5.0`（合入 `feat/ui-components` 并实现 `ModuleCard` 与作弊锁定态）与 `v0.6.0`（Combat / Movement+Visual+Perf+Misc / UI-HUD 功能模块集群）。
 
 ---
 
