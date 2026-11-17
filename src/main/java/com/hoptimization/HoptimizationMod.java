@@ -1,7 +1,13 @@
 package com.hoptimization;
 
 import com.hoptimization.core.config.ConfigManager;
+import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.ModuleManager;
+import com.hoptimization.ui.anim.Animation;
+import com.hoptimization.ui.font.FontManager;
+import com.hoptimization.ui.render.UiScale;
+import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeSerializer;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
@@ -25,7 +31,7 @@ import java.io.File;
 public class HoptimizationMod {
     public static final String MODID = "hoptimization";
     public static final String NAME = "Hoptimization";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.3.0";
     public static final Logger LOGGER = LogManager.getLogger(NAME);
 
     private static ModuleManager moduleManager;
@@ -60,6 +66,8 @@ public class HoptimizationMod {
         File configRoot = new File(event.getModConfigurationDirectory(), MODID);
         configManager = new ConfigManager(configRoot, moduleManager);
         configManager.loadAll();
+
+        initializeUiState(configManager.getUiConfig());
 
         moduleManager.setChangeListener(new Runnable() {
             @Override
@@ -101,6 +109,29 @@ public class HoptimizationMod {
             return;
         }
         moduleManager.handleKeyPress(keyCode);
+    }
+
+    private static void initializeUiState(UiConfig uiConfig) {
+        if (configManager == null || uiConfig == null) {
+            return;
+        }
+        ThemeManager themeManager = ThemeManager.getInstance();
+        themeManager.setThemesDirectory(configManager.getThemesDir().toFile());
+
+        Integer accentOverride = null;
+        String rawAccent = uiConfig.getAccentOverride();
+        if (rawAccent != null && !rawAccent.trim().isEmpty()) {
+            accentOverride = ThemeSerializer.parseHex(rawAccent);
+            if (accentOverride == null) {
+                LOGGER.warn("Ignoring invalid accent override '{}' in ui.json", rawAccent);
+            }
+        }
+        themeManager.applyImmediate(uiConfig.getThemeId(), accentOverride);
+        themeManager.setReduceMotion(uiConfig.isReduceMotion());
+        Animation.setReduceMotion(uiConfig.isReduceMotion());
+
+        UiScale.setUserMultiplier(uiConfig.getUiScaleMultiplier());
+        FontManager.setUiScale(UiScale.getScale());
     }
 
     private static void registerShutdownHook() {
