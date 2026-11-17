@@ -1,5 +1,15 @@
 package com.hoptimization.core.module;
 
+import com.hoptimization.modules.combat.ComboCounter;
+import com.hoptimization.modules.combat.HitColor;
+import com.hoptimization.modules.combat.OldAnimations;
+import com.hoptimization.modules.hud.CpsDisplay;
+import com.hoptimization.modules.hud.TargetHud;
+import com.hoptimization.modules.misc.Fullbright;
+import com.hoptimization.modules.performance.ParticleLimit;
+import com.hoptimization.modules.visual.BlockOutline;
+import com.hoptimization.modules.visual.LowFire;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -32,6 +42,21 @@ public class ModuleManager {
             this.byCategory.put(category, list);
             this.byCategoryView.put(category, Collections.unmodifiableList(list));
         }
+    }
+
+    /**
+     * Registers all built-in placeholder and feature modules.
+     */
+    public void registerDefaultModules() {
+        register(new OldAnimations());
+        register(new HitColor());
+        register(new ComboCounter());
+        register(new LowFire());
+        register(new BlockOutline());
+        register(new CpsDisplay());
+        register(new TargetHud());
+        register(new ParticleLimit());
+        register(new Fullbright());
     }
 
     /**

@@ -1,0 +1,150 @@
+# Categories
+category.hoptimization.combat=Combat
+category.hoptimization.visual=Visual
+category.hoptimization.hud=HUD
+category.hoptimization.performance=Performance
+category.hoptimization.misc=Misc
+
+# Modules - Combat
+module.hoptimization.old_animations.name=Old Animations
+module.hoptimization.old_animations.desc=Restores classic 1.7 swing, block, and bow animations
+module.hoptimization.hit_color.name=Hit Color
+module.hoptimization.hit_color.desc=Customizes entity and armor tint color when hit
+module.hoptimization.combo_counter.name=Combo Counter
+module.hoptimization.combo_counter.desc=Tracks and displays consecutive melee hit combos
+
+# Modules - Visual
+module.hoptimization.low_fire.name=Low Fire
+module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
+module.hoptimization.block_outline.name=Block Outline
+module.hoptimization.block_outline.desc=Customizes targeted block outline color, width, and fill
+
+# Modules - HUD
+module.hoptimization.cps_display.name=CPS Display
+module.hoptimization.cps_display.desc=Displays real-time clicks per second on the HUD
+module.hoptimization.target_hud.name=Target HUD
+module.hoptimization.target_hud.desc=Shows health, armor, and status of your current target
+
+# Modules - Performance
+module.hoptimization.particle_limit.name=Particle Limit
+module.hoptimization.particle_limit.desc=Caps active particle count to keep frame rates steady
+
+# Modules - Misc
+module.hoptimization.fullbright.name=Fullbright
+module.hoptimization.fullbright.desc=Increases scene brightness in dark areas
+
+# Settings - Common
+setting.hoptimization.common.keybind.name=Keybind
+setting.hoptimization.common.keybind.desc=Bind a keyboard key to toggle this module
+setting.hoptimization.common.keybind.none=None
+setting.hoptimization.common.keybind.listening=Press a key...
+
+# Settings - Old Animations
+setting.hoptimization.old_animations.swing.name=Swing
+setting.hoptimization.old_animations.block.name=Block
+setting.hoptimization.old_animations.bow.name=Bow
+
+# Settings - Hit Color
+setting.hoptimization.hit_color.color.name=Color
+setting.hoptimization.hit_color.opacity.name=Opacity
+setting.hoptimization.hit_color.mode.name=Mode
+setting.hoptimization.hit_color.mode.option.entity=Entity
+setting.hoptimization.hit_color.mode.option.armor=Armor
+
+# Settings - Combo Counter
+setting.hoptimization.combo_counter.timeout.name=Timeout
+
+# Settings - Low Fire
+setting.hoptimization.low_fire.height.name=Height
+
+# Settings - Block Outline
+setting.hoptimization.block_outline.color.name=Color
+setting.hoptimization.block_outline.line_width.name=Line Width
+setting.hoptimization.block_outline.fill.name=Fill
+
+# Settings - CPS Display
+setting.hoptimization.cps_display.show_right_click.name=Show Right Click
+setting.hoptimization.cps_display.style.name=Style
+setting.hoptimization.cps_display.style.option.card=Card
+setting.hoptimization.cps_display.style.option.text=Plain Text
+
+# Settings - Target HUD
+setting.hoptimization.target_hud.show_armor.name=Show Armor
+setting.hoptimization.target_hud.show_health_number.name=Show Health Value
+setting.hoptimization.target_hud.animate.name=Animation
+
+# Settings - Particle Limit
+setting.hoptimization.particle_limit.limit.name=Limit
+setting.hoptimization.particle_limit.mode.name=Mode
+setting.hoptimization.particle_limit.mode.option.all=All
+setting.hoptimization.particle_limit.mode.option.decreased=Decreased
+setting.hoptimization.particle_limit.mode.option.minimal=Minimal
+setting.hoptimization.particle_limit.mode.option.off=Off
+setting.hoptimization.particle_limit.mode.option.smart=Smart
+
+# Settings - Fullbright
+setting.hoptimization.fullbright.brightness.name=Brightness
+
+# Common UI
+ui.hoptimization.search.placeholder=Search modules
+ui.hoptimization.search.results=Search Results
+ui.hoptimization.search.matches=%d matches
+ui.hoptimization.search.empty=No matching modules found
+ui.hoptimization.module.count=%d modules
+ui.hoptimization.filter.all=All
+ui.hoptimization.filter.enabled=Enabled
+ui.hoptimization.sidebar.settings=Settings
+
+ui.hoptimization.profile.default=Default
+ui.hoptimization.profile.new=New
+ui.hoptimization.profile.duplicate=Duplicate Current
+ui.hoptimization.profile.rename=Rename
+ui.hoptimization.profile.delete=Delete
+
+ui.hoptimization.settings.title=Settings
+ui.hoptimization.settings.theme=Theme
+ui.hoptimization.settings.theme.new=+ New Theme
+ui.hoptimization.settings.theme.import_clipboard=Import from Clipboard
+ui.hoptimization.settings.theme.open_folder=Open Theme Folder
+ui.hoptimization.settings.theme.edit=Edit
+ui.hoptimization.settings.theme.duplicate=Duplicate
+ui.hoptimization.settings.theme.rename=Rename
+ui.hoptimization.settings.theme.export=Export to Clipboard
+ui.hoptimization.settings.theme.delete=Delete
+ui.hoptimization.settings.accent=Accent Color
+ui.hoptimization.settings.accent.follow_theme=Follow Theme
+ui.hoptimization.settings.accent.custom=Custom
+ui.hoptimization.settings.appearance=Appearance
+ui.hoptimization.settings.ui_scale=UI Scale
+ui.hoptimization.settings.reduce_motion=Reduce Motion
+ui.hoptimization.settings.clickgui=ClickGUI
+ui.hoptimization.settings.clickgui.open_key=Open Key
+ui.hoptimization.settings.hud=HUD
+ui.hoptimization.settings.hud.edit_layout=Edit HUD Layout
+ui.hoptimization.settings.about=About
+ui.hoptimization.settings.about.version=Version
+ui.hoptimization.settings.about.open_config_folder=Open Config Folder
+
+ui.hoptimization.theme.graphite=Graphite
+ui.hoptimization.theme.midnight=Midnight
+ui.hoptimization.theme.oled=OLED
+ui.hoptimization.theme.forest=Forest
+ui.hoptimization.theme.mist=Mist
+ui.hoptimization.theme.sand=Sand
+
+ui.hoptimization.common.save=Save
+ui.hoptimization.common.cancel=Cancel
+ui.hoptimization.common.confirm=Confirm
+ui.hoptimization.common.auto=Auto
+ui.hoptimization.common.reset_auto=Reset Auto
+ui.hoptimization.common.discard=Discard
+ui.hoptimization.common.continue_editing=Continue Editing
+
+ui.hoptimization.theme_editor.mode.dark=Dark
+ui.hoptimization.theme_editor.mode.light=Light
+ui.hoptimization.theme_editor.group.surface=Surface
+ui.hoptimization.theme_editor.group.text=Text
+ui.hoptimization.theme_editor.group.accent=Accent
+ui.hoptimization.theme_editor.group.semantic=Semantic
+ui.hoptimization.theme_editor.group.effect=Effects
+ui.hoptimization.theme_editor.group.style=Style

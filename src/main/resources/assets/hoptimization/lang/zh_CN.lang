@@ -1,0 +1,150 @@
+# 分类
+category.hoptimization.combat=战斗
+category.hoptimization.visual=视觉
+category.hoptimization.hud=界面
+category.hoptimization.performance=性能
+category.hoptimization.misc=杂项
+
+# 模块 - 战斗
+module.hoptimization.old_animations.name=旧版动画
+module.hoptimization.old_animations.desc=还原 1.7 的挥剑、格挡与拉弓动画
+module.hoptimization.hit_color.name=命中颜色
+module.hoptimization.hit_color.desc=自定义受击时实体与盔甲的染色效果
+module.hoptimization.combo_counter.name=连击计数
+module.hoptimization.combo_counter.desc=记录并显示连续命中目标的连击次数
+
+# 模块 - 视觉
+module.hoptimization.low_fire.name=低火焰
+module.hoptimization.low_fire.desc=降低着火时屏幕底部火焰的遮挡高度
+module.hoptimization.block_outline.name=方块轮廓
+module.hoptimization.block_outline.desc=自定义准星指向方块的轮廓颜色与填充
+
+# 模块 - 界面
+module.hoptimization.cps_display.name=CPS 显示
+module.hoptimization.cps_display.desc=在屏幕上实时显示每秒鼠标点击次数
+module.hoptimization.target_hud.name=目标信息
+module.hoptimization.target_hud.desc=显示当前攻击目标的血量、护甲与状态
+
+# 模块 - 性能
+module.hoptimization.particle_limit.name=粒子限制
+module.hoptimization.particle_limit.desc=限制同屏粒子数量以维持高帧率稳定
+
+# 模块 - 杂项
+module.hoptimization.fullbright.name=夜视亮度
+module.hoptimization.fullbright.desc=提升黑暗环境下的场景可见亮度
+
+# 设置 - 通用
+setting.hoptimization.common.keybind.name=快捷键
+setting.hoptimization.common.keybind.desc=绑定开关此模块的键盘按键
+setting.hoptimization.common.keybind.none=无
+setting.hoptimization.common.keybind.listening=按下按键…
+
+# 设置 - 旧版动画
+setting.hoptimization.old_animations.swing.name=挥剑
+setting.hoptimization.old_animations.block.name=格挡
+setting.hoptimization.old_animations.bow.name=弓
+
+# 设置 - 命中颜色
+setting.hoptimization.hit_color.color.name=颜色
+setting.hoptimization.hit_color.opacity.name=透明度
+setting.hoptimization.hit_color.mode.name=模式
+setting.hoptimization.hit_color.mode.option.entity=实体
+setting.hoptimization.hit_color.mode.option.armor=盔甲
+
+# 设置 - 连击计数
+setting.hoptimization.combo_counter.timeout.name=超时
+
+# 设置 - 低火焰
+setting.hoptimization.low_fire.height.name=高度
+
+# 设置 - 方块轮廓
+setting.hoptimization.block_outline.color.name=颜色
+setting.hoptimization.block_outline.line_width.name=线宽
+setting.hoptimization.block_outline.fill.name=填充
+
+# 设置 - CPS 显示
+setting.hoptimization.cps_display.show_right_click.name=显示右键
+setting.hoptimization.cps_display.style.name=样式
+setting.hoptimization.cps_display.style.option.card=卡片
+setting.hoptimization.cps_display.style.option.text=纯文本
+
+# 设置 - 目标信息
+setting.hoptimization.target_hud.show_armor.name=显示护甲
+setting.hoptimization.target_hud.show_health_number.name=显示血量数字
+setting.hoptimization.target_hud.animate.name=动画
+
+# 设置 - 粒子限制
+setting.hoptimization.particle_limit.limit.name=上限
+setting.hoptimization.particle_limit.mode.name=模式
+setting.hoptimization.particle_limit.mode.option.all=全部
+setting.hoptimization.particle_limit.mode.option.decreased=减少
+setting.hoptimization.particle_limit.mode.option.minimal=最少
+setting.hoptimization.particle_limit.mode.option.off=关闭
+setting.hoptimization.particle_limit.mode.option.smart=智能
+
+# 设置 - 夜视亮度
+setting.hoptimization.fullbright.brightness.name=亮度
+
+# 通用界面
+ui.hoptimization.search.placeholder=搜索模块
+ui.hoptimization.search.results=搜索结果
+ui.hoptimization.search.matches=%d 个匹配
+ui.hoptimization.search.empty=没有找到相关模块
+ui.hoptimization.module.count=%d 个模块
+ui.hoptimization.filter.all=全部
+ui.hoptimization.filter.enabled=已启用
+ui.hoptimization.sidebar.settings=设置
+
+ui.hoptimization.profile.default=默认配置
+ui.hoptimization.profile.new=新建
+ui.hoptimization.profile.duplicate=复制当前
+ui.hoptimization.profile.rename=重命名
+ui.hoptimization.profile.delete=删除
+
+ui.hoptimization.settings.title=设置
+ui.hoptimization.settings.theme=主题
+ui.hoptimization.settings.theme.new=+ 新建主题
+ui.hoptimization.settings.theme.import_clipboard=从剪贴板导入
+ui.hoptimization.settings.theme.open_folder=打开主题文件夹
+ui.hoptimization.settings.theme.edit=编辑
+ui.hoptimization.settings.theme.duplicate=复制
+ui.hoptimization.settings.theme.rename=重命名
+ui.hoptimization.settings.theme.export=导出到剪贴板
+ui.hoptimization.settings.theme.delete=删除
+ui.hoptimization.settings.accent=强调色
+ui.hoptimization.settings.accent.follow_theme=跟随主题
+ui.hoptimization.settings.accent.custom=自定义
+ui.hoptimization.settings.appearance=外观
+ui.hoptimization.settings.ui_scale=界面缩放
+ui.hoptimization.settings.reduce_motion=减少动效
+ui.hoptimization.settings.clickgui=ClickGUI
+ui.hoptimization.settings.clickgui.open_key=打开按键
+ui.hoptimization.settings.hud=HUD
+ui.hoptimization.settings.hud.edit_layout=编辑 HUD 布局
+ui.hoptimization.settings.about=关于
+ui.hoptimization.settings.about.version=版本
+ui.hoptimization.settings.about.open_config_folder=打开配置文件夹
+
+ui.hoptimization.theme.graphite=石墨
+ui.hoptimization.theme.midnight=午夜
+ui.hoptimization.theme.oled=纯黑 OLED
+ui.hoptimization.theme.forest=松林
+ui.hoptimization.theme.mist=雾白
+ui.hoptimization.theme.sand=暖沙
+
+ui.hoptimization.common.save=保存
+ui.hoptimization.common.cancel=取消
+ui.hoptimization.common.confirm=确认
+ui.hoptimization.common.auto=自动
+ui.hoptimization.common.reset_auto=恢复自动
+ui.hoptimization.common.discard=放弃
+ui.hoptimization.common.continue_editing=继续编辑
+
+ui.hoptimization.theme_editor.mode.dark=深色
+ui.hoptimization.theme_editor.mode.light=浅色
+ui.hoptimization.theme_editor.group.surface=表面
+ui.hoptimization.theme_editor.group.text=文本
+ui.hoptimization.theme_editor.group.accent=强调
+ui.hoptimization.theme_editor.group.semantic=语义
+ui.hoptimization.theme_editor.group.effect=效果
+ui.hoptimization.theme_editor.group.style=风格参数
