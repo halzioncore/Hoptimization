@@ -7,49 +7,46 @@ import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.culling.ClippingHelperImpl;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EnumPlayerModelParts;
 import net.minecraft.item.EnumAction;
+import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MathHelper;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GLContext;
 
 import java.util.List;
 
 /**
- * World-space futuristic mech-cockpit ESP renderer with two-layer depth passes,
- * GLSL 120 facet shading with fixed-function fallback, and zero hot-path allocations.
+ * World-space minimalist monochrome posterized photo and 1px cuboid line-art ESP renderer
+ * with two-pass depth testing, Mixin-safe layer state guards, and zero hot-path allocations.
  */
 public final class EspRenderer {
-    public static final int STYLE_COCKPIT = 0;
-    public static final int STYLE_OVERLAY = 1;
-    public static final int STYLE_WIREFRAME = 2;
     public static final double MAX_RANGE_SQ = 128.0D * 128.0D;
 
     private static final float MODEL_SCALE = 0.0625F;
     private static final float PLAYER_PRE_SCALE = 0.9375F;
     private static final float PLAYER_BASE_OFFSET_Y = -1.5078125F;
-    private static final float OVERLAY_EXPAND = 1.04F;
     private static final float RAD_TO_DEG = 57.295776F;
-    private static final float GROUND_RING_RADIUS = 0.58F;
-    private static final float GROUND_RING_INNER_SCALE = 0.80F;
-
-    private static final float LIGHT_MODEL_X = -0.3196F;
-    private static final float LIGHT_MODEL_Y = -0.7791F;
-    private static final float LIGHT_MODEL_Z = -0.5394F;
+    private static final float CUBOID_PAD = 0.04F;
+    private static final float VISIBLE_LIGHT_MIX = 0.24F;
+    private static final float OCCLUDED_LIGHT_MIX = 0.30F;
+    private static final float VISIBLE_LINE_ALPHA = 0.86F;
+    private static final float OCCLUDED_LINE_ALPHA = 0.42F;
 
     private static final int PART_HEAD = 0;
     private static final int PART_TORSO = 1;
@@ -65,19 +62,16 @@ public final class EspRenderer {
     private static final ClippingHelperImpl CLIPPING_HELPER = new ClippingHelperImpl();
     private static final Frustum FRUSTUM = new Frustum(CLIPPING_HELPER);
     private static final ModelBiped POSE_MODEL = new ModelBiped(0.0F);
+    private static final TargetEntry[] TARGETS = new TargetEntry[MAX_TARGETS];
 
-    private static final VertexFormat POSITION_COLOR_NORMAL = new VertexFormat()
-        .addElement(DefaultVertexFormats.POSITION_3F)
-        .addElement(DefaultVertexFormats.COLOR_4UB)
-        .addElement(DefaultVertexFormats.NORMAL_3B)
-        .addElement(DefaultVertexFormats.PADDING_1B);
-
-    private static final TargetRenderState[] TARGET_STATES = new TargetRenderState[MAX_TARGETS];
-    private static final long START_NANOS = System.nanoTime();
+    private static boolean internalRenderPass = false;
+    private static boolean activeColorPass = false;
+    private static boolean activeDepthMask = true;
+    private static int activeDepthFunc = GL11.GL_LEQUAL;
 
     static {
         for (int i = 0; i < MAX_TARGETS; i++) {
-            TARGET_STATES[i] = new TargetRenderState();
+            TARGETS[i] = new TargetEntry();
         }
     }
 
@@ -85,39 +79,76 @@ public final class EspRenderer {
     }
 
     /**
-     * Renders ESP geometry for all eligible players in world space.
+     * Returns whether the renderer is currently inside an internal ESP entity pass.
      *
-     * @param policy       module target eligibility and color policy
-     * @param styleMode    {@link #STYLE_COCKPIT}, {@link #STYLE_OVERLAY}, or {@link #STYLE_WIREFRAME}
-     * @param throughWalls {@code true} to render occluded pass behind terrain/walls
-     * @param fillOpacity  hull fill opacity in {@code [0, 1]}
-     * @param lineWidth    wireframe stroke width in pixels
-     * @param scanlines    {@code true} to enable animated holographic scanlines in the shader
-     * @param groundRing   {@code true} to draw octagonal tactical ground rings under targets
-     * @param partialTicks current render partial ticks
+     * @return {@code true} while rendering an ESP target entity pass
+     */
+    public static boolean isInternalRenderPass() {
+        return internalRenderPass;
+    }
+
+    /**
+     * Re-applies active depth, blend, and alpha state right before entity layers render so
+     * {@code RendererLivingEntity.doRender}'s unconditional {@code depthMask(true)} cannot
+     * overwrite world wall depth during the occluded pass.
+     */
+    public static void onBeforeRenderLayers() {
+        if (!internalRenderPass) {
+            return;
+        }
+        restorePassGlState();
+    }
+
+    /**
+     * Restores active blend, depth mask, and depth func after {@code RendererLivingEntity.renderLayers}
+     * returns so layers such as {@code LayerArrow} or {@code LayerCape} cannot break pass state.
+     */
+    public static void onAfterRenderLayers() {
+        if (!internalRenderPass) {
+            return;
+        }
+        restorePassGlState();
+    }
+
+    /**
+     * Renders all eligible players as restrained monochrome photo passes and optional 1px cuboid line-art.
+     *
+     * @param policy        module target eligibility policy
+     * @param baseColorArgb monochrome base tint in ARGB format
+     * @param throughWalls  {@code true} to render the muted occluded pass behind terrain/walls
+     * @param fillOpacity   monochrome photo fill opacity in {@code [0, 1]}
+     * @param lineArt       {@code true} to draw 1px cuboid technical line-art around targets
+     * @param lineWidth     line-art stroke width in pixels
+     * @param posterize     {@code true} to quantize luminance into 4 calm tonal blocks
+     * @param partialTicks  current render partial ticks
      */
     public static void render(
         EspTargetPolicy policy,
-        int styleMode,
+        int baseColorArgb,
         boolean throughWalls,
         float fillOpacity,
+        boolean lineArt,
         float lineWidth,
-        boolean scanlines,
-        boolean groundRing,
+        boolean posterize,
         float partialTicks
     ) {
         if (policy == null) {
             return;
         }
+        float clampedFill = clamp01(fillOpacity);
+        boolean drawFill = clampedFill > 0.01F;
+        if (!drawFill && !lineArt) {
+            return;
+        }
+
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.theWorld == null) {
+        if (mc == null || mc.theWorld == null || mc.entityRenderer == null) {
             return;
         }
         RenderManager renderManager = mc.getRenderManager();
         if (renderManager == null) {
             return;
         }
-
         List<EntityPlayer> players = mc.theWorld.playerEntities;
         if (players == null || players.isEmpty()) {
             return;
@@ -140,20 +171,20 @@ public final class EspRenderer {
         CLIPPING_HELPER.init();
         FRUSTUM.setPosition(camX, camY, camZ);
 
-        int targetCount = collectVisibleTargets(
-            policy, mc, players, throughWalls, partialTicks, camX, camY, camZ
-        );
+        int targetCount = collectTargets(policy, mc, players, lineArt, partialTicks, camX, camY, camZ);
         if (targetCount == 0) {
             return;
         }
 
-        int resolvedStyle = normalizeStyle(styleMode);
-        float clampedFill = clamp01(fillOpacity);
         float safeLineWidth = sanitizeLineWidth(lineWidth);
-        float timeSeconds = (float) (((System.nanoTime() - START_NANOS) % 3_600_000_000_000L) * 1.0E-9D);
 
         ContextCapabilities caps = GLContext.getCapabilities();
         boolean hasGl14 = caps != null && caps.OpenGL14;
+        boolean hasGl13 = caps != null && (caps.OpenGL13 || caps.GL_ARB_multitexture);
+        boolean prevRenderShadow = renderManager.isRenderShadow();
+        float prevBrightX = OpenGlHelper.lastBrightnessX;
+        float prevBrightY = OpenGlHelper.lastBrightnessY;
+
         boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         int prevBlendSrcRgb = hasGl14
             ? GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB)
@@ -164,59 +195,94 @@ public final class EspRenderer {
         int prevBlendSrcAlpha = hasGl14 ? GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA) : prevBlendSrcRgb;
         int prevBlendDstAlpha = hasGl14 ? GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA) : prevBlendDstRgb;
 
+        int prevActiveTex = hasGl13 ? GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE) : OpenGlHelper.defaultTexUnit;
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
         boolean wasLighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
         boolean wasAlpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
         boolean wasDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         boolean wasCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         int prevCullMode = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
-        boolean wasPolygonOffsetFill = GL11.glIsEnabled(GL11.GL_POLYGON_OFFSET_FILL);
-        float prevPolyFactor = GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_FACTOR);
-        float prevPolyUnits = GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_UNITS);
-        int prevShadeModel = GL11.glGetInteger(GL11.GL_SHADE_MODEL);
-        float prevLineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
         boolean wasFog = GL11.glIsEnabled(GL11.GL_FOG);
         boolean wasLineSmooth = GL11.glIsEnabled(GL11.GL_LINE_SMOOTH);
+        int prevShadeModel = GL11.glGetInteger(GL11.GL_SHADE_MODEL);
+        float prevLineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
 
         try {
-            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-            GlStateManager.disableTexture2D();
-            GlStateManager.disableLighting();
-            GlStateManager.disableAlpha();
-            GlStateManager.disableFog();
-            GlStateManager.enableDepth();
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(
-                GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                GL11.GL_ONE, GL11.GL_ZERO
-            );
-            GlStateManager.enableCull();
-            GlStateManager.cullFace(GL11.GL_BACK);
-            GlStateManager.shadeModel(GL11.GL_SMOOTH);
+            renderManager.setRenderShadow(false);
+            internalRenderPass = true;
 
-            // Pass 1 (occluded) MUST execute before Pass 2 depth writes so GL_GREATER stays intact.
+            // Pass 1 (occluded, GL_GREATER) must run before Pass 2 depth writes so wall depth stays intact.
             if (throughWalls) {
-                renderOccludedPass(
-                    targetCount, resolvedStyle, clampedFill, safeLineWidth,
-                    scanlines, groundRing, timeSeconds
-                );
+                if (drawFill) {
+                    float occludedAlpha = Math.min(clampedFill * 0.40F, 0.36F);
+                    renderEntityFillPass(
+                        mc, renderManager, targetCount, true, true,
+                        baseColorArgb, occludedAlpha, posterize, true, OCCLUDED_LIGHT_MIX,
+                        GL11.GL_GREATER, partialTicks
+                    );
+                }
+                if (lineArt) {
+                    renderCuboidLinePass(mc, targetCount, baseColorArgb, true, safeLineWidth, GL11.GL_GREATER);
+                }
             }
 
-            renderVisiblePass(
-                targetCount, resolvedStyle, clampedFill, safeLineWidth,
-                scanlines, groundRing, timeSeconds
-            );
+            // Pass 2 (visible, GL_LEQUAL / GL_EQUAL).
+            if (drawFill) {
+                boolean hasOpaque = false;
+                boolean hasInvisible = false;
+                for (int i = 0; i < targetCount; i++) {
+                    if (TARGETS[i].invisible) {
+                        hasInvisible = true;
+                    } else {
+                        hasOpaque = true;
+                    }
+                }
+
+                if (hasOpaque) {
+                    renderDepthPrepass(mc, renderManager, targetCount, partialTicks);
+                    renderEntityFillPass(
+                        mc, renderManager, targetCount, false, false,
+                        baseColorArgb, clampedFill, posterize, false, VISIBLE_LIGHT_MIX,
+                        GL11.GL_EQUAL, partialTicks
+                    );
+                }
+                if (hasInvisible) {
+                    renderEntityFillPass(
+                        mc, renderManager, targetCount, false, true,
+                        baseColorArgb, clampedFill, posterize, false, VISIBLE_LIGHT_MIX,
+                        GL11.GL_LEQUAL, partialTicks
+                    );
+                }
+            }
+
+            if (lineArt) {
+                renderCuboidLinePass(mc, targetCount, baseColorArgb, false, safeLineWidth, GL11.GL_LEQUAL);
+            }
         } finally {
-            EspMechaShader.end();
+            for (int i = 0; i < targetCount; i++) {
+                TARGETS[i].player = null;
+            }
+            internalRenderPass = false;
+            activeColorPass = false;
+            activeDepthMask = true;
+            activeDepthFunc = GL11.GL_LEQUAL;
+            EspSketchShader.end();
+            renderManager.setRenderShadow(prevRenderShadow);
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, prevBrightX, prevBrightY);
+            RenderHelper.disableStandardItemLighting();
+            mc.entityRenderer.disableLightmap();
+            GL11.glLineWidth(prevLineWidth);
+            if (wasLineSmooth) {
+                GL11.glEnable(GL11.GL_LINE_SMOOTH);
+            } else {
+                GL11.glDisable(GL11.GL_LINE_SMOOTH);
+            }
+            GlStateManager.shadeModel(prevShadeModel);
             GlStateManager.depthFunc(GL11.GL_LEQUAL);
             GlStateManager.depthMask(true);
             GlStateManager.colorMask(true, true, true, true);
-            GlStateManager.doPolygonOffset(prevPolyFactor, prevPolyUnits);
-            if (wasPolygonOffsetFill) {
-                GlStateManager.enablePolygonOffset();
-            } else {
-                GlStateManager.disablePolygonOffset();
-            }
+            GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
             GlStateManager.cullFace(prevCullMode);
             if (wasCull) {
                 GlStateManager.enableCull();
@@ -236,12 +302,6 @@ public final class EspRenderer {
             } else {
                 GlStateManager.disableBlend();
             }
-            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-            if (wasTexture2D) {
-                GlStateManager.enableTexture2D();
-            } else {
-                GlStateManager.disableTexture2D();
-            }
             if (wasLighting) {
                 GlStateManager.enableLighting();
             } else {
@@ -257,13 +317,15 @@ public final class EspRenderer {
             } else {
                 GlStateManager.disableFog();
             }
-            if (wasLineSmooth) {
-                GL11.glEnable(GL11.GL_LINE_SMOOTH);
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            if (wasTexture2D) {
+                GlStateManager.enableTexture2D();
             } else {
-                GL11.glDisable(GL11.GL_LINE_SMOOTH);
+                GlStateManager.disableTexture2D();
             }
-            GlStateManager.shadeModel(prevShadeModel);
-            GL11.glLineWidth(prevLineWidth);
+            if (hasGl13) {
+                GlStateManager.setActiveTexture(prevActiveTex);
+            }
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
@@ -272,14 +334,361 @@ public final class EspRenderer {
      * Resets transient renderer and shader pass state on module disable or world unload.
      */
     public static void resetState() {
-        EspMechaShader.end();
+        internalRenderPass = false;
+        activeColorPass = false;
+        activeDepthMask = true;
+        activeDepthFunc = GL11.GL_LEQUAL;
+        for (int i = 0; i < MAX_TARGETS; i++) {
+            TARGETS[i].player = null;
+        }
+        EspSketchShader.end();
     }
 
-    private static int collectVisibleTargets(
+    private static void restorePassGlState() {
+        if (activeColorPass) {
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(
+                GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                GL11.GL_ONE, GL11.GL_ZERO
+            );
+            GlStateManager.enableAlpha();
+            GlStateManager.alphaFunc(GL11.GL_GREATER, 0.003F);
+        } else {
+            GlStateManager.disableBlend();
+            GlStateManager.enableAlpha();
+            GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+        }
+        GlStateManager.depthMask(activeDepthMask);
+        GlStateManager.depthFunc(activeDepthFunc);
+    }
+
+    private static void renderDepthPrepass(
+        Minecraft mc,
+        RenderManager renderManager,
+        int targetCount,
+        float partialTicks
+    ) {
+        activeColorPass = false;
+        activeDepthMask = true;
+        activeDepthFunc = GL11.GL_LEQUAL;
+
+        mc.entityRenderer.enableLightmap();
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
+
+        for (int i = 0; i < targetCount; i++) {
+            TargetEntry entry = TARGETS[i];
+            if (entry.invisible || entry.player == null) {
+                continue;
+            }
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            GlStateManager.enableTexture2D();
+            GlStateManager.colorMask(false, false, false, false);
+            GlStateManager.enableDepth();
+            GlStateManager.depthMask(true);
+            GlStateManager.depthFunc(GL11.GL_LEQUAL);
+            GlStateManager.disableBlend();
+            GlStateManager.enableAlpha();
+            GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+            GlStateManager.disableLighting();
+            GlStateManager.disableFog();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            renderManager.doRenderEntity(
+                entry.player, entry.dx, entry.dy, entry.dz, entry.yaw, partialTicks, true
+            );
+        }
+    }
+
+    private static void renderEntityFillPass(
+        Minecraft mc,
+        RenderManager renderManager,
+        int targetCount,
+        boolean includeOpaque,
+        boolean includeInvisible,
+        int baseColorArgb,
+        float opacity,
+        boolean posterize,
+        boolean isOccluded,
+        float lightMix,
+        int depthFunc,
+        float partialTicks
+    ) {
+        activeColorPass = true;
+        activeDepthMask = false;
+        activeDepthFunc = depthFunc;
+
+        mc.entityRenderer.enableLightmap();
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
+
+        for (int i = 0; i < targetCount; i++) {
+            TargetEntry entry = TARGETS[i];
+            if (entry.player == null) {
+                continue;
+            }
+            if (entry.invisible && !includeInvisible) {
+                continue;
+            }
+            if (!entry.invisible && !includeOpaque) {
+                continue;
+            }
+
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            GlStateManager.enableTexture2D();
+            GlStateManager.colorMask(true, true, true, true);
+            GlStateManager.enableDepth();
+            GlStateManager.depthMask(false);
+            GlStateManager.depthFunc(depthFunc);
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(
+                GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                GL11.GL_ONE, GL11.GL_ZERO
+            );
+            GlStateManager.enableAlpha();
+            GlStateManager.alphaFunc(GL11.GL_GREATER, 0.003F);
+            GlStateManager.disableLighting();
+            GlStateManager.disableFog();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+            EspSketchShader.begin(baseColorArgb, opacity, posterize, isOccluded, lightMix);
+            try {
+                renderManager.doRenderEntity(
+                    entry.player, entry.dx, entry.dy, entry.dz, entry.yaw, partialTicks, true
+                );
+            } finally {
+                EspSketchShader.end();
+            }
+        }
+    }
+
+    private static void renderCuboidLinePass(
+        Minecraft mc,
+        int targetCount,
+        int baseColorArgb,
+        boolean occluded,
+        float lineWidth,
+        int depthFunc
+    ) {
+        mc.entityRenderer.disableLightmap();
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableLighting();
+        GlStateManager.disableAlpha();
+        GlStateManager.disableFog();
+        GlStateManager.colorMask(true, true, true, true);
+        GlStateManager.enableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.depthFunc(depthFunc);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(
+            GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GL11.GL_ONE, GL11.GL_ZERO
+        );
+        GL11.glLineWidth(lineWidth);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+
+        float baseR = ((baseColorArgb >>> 16) & 0xFF) / 255.0F;
+        float baseG = ((baseColorArgb >>> 8) & 0xFF) / 255.0F;
+        float baseB = (baseColorArgb & 0xFF) / 255.0F;
+        float baseLuma = 0.299F * baseR + 0.587F * baseG + 0.114F * baseB;
+
+        // Keep white/bright tints readable with #25272C dark graphite ink; lift darker tints toward #ECEDEE.
+        float lineR;
+        float lineG;
+        float lineB;
+        if (baseLuma > 0.72F) {
+            lineR = baseR + (0.1451F - baseR) * 0.38F;
+            lineG = baseG + (0.1529F - baseG) * 0.38F;
+            lineB = baseB + (0.1725F - baseB) * 0.38F;
+        } else {
+            lineR = baseR + (0.9255F - baseR) * 0.44F;
+            lineG = baseG + (0.9294F - baseG) * 0.44F;
+            lineB = baseB + (0.9333F - baseB) * 0.44F;
+        }
+
+        if (occluded) {
+            float mutedR = baseR * 0.45F + 0.08F;
+            float mutedG = baseG * 0.45F + 0.08F;
+            float mutedB = baseB * 0.45F + 0.08F;
+            lineR = lineR + (mutedR - lineR) * 0.38F;
+            lineG = lineG + (mutedG - lineG) * 0.38F;
+            lineB = lineB + (mutedB - lineB) * 0.38F;
+        }
+
+        float lineAlpha = occluded ? OCCLUDED_LINE_ALPHA : VISIBLE_LINE_ALPHA;
+
+        Tessellator tess = Tessellator.getInstance();
+        WorldRenderer wr = tess.getWorldRenderer();
+
+        for (int i = 0; i < targetCount; i++) {
+            TargetEntry entry = TARGETS[i];
+            if (entry.sleeping || entry.player == null) {
+                continue;
+            }
+            drawTargetCuboids(tess, wr, entry, lineR, lineG, lineB, lineAlpha);
+        }
+    }
+
+    private static void drawTargetCuboids(
+        Tessellator tess,
+        WorldRenderer wr,
+        TargetEntry entry,
+        float r,
+        float g,
+        float b,
+        float alpha
+    ) {
+        pushPlayerBaseTransform(entry);
+        for (int p = 0; p < PART_COUNT; p++) {
+            pushPartTransform(entry, p);
+            float inf = entry.partInflate[p];
+            float minX;
+            float minY;
+            float minZ;
+            float maxX;
+            float maxY;
+            float maxZ;
+            switch (p) {
+                case PART_HEAD:
+                    minX = -4.0F - inf;
+                    minY = -8.0F - inf;
+                    minZ = -4.0F - inf;
+                    maxX = 4.0F + inf;
+                    maxY = 0.0F + inf;
+                    maxZ = 4.0F + inf;
+                    break;
+                case PART_TORSO:
+                    minX = -4.0F - inf;
+                    minY = 0.0F - inf;
+                    minZ = -2.0F - inf;
+                    maxX = 4.0F + inf;
+                    maxY = 12.0F + inf;
+                    maxZ = 2.0F + inf;
+                    break;
+                case PART_RIGHT_ARM:
+                    minX = (entry.slimArms ? -2.0F : -3.0F) - inf;
+                    minY = -2.0F - inf;
+                    minZ = -2.0F - inf;
+                    maxX = 1.0F + inf;
+                    maxY = 10.0F + inf;
+                    maxZ = 2.0F + inf;
+                    break;
+                case PART_LEFT_ARM:
+                    minX = -1.0F - inf;
+                    minY = -2.0F - inf;
+                    minZ = -2.0F - inf;
+                    maxX = (entry.slimArms ? 2.0F : 3.0F) + inf;
+                    maxY = 10.0F + inf;
+                    maxZ = 2.0F + inf;
+                    break;
+                case PART_RIGHT_LEG:
+                case PART_LEFT_LEG:
+                default:
+                    minX = -2.0F - inf;
+                    minY = 0.0F - inf;
+                    minZ = -2.0F - inf;
+                    maxX = 2.0F + inf;
+                    maxY = 12.0F + inf;
+                    maxZ = 2.0F + inf;
+                    break;
+            }
+            drawCuboidWireframe(tess, wr, minX, minY, minZ, maxX, maxY, maxZ, r, g, b, alpha);
+            GlStateManager.popMatrix();
+        }
+        GlStateManager.popMatrix();
+    }
+
+    private static void drawCuboidWireframe(
+        Tessellator tess,
+        WorldRenderer wr,
+        float x0,
+        float y0,
+        float z0,
+        float x1,
+        float y1,
+        float z1,
+        float r,
+        float g,
+        float b,
+        float a
+    ) {
+        wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+        // Top rectangle (y0)
+        wr.pos(x0, y0, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y0, z0).color(r, g, b, a).endVertex();
+
+        // Bottom rectangle (y1)
+        wr.pos(x0, y1, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z1).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y1, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y1, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y1, z0).color(r, g, b, a).endVertex();
+
+        // Vertical edges
+        wr.pos(x0, y0, z0).color(r, g, b, a).endVertex();
+        wr.pos(x0, y1, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z0).color(r, g, b, a).endVertex();
+        wr.pos(x1, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x1, y1, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y0, z1).color(r, g, b, a).endVertex();
+        wr.pos(x0, y1, z1).color(r, g, b, a).endVertex();
+        tess.draw();
+    }
+
+    private static void pushPlayerBaseTransform(TargetEntry entry) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(entry.dx, entry.modelDy, entry.dz);
+        GlStateManager.rotate(180.0F - entry.bodyYaw, 0.0F, 1.0F, 0.0F);
+        if (entry.deathTiltDeg > 0.0F) {
+            GlStateManager.rotate(entry.deathTiltDeg, 0.0F, 0.0F, 1.0F);
+        } else if (entry.flipped) {
+            GlStateManager.translate(0.0F, entry.entityHeight + 0.1F, 0.0F);
+            GlStateManager.rotate(180.0F, 0.0F, 0.0F, 1.0F);
+        }
+        GlStateManager.scale(-1.0F, -1.0F, 1.0F);
+        GlStateManager.scale(PLAYER_PRE_SCALE, PLAYER_PRE_SCALE, PLAYER_PRE_SCALE);
+        GlStateManager.translate(0.0F, PLAYER_BASE_OFFSET_Y, 0.0F);
+        if (entry.sneak) {
+            GlStateManager.translate(0.0F, 0.2F, 0.0F);
+        }
+    }
+
+    private static void pushPartTransform(TargetEntry entry, int partIdx) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(
+            entry.rotPtX[partIdx] * MODEL_SCALE,
+            entry.rotPtY[partIdx] * MODEL_SCALE,
+            entry.rotPtZ[partIdx] * MODEL_SCALE
+        );
+        float rz = entry.rotZ[partIdx];
+        if (rz != 0.0F) {
+            GlStateManager.rotate(rz * RAD_TO_DEG, 0.0F, 0.0F, 1.0F);
+        }
+        float ry = entry.rotY[partIdx];
+        if (ry != 0.0F) {
+            GlStateManager.rotate(ry * RAD_TO_DEG, 0.0F, 1.0F, 0.0F);
+        }
+        float rx = entry.rotX[partIdx];
+        if (rx != 0.0F) {
+            GlStateManager.rotate(rx * RAD_TO_DEG, 1.0F, 0.0F, 0.0F);
+        }
+        GlStateManager.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+    }
+
+    private static int collectTargets(
         EspTargetPolicy policy,
         Minecraft mc,
         List<EntityPlayer> players,
-        boolean throughWalls,
+        boolean solvePose,
         float partialTicks,
         double camX,
         double camY,
@@ -313,39 +722,34 @@ public final class EspRenderer {
                 continue;
             }
 
-            TargetRenderState state = TARGET_STATES[count];
-            populateTargetState(state, policy, mc, player, throughWalls, partialTicks, dx, dy, dz);
+            TargetEntry entry = TARGETS[count];
+            entry.player = player;
+            entry.dx = dx;
+            entry.dy = dy;
+            entry.dz = dz;
+            entry.yaw = player.prevRotationYaw + (player.rotationYaw - player.prevRotationYaw) * partialTicks;
+            entry.invisible = player.isInvisible();
+            entry.sleeping = player.isEntityAlive() && player.isPlayerSleeping();
+            if (solvePose && !entry.sleeping) {
+                populateCuboidPose(entry, mc, player, partialTicks, dy);
+            }
             count++;
         }
         return count;
     }
 
-    private static void populateTargetState(
-        TargetRenderState state,
-        EspTargetPolicy policy,
+    private static void populateCuboidPose(
+        TargetEntry entry,
         Minecraft mc,
         EntityPlayer player,
-        boolean throughWalls,
         float partialTicks,
-        double dx,
-        double dy,
-        double dz
+        double dy
     ) {
         double modelDy = dy;
         if (player.isSneaking() && !(player instanceof EntityPlayerSP)) {
             modelDy -= 0.125D;
         }
-        boolean sleeping = player.isEntityAlive() && player.isPlayerSleeping();
-        if (sleeping) {
-            dx += player.renderOffsetX;
-            modelDy += player.renderOffsetY;
-            dz += player.renderOffsetZ;
-        }
-
-        state.dx = dx;
-        state.dy = modelDy;
-        state.dz = dz;
-        state.ringDy = dy + 0.02D;
+        entry.modelDy = modelDy;
 
         float bodyYaw = interpolateRotation(player.prevRenderYawOffset, player.renderYawOffset, partialTicks);
         float headYaw = interpolateRotation(player.prevRotationYawHead, player.rotationYawHead, partialTicks);
@@ -381,24 +785,20 @@ public final class EspRenderer {
             limbSwingAmount = 1.0F;
         }
 
-        state.sleeping = sleeping;
-        state.bedOrientationDeg = sleeping ? player.getBedOrientationInDegrees() : 0.0F;
-        state.bodyYaw = bodyYaw;
-        state.deathTiltDeg = 0.0F;
-        state.flipped = false;
-        if (!sleeping) {
-            if (player.deathTime > 0) {
-                float f = ((float) player.deathTime + partialTicks - 1.0F) / 20.0F * 1.6F;
-                f = MathHelper.sqrt_float(f);
-                if (f > 1.0F) {
-                    f = 1.0F;
-                }
-                state.deathTiltDeg = f * 90.0F;
-            } else if (isDinnerboneOrGrumm(player.getName()) && player.isWearing(EnumPlayerModelParts.CAPE)) {
-                state.flipped = true;
+        entry.bodyYaw = bodyYaw;
+        entry.deathTiltDeg = 0.0F;
+        entry.flipped = false;
+        if (player.deathTime > 0) {
+            float f = ((float) player.deathTime + partialTicks - 1.0F) / 20.0F * 1.6F;
+            f = MathHelper.sqrt_float(f);
+            if (f > 1.0F) {
+                f = 1.0F;
             }
+            entry.deathTiltDeg = f * 90.0F;
+        } else if (isDinnerboneOrGrumm(player.getName()) && player.isWearing(EnumPlayerModelParts.CAPE)) {
+            entry.flipped = true;
         }
-        state.entityHeight = player.height;
+        entry.entityHeight = player.height;
 
         boolean slimArms = false;
         if (player instanceof AbstractClientPlayer) {
@@ -408,13 +808,13 @@ public final class EspRenderer {
                 slimArms = "slim".equals(DefaultPlayerSkin.getSkinType(player.getUniqueID()));
             }
         }
-        state.slimArms = slimArms;
-        state.sneak = player.isSneaking();
+        entry.slimArms = slimArms;
+        entry.sneak = player.isSneaking();
 
         POSE_MODEL.swingProgress = player.getSwingProgress(partialTicks);
         POSE_MODEL.isRiding = riding;
         POSE_MODEL.isChild = isChild;
-        POSE_MODEL.isSneak = state.sneak;
+        POSE_MODEL.isSneak = entry.sneak;
         POSE_MODEL.heldItemLeft = 0;
         POSE_MODEL.aimedBow = false;
         ItemStack held = player.inventory != null ? player.inventory.getCurrentItem() : null;
@@ -440,553 +840,40 @@ public final class EspRenderer {
             limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, MODEL_SCALE, player
         );
 
-        state.capturePart(PART_HEAD, POSE_MODEL.bipedHead);
-        state.capturePart(PART_TORSO, POSE_MODEL.bipedBody);
-        state.capturePart(PART_RIGHT_ARM, POSE_MODEL.bipedRightArm);
-        state.capturePart(PART_LEFT_ARM, POSE_MODEL.bipedLeftArm);
-        state.capturePart(PART_RIGHT_LEG, POSE_MODEL.bipedRightLeg);
-        state.capturePart(PART_LEFT_LEG, POSE_MODEL.bipedLeftLeg);
+        entry.capturePart(PART_HEAD, POSE_MODEL.bipedHead);
+        entry.capturePart(PART_TORSO, POSE_MODEL.bipedBody);
+        entry.capturePart(PART_RIGHT_ARM, POSE_MODEL.bipedRightArm);
+        entry.capturePart(PART_LEFT_ARM, POSE_MODEL.bipedLeftArm);
+        entry.capturePart(PART_RIGHT_LEG, POSE_MODEL.bipedRightLeg);
+        entry.capturePart(PART_LEFT_LEG, POSE_MODEL.bipedLeftLeg);
 
-        state.visibleArgb = policy.resolveTargetColorArgb(player, false);
-        state.occludedArgb = throughWalls ? policy.resolveTargetColorArgb(player, true) : state.visibleArgb;
+        boolean hasHelmet = hasArmorItem(player, 3);
+        boolean hasChestplate = hasArmorItem(player, 2);
+        boolean hasLeggings = hasArmorItem(player, 1);
+
+        entry.partInflate[PART_HEAD] = (hasHelmet
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.HAT) ? 0.5F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_TORSO] = (hasChestplate
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.JACKET) ? 0.25F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_RIGHT_ARM] = (hasChestplate
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.RIGHT_SLEEVE) ? 0.25F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_LEFT_ARM] = (hasChestplate
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.LEFT_SLEEVE) ? 0.25F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_RIGHT_LEG] = (hasLeggings
+            ? 0.5F
+            : (player.isWearing(EnumPlayerModelParts.RIGHT_PANTS_LEG) ? 0.25F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_LEFT_LEG] = (hasLeggings
+            ? 0.5F
+            : (player.isWearing(EnumPlayerModelParts.LEFT_PANTS_LEG) ? 0.25F : 0.0F)) + CUBOID_PAD;
     }
 
-    private static void renderOccludedPass(
-        int targetCount,
-        int styleMode,
-        float fillOpacity,
-        float lineWidth,
-        boolean scanlines,
-        boolean groundRing,
-        float timeSeconds
-    ) {
-        float partExpand = (styleMode == STYLE_OVERLAY) ? OVERLAY_EXPAND : 1.0F;
-        float fillAlpha;
-        if (styleMode == STYLE_WIREFRAME) {
-            fillAlpha = 0.06F;
-        } else {
-            fillAlpha = (fillOpacity > 0.02F) ? Math.min(0.28F, fillOpacity * 0.35F) : 0.0F;
-        }
-
-        GlStateManager.depthFunc(GL11.GL_GREATER);
-        GlStateManager.depthMask(false);
-        GlStateManager.enableCull();
-
-        if (fillAlpha > 0.005F) {
-            GlStateManager.enablePolygonOffset();
-            GlStateManager.doPolygonOffset(-1.0F, -1.0F);
-            boolean usingShader = EspMechaShader.begin(
-                timeSeconds,
-                scanlines ? 0.35F : 0.0F,
-                0.45F,
-                0.16F
-            );
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetFilledHulls(state, state.occludedArgb, fillAlpha, partExpand, usingShader, 0.16F);
-            }
-            EspMechaShader.end();
-        }
-
-        GlStateManager.disablePolygonOffset();
-        GL11.glLineWidth(lineWidth);
-        GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-        float skeletonAlpha = (styleMode == STYLE_WIREFRAME) ? 0.65F : 0.42F;
-        for (int i = 0; i < targetCount; i++) {
-            TargetRenderState state = TARGET_STATES[i];
-            drawTargetLines(state, state.occludedArgb, 0.82F, 0.85F, skeletonAlpha, partExpand);
-        }
-
-        if (groundRing) {
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawGroundRing(state, state.occludedArgb, 0.48F);
-            }
-        }
-    }
-
-    private static void renderVisiblePass(
-        int targetCount,
-        int styleMode,
-        float fillOpacity,
-        float lineWidth,
-        boolean scanlines,
-        boolean groundRing,
-        float timeSeconds
-    ) {
-        GlStateManager.depthFunc(GL11.GL_LEQUAL);
-        GlStateManager.enableCull();
-
-        if (styleMode == STYLE_COCKPIT) {
-            if (fillOpacity > 0.02F) {
-                // Depth-only prepass makes opaque/translucent armor limbs self-occlude with zero overlap artifacts.
-                GlStateManager.colorMask(false, false, false, false);
-                GlStateManager.depthMask(true);
-                GlStateManager.disableBlend();
-                GlStateManager.enablePolygonOffset();
-                GlStateManager.doPolygonOffset(1.0F, 1.0F);
-                for (int i = 0; i < targetCount; i++) {
-                    drawTargetDepthOnly(TARGET_STATES[i], 1.0F);
-                }
-
-                GlStateManager.colorMask(true, true, true, true);
-                GlStateManager.enableBlend();
-                GlStateManager.tryBlendFuncSeparate(
-                    GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                    GL11.GL_ONE, GL11.GL_ZERO
-                );
-                GlStateManager.depthMask(false);
-                GlStateManager.depthFunc(GL11.GL_LEQUAL);
-
-                boolean usingShader = EspMechaShader.begin(
-                    timeSeconds,
-                    scanlines ? 0.55F : 0.0F,
-                    0.72F,
-                    0.26F
-                );
-                for (int i = 0; i < targetCount; i++) {
-                    TargetRenderState state = TARGET_STATES[i];
-                    drawTargetFilledHulls(state, state.visibleArgb, fillOpacity, 1.0F, usingShader, 0.26F);
-                }
-                EspMechaShader.end();
-                GlStateManager.disablePolygonOffset();
-
-                float accentFillAlpha = Math.max(0.88F, fillOpacity);
-                for (int i = 0; i < targetCount; i++) {
-                    TargetRenderState state = TARGET_STATES[i];
-                    drawTargetAccentFills(state, state.visibleArgb, accentFillAlpha, 1.0F);
-                }
-            }
-
-            GlStateManager.disablePolygonOffset();
-            GlStateManager.depthMask(false);
-            GlStateManager.enableBlend();
-            GL11.glLineWidth(lineWidth);
-            GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetLines(state, state.visibleArgb, 0.94F, 0.98F, 0.48F, 1.0F);
-            }
-        } else if (styleMode == STYLE_OVERLAY) {
-            float overlayAlpha = fillOpacity * 0.48F;
-            GlStateManager.depthMask(false);
-            GlStateManager.enableBlend();
-
-            if (overlayAlpha > 0.01F) {
-                GlStateManager.enablePolygonOffset();
-                GlStateManager.doPolygonOffset(-1.0F, -1.0F);
-                boolean usingShader = EspMechaShader.begin(
-                    timeSeconds,
-                    scanlines ? 0.50F : 0.0F,
-                    0.78F,
-                    0.22F
-                );
-                for (int i = 0; i < targetCount; i++) {
-                    TargetRenderState state = TARGET_STATES[i];
-                    drawTargetFilledHulls(state, state.visibleArgb, overlayAlpha, OVERLAY_EXPAND, usingShader, 0.22F);
-                }
-                EspMechaShader.end();
-
-                for (int i = 0; i < targetCount; i++) {
-                    TargetRenderState state = TARGET_STATES[i];
-                    drawTargetAccentFills(state, state.visibleArgb, 0.85F, OVERLAY_EXPAND);
-                }
-            }
-
-            GlStateManager.disablePolygonOffset();
-            GL11.glLineWidth(lineWidth);
-            GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetLines(state, state.visibleArgb, 0.95F, 0.98F, 0.40F, OVERLAY_EXPAND);
-            }
-        } else {
-            GlStateManager.depthMask(false);
-            GlStateManager.enableBlend();
-            GlStateManager.enablePolygonOffset();
-            GlStateManager.doPolygonOffset(1.0F, 1.0F);
-
-            boolean usingShader = EspMechaShader.begin(
-                timeSeconds,
-                scanlines ? 0.35F : 0.0F,
-                0.65F,
-                0.18F
-            );
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetFilledHulls(state, state.visibleArgb, 0.08F, 1.0F, usingShader, 0.18F);
-            }
-            EspMechaShader.end();
-
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetAccentFills(state, state.visibleArgb, 0.65F, 1.0F);
-            }
-
-            GlStateManager.disablePolygonOffset();
-            GL11.glLineWidth(lineWidth);
-            GL11.glEnable(GL11.GL_LINE_SMOOTH);
-
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawTargetLines(state, state.visibleArgb, 0.98F, 1.00F, 0.74F, 1.0F);
-            }
-        }
-
-        if (groundRing) {
-            for (int i = 0; i < targetCount; i++) {
-                TargetRenderState state = TARGET_STATES[i];
-                drawGroundRing(state, state.visibleArgb, 0.86F);
-            }
-        }
-    }
-
-    private static void pushPlayerBaseTransform(TargetRenderState state) {
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(state.dx, state.dy, state.dz);
-        if (state.sleeping) {
-            GlStateManager.rotate(state.bedOrientationDeg, 0.0F, 1.0F, 0.0F);
-            GlStateManager.rotate(90.0F, 0.0F, 0.0F, 1.0F);
-            GlStateManager.rotate(270.0F, 0.0F, 1.0F, 0.0F);
-        } else {
-            GlStateManager.rotate(180.0F - state.bodyYaw, 0.0F, 1.0F, 0.0F);
-            if (state.deathTiltDeg > 0.0F) {
-                GlStateManager.rotate(state.deathTiltDeg, 0.0F, 0.0F, 1.0F);
-            } else if (state.flipped) {
-                GlStateManager.translate(0.0F, state.entityHeight + 0.1F, 0.0F);
-                GlStateManager.rotate(180.0F, 0.0F, 0.0F, 1.0F);
-            }
-        }
-        GlStateManager.scale(-1.0F, -1.0F, 1.0F);
-        GlStateManager.scale(PLAYER_PRE_SCALE, PLAYER_PRE_SCALE, PLAYER_PRE_SCALE);
-        GlStateManager.translate(0.0F, PLAYER_BASE_OFFSET_Y, 0.0F);
-        if (state.sneak) {
-            GlStateManager.translate(0.0F, 0.2F, 0.0F);
-        }
-    }
-
-    private static void pushPartTransform(
-        TargetRenderState state,
-        int partIdx,
-        EspGeometry.PartMesh mesh,
-        float expand
-    ) {
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(
-            state.rotPtX[partIdx] * MODEL_SCALE,
-            state.rotPtY[partIdx] * MODEL_SCALE,
-            state.rotPtZ[partIdx] * MODEL_SCALE
-        );
-        float rz = state.rotZ[partIdx];
-        if (rz != 0.0F) {
-            GlStateManager.rotate(rz * RAD_TO_DEG, 0.0F, 0.0F, 1.0F);
-        }
-        float ry = state.rotY[partIdx];
-        if (ry != 0.0F) {
-            GlStateManager.rotate(ry * RAD_TO_DEG, 0.0F, 1.0F, 0.0F);
-        }
-        float rx = state.rotX[partIdx];
-        if (rx != 0.0F) {
-            GlStateManager.rotate(rx * RAD_TO_DEG, 1.0F, 0.0F, 0.0F);
-        }
-        GlStateManager.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
-        if (expand != 1.0F) {
-            GlStateManager.translate(mesh.centerX, mesh.centerY, mesh.centerZ);
-            GlStateManager.scale(expand, expand, expand);
-            GlStateManager.translate(-mesh.centerX, -mesh.centerY, -mesh.centerZ);
-        }
-    }
-
-    private static void drawTargetDepthOnly(TargetRenderState state, float expand) {
-        pushPlayerBaseTransform(state);
-        for (int p = 0; p < PART_COUNT; p++) {
-            EspGeometry.PartMesh mesh = selectPartMesh(p, state.slimArms);
-            pushPartTransform(state, p, mesh, expand);
-            drawMeshDepthOnly(mesh);
-            GlStateManager.popMatrix();
-        }
-        GlStateManager.popMatrix();
-    }
-
-    private static void drawTargetFilledHulls(
-        TargetRenderState state,
-        int argb,
-        float alpha,
-        float expand,
-        boolean usingShader,
-        float shadeContrast
-    ) {
-        float r = ((argb >>> 16) & 0xFF) / 255.0F;
-        float g = ((argb >>> 8) & 0xFF) / 255.0F;
-        float b = (argb & 0xFF) / 255.0F;
-
-        pushPlayerBaseTransform(state);
-        for (int p = 0; p < PART_COUNT; p++) {
-            EspGeometry.PartMesh mesh = selectPartMesh(p, state.slimArms);
-            pushPartTransform(state, p, mesh, expand);
-            drawMeshTriangles(mesh, r, g, b, alpha, usingShader, shadeContrast);
-            GlStateManager.popMatrix();
-        }
-        GlStateManager.popMatrix();
-    }
-
-    private static void drawTargetAccentFills(TargetRenderState state, int argb, float alpha, float expand) {
-        float r = ((argb >>> 16) & 0xFF) / 255.0F;
-        float g = ((argb >>> 8) & 0xFF) / 255.0F;
-        float b = (argb & 0xFF) / 255.0F;
-        float glowR = r + (1.0F - r) * 0.72F;
-        float glowG = g + (1.0F - g) * 0.72F;
-        float glowB = b + (1.0F - b) * 0.72F;
-
-        pushPlayerBaseTransform(state);
-        for (int p = 0; p < PART_COUNT; p++) {
-            EspGeometry.PartMesh mesh = selectPartMesh(p, state.slimArms);
-            if (mesh.accentTriCount <= 0) {
-                continue;
-            }
-            pushPartTransform(state, p, mesh, expand);
-            drawAccentTriangles(mesh, glowR, glowG, glowB, alpha);
-            GlStateManager.popMatrix();
-        }
-        GlStateManager.popMatrix();
-    }
-
-    private static void drawTargetLines(
-        TargetRenderState state,
-        int argb,
-        float contourAlpha,
-        float accentAlpha,
-        float skeletonAlpha,
-        float expand
-    ) {
-        float r = ((argb >>> 16) & 0xFF) / 255.0F;
-        float g = ((argb >>> 8) & 0xFF) / 255.0F;
-        float b = (argb & 0xFF) / 255.0F;
-
-        float contourR = r + (1.0F - r) * 0.32F;
-        float contourG = g + (1.0F - g) * 0.32F;
-        float contourB = b + (1.0F - b) * 0.32F;
-
-        float accentR = r + (1.0F - r) * 0.75F;
-        float accentG = g + (1.0F - g) * 0.75F;
-        float accentB = b + (1.0F - b) * 0.75F;
-
-        float skelR = r + (1.0F - r) * 0.48F;
-        float skelG = g + (1.0F - g) * 0.48F;
-        float skelB = b + (1.0F - b) * 0.48F;
-
-        pushPlayerBaseTransform(state);
-        for (int p = 0; p < PART_COUNT; p++) {
-            EspGeometry.PartMesh mesh = selectPartMesh(p, state.slimArms);
-            pushPartTransform(state, p, mesh, expand);
-            drawMeshLineBatch(
-                mesh,
-                contourR, contourG, contourB, contourAlpha,
-                accentR, accentG, accentB, accentAlpha,
-                skelR, skelG, skelB, skeletonAlpha
-            );
-            GlStateManager.popMatrix();
-        }
-        GlStateManager.popMatrix();
-    }
-
-    private static void drawMeshDepthOnly(EspGeometry.PartMesh mesh) {
-        Tessellator tess = Tessellator.getInstance();
-        WorldRenderer wr = tess.getWorldRenderer();
-        wr.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION);
-        float[] verts = mesh.triVerts;
-        int triCount = mesh.triCount;
-        for (int t = 0; t < triCount; t++) {
-            int v = t * 9;
-            wr.pos(verts[v], verts[v + 1], verts[v + 2]).endVertex();
-            wr.pos(verts[v + 3], verts[v + 4], verts[v + 5]).endVertex();
-            wr.pos(verts[v + 6], verts[v + 7], verts[v + 8]).endVertex();
-        }
-        tess.draw();
-    }
-
-    private static void drawMeshTriangles(
-        EspGeometry.PartMesh mesh,
-        float r,
-        float g,
-        float b,
-        float alpha,
-        boolean usingShader,
-        float shadeContrast
-    ) {
-        Tessellator tess = Tessellator.getInstance();
-        WorldRenderer wr = tess.getWorldRenderer();
-        wr.begin(GL11.GL_TRIANGLES, POSITION_COLOR_NORMAL);
-
-        float[] verts = mesh.triVerts;
-        float[] normals = mesh.triNormals;
-        int triCount = mesh.triCount;
-        float floorShade = clamp(1.0F - clamp(shadeContrast, 0.0F, 0.45F), 0.55F, 1.0F);
-
-        for (int t = 0; t < triCount; t++) {
-            int n = t * 3;
-            float nx = normals[n];
-            float ny = normals[n + 1];
-            float nz = normals[n + 2];
-
-            float outR = r;
-            float outG = g;
-            float outB = b;
-            if (!usingShader) {
-                float shade = evaluateFallbackFacetShade(nx, ny, nz, floorShade);
-                outR = clamp01(r * shade);
-                outG = clamp01(g * shade);
-                outB = clamp01(b * shade);
-            }
-
-            int v = t * 9;
-            wr.pos(verts[v], verts[v + 1], verts[v + 2])
-                .color(outR, outG, outB, alpha)
-                .normal(nx, ny, nz)
-                .endVertex();
-            wr.pos(verts[v + 3], verts[v + 4], verts[v + 5])
-                .color(outR, outG, outB, alpha)
-                .normal(nx, ny, nz)
-                .endVertex();
-            wr.pos(verts[v + 6], verts[v + 7], verts[v + 8])
-                .color(outR, outG, outB, alpha)
-                .normal(nx, ny, nz)
-                .endVertex();
-        }
-        tess.draw();
-    }
-
-    private static void drawAccentTriangles(
-        EspGeometry.PartMesh mesh,
-        float r,
-        float g,
-        float b,
-        float alpha
-    ) {
-        Tessellator tess = Tessellator.getInstance();
-        WorldRenderer wr = tess.getWorldRenderer();
-        wr.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
-        float[] verts = mesh.accentTriVerts;
-        int triCount = mesh.accentTriCount;
-        for (int t = 0; t < triCount; t++) {
-            int v = t * 9;
-            wr.pos(verts[v], verts[v + 1], verts[v + 2]).color(r, g, b, alpha).endVertex();
-            wr.pos(verts[v + 3], verts[v + 4], verts[v + 5]).color(r, g, b, alpha).endVertex();
-            wr.pos(verts[v + 6], verts[v + 7], verts[v + 8]).color(r, g, b, alpha).endVertex();
-        }
-        tess.draw();
-    }
-
-    private static void drawMeshLineBatch(
-        EspGeometry.PartMesh mesh,
-        float contourR, float contourG, float contourB, float contourA,
-        float accentR, float accentG, float accentB, float accentA,
-        float skelR, float skelG, float skelB, float skelA
-    ) {
-        Tessellator tess = Tessellator.getInstance();
-        WorldRenderer wr = tess.getWorldRenderer();
-        wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-
-        emitLineSegments(wr, mesh.edgeLines, mesh.edgeLineCount, contourR, contourG, contourB, contourA);
-        emitLineSegments(wr, mesh.accentLines, mesh.accentLineCount, accentR, accentG, accentB, accentA);
-        emitLineSegments(wr, mesh.skeletonLines, mesh.skeletonLineCount, skelR, skelG, skelB, skelA);
-
-        tess.draw();
-    }
-
-    private static void emitLineSegments(
-        WorldRenderer wr,
-        float[] lines,
-        int segmentCount,
-        float r,
-        float g,
-        float b,
-        float a
-    ) {
-        for (int i = 0; i < segmentCount; i++) {
-            int idx = i * 6;
-            wr.pos(lines[idx], lines[idx + 1], lines[idx + 2]).color(r, g, b, a).endVertex();
-            wr.pos(lines[idx + 3], lines[idx + 4], lines[idx + 5]).color(r, g, b, a).endVertex();
-        }
-    }
-
-    private static void drawGroundRing(TargetRenderState state, int argb, float alpha) {
-        float r = ((argb >>> 16) & 0xFF) / 255.0F;
-        float g = ((argb >>> 8) & 0xFF) / 255.0F;
-        float b = (argb & 0xFF) / 255.0F;
-        float ringR = r + (1.0F - r) * 0.35F;
-        float ringG = g + (1.0F - g) * 0.35F;
-        float ringB = b + (1.0F - b) * 0.35F;
-
-        double cx = state.dx;
-        double cy = state.ringDy;
-        double cz = state.dz;
-
-        Tessellator tess = Tessellator.getInstance();
-        WorldRenderer wr = tess.getWorldRenderer();
-        wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-
-        float[] cos = EspGeometry.GROUND_RING_COS;
-        float[] sin = EspGeometry.GROUND_RING_SIN;
-        for (int i = 0; i < EspGeometry.GROUND_RING_SEGMENTS; i++) {
-            double x0 = cx + cos[i] * GROUND_RING_RADIUS;
-            double z0 = cz + sin[i] * GROUND_RING_RADIUS;
-            double x1 = cx + cos[i + 1] * GROUND_RING_RADIUS;
-            double z1 = cz + sin[i + 1] * GROUND_RING_RADIUS;
-            wr.pos(x0, cy, z0).color(ringR, ringG, ringB, alpha).endVertex();
-            wr.pos(x1, cy, z1).color(ringR, ringG, ringB, alpha).endVertex();
-
-            double ix0 = cx + cos[i] * (GROUND_RING_RADIUS * GROUND_RING_INNER_SCALE);
-            double iz0 = cz + sin[i] * (GROUND_RING_RADIUS * GROUND_RING_INNER_SCALE);
-            double ix1 = cx + cos[i + 1] * (GROUND_RING_RADIUS * GROUND_RING_INNER_SCALE);
-            double iz1 = cz + sin[i + 1] * (GROUND_RING_RADIUS * GROUND_RING_INNER_SCALE);
-            wr.pos(ix0, cy, iz0).color(ringR, ringG, ringB, alpha * 0.42F).endVertex();
-            wr.pos(ix1, cy, iz1).color(ringR, ringG, ringB, alpha * 0.42F).endVertex();
-        }
-
-        float[] tickX = EspGeometry.GROUND_TICK_X;
-        float[] tickZ = EspGeometry.GROUND_TICK_Z;
-        for (int i = 0; i < 4; i++) {
-            double x0 = cx + tickX[i * 2] * GROUND_RING_RADIUS;
-            double z0 = cz + tickZ[i * 2] * GROUND_RING_RADIUS;
-            double x1 = cx + tickX[i * 2 + 1] * GROUND_RING_RADIUS;
-            double z1 = cz + tickZ[i * 2 + 1] * GROUND_RING_RADIUS;
-            wr.pos(x0, cy, z0).color(ringR, ringG, ringB, alpha).endVertex();
-            wr.pos(x1, cy, z1).color(ringR, ringG, ringB, alpha).endVertex();
-        }
-
-        tess.draw();
-    }
-
-    private static EspGeometry.PartMesh selectPartMesh(int partIndex, boolean slimArms) {
-        switch (partIndex) {
-            case PART_HEAD:
-                return EspGeometry.HEAD_MESH;
-            case PART_TORSO:
-                return EspGeometry.TORSO_MESH;
-            case PART_RIGHT_ARM:
-                return slimArms ? EspGeometry.RIGHT_ARM_SLIM_MESH : EspGeometry.RIGHT_ARM_DEFAULT_MESH;
-            case PART_LEFT_ARM:
-                return slimArms ? EspGeometry.LEFT_ARM_SLIM_MESH : EspGeometry.LEFT_ARM_DEFAULT_MESH;
-            case PART_RIGHT_LEG:
-                return EspGeometry.RIGHT_LEG_MESH;
-            case PART_LEFT_LEG:
-                return EspGeometry.LEFT_LEG_MESH;
-            default:
-                return EspGeometry.TORSO_MESH;
-        }
-    }
-
-    private static float evaluateFallbackFacetShade(float nx, float ny, float nz, float floorShade) {
-        float ndotl = nx * LIGHT_MODEL_X + ny * LIGHT_MODEL_Y + nz * LIGHT_MODEL_Z;
-        float rawBand = clamp01(ndotl * 0.5F + 0.5F);
-        float s = clamp01((rawBand - 0.32F) / (0.66F - 0.32F));
-        float smooth = s * s * (3.0F - 2.0F * s);
-        float twoTone = rawBand + (smooth - rawBand) * 0.72F;
-        return floorShade + (1.04F - floorShade) * twoTone;
+    private static boolean hasArmorItem(EntityPlayer player, int armorSlot) {
+        ItemStack stack = player.getCurrentArmor(armorSlot);
+        return stack != null && stack.getItem() instanceof ItemArmor;
     }
 
     private static boolean isDinnerboneOrGrumm(String rawName) {
@@ -1025,13 +912,6 @@ public final class EspRenderer {
         return prevAngle + partialTicks * diff;
     }
 
-    private static int normalizeStyle(int styleMode) {
-        if (styleMode == STYLE_OVERLAY || styleMode == STYLE_WIREFRAME) {
-            return styleMode;
-        }
-        return STYLE_COCKPIT;
-    }
-
     private static float sanitizeLineWidth(float lineWidth) {
         if (Float.isNaN(lineWidth) || Float.isInfinite(lineWidth) || lineWidth < 0.5F) {
             return 1.0F;
@@ -1052,34 +932,24 @@ public final class EspRenderer {
         return value;
     }
 
-    private static float clamp(float value, float min, float max) {
-        if (value <= min || Float.isNaN(value)) {
-            return min;
-        }
-        if (value >= max) {
-            return max;
-        }
-        return value;
-    }
-
     /**
      * Pre-allocated per-frame target transform and solved limb pose cache.
      */
-    private static final class TargetRenderState {
+    private static final class TargetEntry {
+        EntityPlayer player;
         double dx;
         double dy;
         double dz;
-        double ringDy;
+        double modelDy;
+        float yaw;
         float bodyYaw;
         float deathTiltDeg;
-        float bedOrientationDeg;
         float entityHeight;
+        boolean invisible;
         boolean sleeping;
         boolean flipped;
         boolean slimArms;
         boolean sneak;
-        int visibleArgb;
-        int occludedArgb;
 
         final float[] rotPtX = new float[PART_COUNT];
         final float[] rotPtY = new float[PART_COUNT];
@@ -1087,6 +957,7 @@ public final class EspRenderer {
         final float[] rotX = new float[PART_COUNT];
         final float[] rotY = new float[PART_COUNT];
         final float[] rotZ = new float[PART_COUNT];
+        final float[] partInflate = new float[PART_COUNT];
 
         void capturePart(int index, ModelRenderer part) {
             this.rotPtX[index] = part.rotationPointX;

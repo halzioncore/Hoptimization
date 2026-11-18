@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 
 /**
- * Policy contract supplied by the ESP module to determine target eligibility and ARGB colors.
+ * Policy contract supplied by the ESP module to determine which players are eligible for rendering.
  */
 public interface EspTargetPolicy {
     /**
@@ -15,13 +15,4 @@ public interface EspTargetPolicy {
      * @return {@code true} if the target should be rendered
      */
     boolean isTargetEligible(EntityPlayer target, Minecraft mc);
-
-    /**
-     * Resolves the ARGB color for a target in either the visible or wall-occluded pass.
-     *
-     * @param target   target player entity
-     * @param occluded {@code true} when resolving the wall-occluded pass color
-     * @return ARGB color integer
-     */
-    int resolveTargetColorArgb(EntityPlayer target, boolean occluded);
 }

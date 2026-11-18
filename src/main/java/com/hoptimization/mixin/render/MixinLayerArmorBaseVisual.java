@@ -1,5 +1,6 @@
 package com.hoptimization.mixin.render;
 
+import com.hoptimization.modules.visual.esp.EspRenderer;
 import com.hoptimization.modules.visual.killeffects.KillEffectsRenderer;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.renderer.entity.layers.LayerArmorBase;
@@ -10,8 +11,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Suppresses enchanted armor glint rendering during internal {@link KillEffectsRenderer} passes
- * so {@link LayerArmorBase} does not reset depth and blend state mid-pass.
+ * Suppresses enchanted armor glint rendering during internal {@link KillEffectsRenderer} and
+ * {@link EspRenderer} passes so {@link LayerArmorBase} does not reset depth and blend state mid-pass.
  */
 @Mixin(LayerArmorBase.class)
 public class MixinLayerArmorBaseVisual {
@@ -19,7 +20,8 @@ public class MixinLayerArmorBaseVisual {
     /**
      * Target: {@code LayerArmorBase.renderGlint(EntityLivingBase, ModelBase, float, ...)} HEAD.
      * Purpose: Prevents enchanted armor glint from resetting depthMask, depthFunc, and blend mid-pass.
-     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()}.
+     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()} and
+     * {@link EspRenderer#isInternalRenderPass()}.
      *
      * @param entitylivingbaseIn rendered living entity
      * @param modelbaseIn armor piece model
@@ -50,7 +52,7 @@ public class MixinLayerArmorBaseVisual {
         float scale,
         CallbackInfo ci
     ) {
-        if (KillEffectsRenderer.isInternalRenderPass()) {
+        if (KillEffectsRenderer.isInternalRenderPass() || EspRenderer.isInternalRenderPass()) {
             ci.cancel();
         }
     }

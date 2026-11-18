@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-18 · 极简亮度单色块与 1px 线稿风格 ESP 重构（v0.9.1）
+
+- **做了什么**：通过 `/swarm` 2 名并行工程师（`esp-sketch-render`、`esp-sketch-module`）与集成/双轮验证完成 `Esp` 极简视觉重构（`esp`，`Category.VISUAL`，默认关闭，`requiresCheatMode = true`，全仓保持 **26 个模块**）：
+  1. **4 档亮度单色块着色器与双通道 1px 线稿渲染器 (`fix/esp-sketch-render`)**：删除 v0.9.0 机甲几何与着色器 `EspGeometry`、`EspMechaShader`、`esp_mecha.{vsh,fsh}`；新增 GLSL 120 着色器 `esp_sketch.{vsh,fsh}` 与 `EspSketchShader`（`#8B7CFF` 静谧紫默认配色、4 档亮度单色照片色块 / 平滑渐变切换、穿墙柔光衰减、光影 `GL_CURRENT_PROGRAM != 0` 旁路与固定管线多纹理组合器单次告警回退）；重写 `EspRenderer` 与解耦策略接口 `EspTargetPolicy`（Pass 1 `GL_GREATER` 穿墙通道与 Pass 2 `GL_LEQUAL` 深度预写 + `GL_EQUAL` 实色通道、`isInvisible()` 直通 `GL_LEQUAL` 保留 0.15 透明、1px `ModelBiped` 6 长方体骨架并适配胸甲双臂及护甲外层外扩、`finally` 全量 GL 状态还原与零热路径分配）。
+  2. **ESP 设置精简、Mixin 守护与 0.9.1 本地化 (`fix/esp-sketch-module`)**：将 `Esp` 精简为 `color`、`through_walls`、`fill_opacity`、`line_art`、`line_width`（`visibleWhen(lineArt)`）、`posterize`、`ignore_teammates`、`filter_bots`、`render_self` 共 9 项设置并保持 `CheatMode` 门禁与零分配目标/队友/假人过滤；新增 `MixinRenderItemVisual` 与 `MixinItemRendererVisual` 并扩展 `MixinRendererLivingEntityVisual` / `MixinLayerArmorBaseVisual`（仅于世界通道抑制原版实体渲染并保留名牌/阴影/`GuiInventory` 纸娃娃、抑制附魔闪光并守卫手持物品与半透明方块 `blend`/`alphaFunc`/`depthMask` 状态防止泄漏至披风/箭矢/头颅层）；对齐 `en_US.lang` / `zh_CN.lang`（各 **228 条**，UTF-8 无 BOM），并同步三处版本号至 `0.9.1`。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`modules/visual/Esp.java`、`modules/visual/esp/{EspTargetPolicy,EspSketchShader,EspRenderer}.java`（删除 `EspGeometry`、`EspMechaShader`）、`mixin/render/{MixinRendererLivingEntityVisual,MixinLayerArmorBaseVisual,MixinRenderItemVisual,MixinItemRendererVisual}.java`、`src/main/resources/assets/hoptimization/shader/{esp_sketch.vsh,esp_sketch.fsh}`（删除 `esp_mecha.{vsh,fsh}`）、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（零 Mixin 警告，生成 `hoptimization-0.9.1.jar` 与完整 `mixins.hoptimization.refmap.json`）；`.\gradlew.bat launchClient --offline --console=plain` 启动与 `26 modules`/全量 Mixin 加载 ✅（日志确认 `Pre-initializing Hoptimization 0.9.1`、`Hoptimization initialized (26 modules).`、`Hoptimization mixins active.` 及 `MixinRenderItemVisual` / `MixinItemRendererVisual` / `MixinRendererLivingEntityVisual` / `MixinLayerArmorBaseVisual` 加载无错误；游戏世界内单色四档照片色块、1px 线稿与穿墙柔和效果待所有者手测）
+- **Git**：分支 `fix/esp-sketch-render` (`c6c2b81` → `3e4a194`、`dd6a06d` → `233eb27`) + `fix/esp-sketch-module` (`6bf237d` → `87e9b87`、`6a85b61` → `35f722d`) → `fix/esp-sketch-redesign` `--no-ff` 合入 `main` (`<merge-short-hash>`)，本地标签 `v0.9.1`，远程 `git push` ⏸ 未推送（待所有者确认）
+- **回退到上一版本**：`git checkout -b fix/rollback v0.9.0`（或从 `v0.9.1` 依次执行 `git revert HEAD && git revert -m 1 <merge-short-hash>`）
+- **已知问题**：游戏世界内 `Esp` 单色四档照片色块、平滑渐变、1px 护甲贴合线稿、手持物品/披风混合及穿墙柔和衰减效果待所有者手测验收；ClickGUI 设置页的 6 主题预览网格、强调色面板、配置档切换弹窗及主题编辑器仍留待后续版本推进。
+- **下一步**：所有者进游戏开启 `UI -> Cheat Mode` 与 `Visual -> ESP` 手测单色线稿透视效果并确认后执行远程推送；后续继续按 `03 §11` 第 5–6 步完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-18 · 新增未来机甲座舱风格 ESP 玩家透视模块（v0.9.0）
 
 - **做了什么**：通过 `/swarm` 2 名并行工程师（`esp-renderer`、`esp-module`）及集成/验证完成 Visual 分类作弊门禁模块 `Esp`（`esp`，默认关闭，`requiresCheatMode = true`），全仓共注册 **26 个模块**：

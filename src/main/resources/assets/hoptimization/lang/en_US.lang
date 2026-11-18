@@ -192,7 +192,7 @@ module.hoptimization.time_changer.desc=Overrides client-side world time visually
 module.hoptimization.kill_effects.name=Kill Effects
 module.hoptimization.kill_effects.desc=Renders Soul Sever or Annihilation visual effects on entity kills
 module.hoptimization.esp.name=ESP
-module.hoptimization.esp.desc=Renders players as sleek futuristic cockpit mecha silhouettes
+module.hoptimization.esp.desc=Renders players as restrained monochrome tonal blocks and 1px sketch lines
 
 # Modules - Performance (Feature Pack)
 module.hoptimization.mouse_delay_fix.name=Mouse Delay Fix
@@ -262,21 +262,12 @@ setting.hoptimization.kill_effects.particles.name=Particles
 setting.hoptimization.kill_effects.sound.name=Sound
 
 # Settings - ESP
-setting.hoptimization.esp.style.name=Style
-setting.hoptimization.esp.style.option.cockpit=Cockpit
-setting.hoptimization.esp.style.option.overlay=Overlay
-setting.hoptimization.esp.style.option.wireframe=Wireframe
+setting.hoptimization.esp.color.name=Color
 setting.hoptimization.esp.through_walls.name=Through Walls
-setting.hoptimization.esp.color_mode.name=Color Mode
-setting.hoptimization.esp.color_mode.option.custom=Custom
-setting.hoptimization.esp.color_mode.option.team=Team
-setting.hoptimization.esp.color_mode.option.health=Health
-setting.hoptimization.esp.visible_color.name=Visible Color
-setting.hoptimization.esp.hidden_color.name=Hidden Color
 setting.hoptimization.esp.fill_opacity.name=Fill Opacity
+setting.hoptimization.esp.line_art.name=Line Art
 setting.hoptimization.esp.line_width.name=Line Width
-setting.hoptimization.esp.scanlines.name=Scanlines
-setting.hoptimization.esp.ground_ring.name=Ground Ring
+setting.hoptimization.esp.posterize.name=Posterize
 setting.hoptimization.esp.ignore_teammates.name=Ignore Teammates
 setting.hoptimization.esp.filter_bots.name=Filter Bots
 setting.hoptimization.esp.render_self.name=Render Self
