@@ -315,3 +315,63 @@ ui.hoptimization.hud.facing.south=南 (+Z)
 ui.hoptimization.hud.facing.west=西 (-X)
 ui.hoptimization.hud.facing.east=东 (+X)
 ui.hoptimization.hud.biome.unknown=平原
+
+# 模块 - v0.11.0 新增
+module.hoptimization.target_ring.name=锁敌光环
+module.hoptimization.target_ring.desc=在当前近战攻击目标周围渲染锁敌光环并强化受击反馈
+module.hoptimization.nametags.name=透视名牌
+module.hoptimization.nametags.desc=以卡片形式透视显示实体名称、距离、血量与装备信息
+module.hoptimization.esp.name=ESP 透视
+module.hoptimization.esp.desc=透视渲染玩家、生物、箱子与床的结构化轮廓
+module.hoptimization.chinese_input.name=中文输入
+module.hoptimization.chinese_input.desc=支持在游戏输入框与 ClickGUI 搜索框调起系统中文输入法
+
+# 设置 - 锁敌光环
+setting.hoptimization.target_ring.style.name=样式
+setting.hoptimization.target_ring.style.option.pulse_ring=脉冲光环
+setting.hoptimization.target_ring.style.option.blade_orbit=旋刃星弧
+setting.hoptimization.target_ring.style.option.scan_pillar=能量扫描
+setting.hoptimization.target_ring.players_only.name=仅限玩家
+setting.hoptimization.target_ring.filter_bots.name=过滤假人
+setting.hoptimization.target_ring.keep_time.name=保留时长
+setting.hoptimization.target_ring.radius_scale.name=半径缩放
+setting.hoptimization.target_ring.line_width.name=线宽
+setting.hoptimization.target_ring.hit_feedback.name=受击反馈
+setting.hoptimization.target_ring.hit_ripple.name=受击波纹
+setting.hoptimization.target_ring.follow_theme.name=跟随主题
+setting.hoptimization.target_ring.ring_color.name=光环颜色
+setting.hoptimization.target_ring.hit_color.name=受击颜色
+
+# 设置 - 透视名牌
+setting.hoptimization.nametags.players.name=玩家
+setting.hoptimization.nametags.mobs.name=生物
+setting.hoptimization.nametags.scale.name=缩放
+setting.hoptimization.nametags.show_health.name=显示血量
+setting.hoptimization.nametags.show_distance.name=显示距离
+setting.hoptimization.nametags.show_armor.name=显示护甲
+setting.hoptimization.nametags.show_invisibles.name=显示隐身
+setting.hoptimization.nametags.filter_bots.name=过滤假人
+setting.hoptimization.nametags.background_opacity.name=背景不透明度
+setting.hoptimization.nametags.follow_theme.name=跟随主题
+
+# 设置 - ESP 透视
+setting.hoptimization.esp.players.name=玩家
+setting.hoptimization.esp.mobs.name=其他生物
+setting.hoptimization.esp.beds.name=床
+setting.hoptimization.esp.chests.name=箱子
+setting.hoptimization.esp.entity_style.name=实体样式
+setting.hoptimization.esp.entity_style.option.corner_bracket=折角框
+setting.hoptimization.esp.entity_style.option.clean_box=简洁全框
+setting.hoptimization.esp.line_width.name=线宽
+setting.hoptimization.esp.fill_opacity.name=填充透明度
+setting.hoptimization.esp.through_walls.name=穿墙透视
+setting.hoptimization.esp.show_health_bar.name=显示血条
+setting.hoptimization.esp.ignore_teammates.name=忽略队友
+setting.hoptimization.esp.filter_bots.name=过滤假人
+setting.hoptimization.esp.block_range.name=方块扫描范围
+setting.hoptimization.esp.follow_theme.name=跟随主题配色
+
+# 设置 - 中文输入
+setting.hoptimization.chinese_input.show_composition_bar.name=显示拼音预编辑条
+setting.hoptimization.chinese_input.enable_in_chat.name=聊天与文本框启用
+setting.hoptimization.chinese_input.enable_in_clickgui.name=ClickGUI 搜索框启用

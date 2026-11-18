@@ -26,7 +26,7 @@ import com.hoptimization.ui.theme.UiTokens;
 public final class ClickGuiSidebar {
     public static final float WIDTH = 192.0f;
     public static final float BRAND_HEIGHT = 56.0f;
-    private static final float SEARCH_HEIGHT = 28.0f;
+    public static final float SEARCH_HEIGHT = 28.0f;
     private static final float ITEM_HEIGHT = 32.0f;
     private static final float ITEM_GAP = UiTokens.SPACE_4;
     private static final float ITEM_MARGIN_H = UiTokens.SPACE_8;
@@ -193,6 +193,74 @@ public final class ClickGuiSidebar {
      */
     public boolean handleSearchKeyTyped(char typedChar, int keyCode) {
         return searchField.keyTyped(typedChar, keyCode);
+    }
+
+    /**
+     * 将带有显式修饰键状态的键盘输入路由到搜索框（供 IME 桥接转发快捷键与导航键）。
+     *
+     * @param typedChar 输入字符
+     * @param keyCode   LWJGL 按键码
+     * @param ctrlDown  Ctrl（或 macOS Cmd）是否按下
+     * @param shiftDown Shift 是否按下
+     * @return 若搜索框聚焦并消费该按键则返回 {@code true}
+     */
+    public boolean handleSearchKeyTyped(char typedChar, int keyCode, boolean ctrlDown, boolean shiftDown) {
+        return searchField.keyTyped(typedChar, keyCode, ctrlDown, shiftDown);
+    }
+
+    /**
+     * 将输入法已提交的文本插入聚焦的搜索框光标处。
+     *
+     * @param text 已提交文本
+     * @return 若搜索框处于聚焦可用状态并处理则返回 {@code true}
+     */
+    public boolean commitSearchText(String text) {
+        return searchField.insertCommittedText(text);
+    }
+
+    /**
+     * 返回搜索框最近渲染的逻辑 X 坐标。
+     *
+     * @return 逻辑 X
+     */
+    public float getSearchBoxX() {
+        return searchField.getX();
+    }
+
+    /**
+     * 返回搜索框最近渲染的逻辑 Y 坐标。
+     *
+     * @return 逻辑 Y
+     */
+    public float getSearchBoxY() {
+        return searchField.getY();
+    }
+
+    /**
+     * 返回搜索框最近渲染的逻辑宽度。
+     *
+     * @return 逻辑宽度
+     */
+    public float getSearchBoxWidth() {
+        return searchField.getWidth();
+    }
+
+    /**
+     * 返回搜索框的逻辑高度。
+     *
+     * @return 逻辑高度
+     */
+    public float getSearchBoxHeight() {
+        return searchField.getHeight();
+    }
+
+    /**
+     * 返回搜索框当前光标在 ClickGUI 逻辑坐标系下的 X 坐标。
+     *
+     * @return 光标逻辑 X
+     */
+    public float getSearchCaretLogicalX() {
+        return searchField.getCaretScreenLogicalX();
     }
 
     /**

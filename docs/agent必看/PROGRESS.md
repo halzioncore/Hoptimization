@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-11-18 · 锁敌光环、透视名牌、结构化 ESP、CPS 统计修复与中文输入支持（v0.11.0）
+
+- **做了什么**：通过 `/swarm` 3 条特性分支（`feat/input-and-cps`、`feat/target-ring-nametags`、`feat/structural-esp`）由 `integrator-3` 合入集成分支 `feat/v0.11.0-integration`，全仓共注册 **30 个模块**（Combat 7 · Movement 2 · Visual 9 · UI 7 · Performance 2 · Misc 3）：
+  1. **AutoClicker CPS 统计修复与 Windows 中文输入支持 (`feat/input-and-cps`, `bc64602`)**：在 `AutoClicker.handleLeftClick` / `handleRightClick` 触发点击后向 `ClickCpsTracker` 记录 LMB/RMB 时间戳；新增默认开启的 Misc 模块 `ChineseInput`（`chinese_input`，含 `show_composition_bar`、`enable_in_chat`、`enable_in_clickgui` 开关并重写 `resetToDefaults()` 保持默认启用）与 `ImeInputBridge`（非模态透明 `JDialog` + `JTextField` 承接 `InputMethodEvent` 与快捷键，支持原版聊天/告示牌/命令方块/未签名书与笔/铁砧/创造搜索栏及 `ClickGuiScreen` 搜索框，热路径通过 `ConcurrentLinkedQueue` / `AtomicReference` 传递并在 `DrawScreenEvent.Post` 渲染跟随主题的拼音预编辑条）；扩展 `TextFieldComponent`、`ClickGuiSidebar` 与 `ClickGuiScreen` 搜索输入及零分配坐标接口。
+  2. **锁敌光环 TargetRing 与透视名牌 Nametags (`feat/target-ring-nametags`, `75c69dd`)**：新增 Combat 模块 `TargetRing`（`target_ring`，单目标近战锁定、260ms 阻尼受击脉冲与可选波纹、`pulse_ring`/`blade_orbit`/`scan_pillar` 三种样式、预计算 `SIN_TABLE`/`COS_TABLE` 零热路径分配及 `try/finally` GL 状态还原）；新增作弊门禁 Visual 模块 `Nametags`（`nametags`，`requiresCheatMode = true`，3D Billboard 透视名牌卡片、距离缩放、血量语义着色与细血条、护甲/手持物品 `RenderItem` 渲染、预分配实体/装备缓冲与可复用 `StringBuilder`）；扩展 `MixinRendererLivingEntityVisual.hoptimization$onCanRenderName` 接入 `Nametags.shouldSuppressVanillaNametag(entity)` 抑制原版重叠名牌。
+  3. **结构化克制风格 ESP 透视 (`feat/structural-esp`, `e1fe669`)**：新增作弊门禁 Visual 模块 `Esp`（`esp`，`requiresCheatMode = true`，13 项设置含 `players`/`mobs`/`beds`/`chests`/`entity_style` 等）、零分配增量床扫描缓存 `BedStructureCache`（`BlockPos.MutableBlockPos` 扫描并配对床头/床尾与 4 向朝向）与 `EspRenderer`（折角框/简洁全框实体轮廓、血条、普通/陷阱/末影箱锁扣特征、床架/床垫/被沿线/枕头结构线与严格 GL 状态恢复）。
+  4. **集成、注册与 v0.11.0 本地化 (`feat/v0.11.0-integration`)**：在 `ModuleManager` 按分类注册 `TargetRing`、`Nametags`、`Esp`、`ChineseInput` 至 **30 个模块**；验证 `ChineseInput` 与 `ConfigManager` 默认开启及配置持久化无冲突、`ClickGuiScreen`/`ClickGuiSidebar` 版本号动态读取 `HoptimizationMod.VERSION`；补齐并 100% 对齐 `en_US.lang` 与 `zh_CN.lang`（各 **292 条**唯一键，UTF-8 无 BOM，含 `TargetRing` = `锁敌光环` / `Target Ring`）；同步 `gradle.properties` 与 `HoptimizationMod.VERSION` 至 `0.11.0`。
+- **改动文件**：`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`mixin/render/MixinRendererLivingEntityVisual.java`、`modules/combat/{AutoClicker,TargetRing}.java`、`modules/misc/ChineseInput.java`、`modules/visual/{Esp,Nametags}.java`、`modules/visual/esp/{BedStructureCache,EspRenderer}.java`、`ui/clickgui/{ClickGuiScreen,ClickGuiSidebar}.java`、`ui/component/TextFieldComponent.java`、`ui/input/ImeInputBridge.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（零编译错误与警告，生成 `build/libs/hoptimization-0.11.0.jar`）；Java 8 集成校验（Zulu JDK 8：`HoptimizationMod.VERSION == "0.11.0"`、`ModuleManager` 注册 30 模块、`en_US.lang` 与 `zh_CN.lang` 各 292 条唯一键 100% 对齐、`ChineseInput` 默认启用与 `ConfigManager` 持久化）✅；`.\gradlew.bat launchClient --offline --console=plain` 未运行（待后续验收实测）
+- **Git**：分支 `feat/input-and-cps` (`bc64602`) + `feat/target-ring-nametags` (`75c69dd`) + `feat/structural-esp` (`e1fe669`) → `feat/v0.11.0-integration`（合并哈希待合入 `main` 并打标签 `v0.11.0` 后补记；推送 ❌ 未推送）
+- **回退到上一版本**：合入 `main` 后可执行 `git revert -m 1 <main合并提交短哈希>`（或 `git checkout -b fix/rollback v0.10.0`）
+- **已知问题**：游戏内 `TargetRing` 三风格锁敌光环、`Nametags` 卡片透视与护甲渲染、`Esp` 结构化实体/箱子/床透视、`AutoClicker` CPS 统计联动及 `ChineseInput` Windows 拼音输入条实机交互待实测验收；ClickGUI 设置页 6 主题预览网格与主题编辑器留待后续版本推进。
+- **下一步**：等待 `@coordinator` 审查并合入 `main`、打标签 `v0.11.0` 后补记合并哈希，随后执行 `launchClient` 与游戏内手测。
+
+---
+
 ## 2026-11-18 · 击杀效果新模式（幻影剑 / 深渊噬魂）与模组独立语言修复（v0.10.0）
 
 - **做了什么**：通过 `/swarm` 2 名并行工程师（`kill-effects-modes`、`mod-language-fix`）与 `@verifier-2` 交叉审查完成 `KillEffects` 双新模式及模组独立语言切换修复集成，全仓保持 **26 个模块**：

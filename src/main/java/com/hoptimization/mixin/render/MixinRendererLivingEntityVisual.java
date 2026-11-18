@@ -1,5 +1,6 @@
 package com.hoptimization.mixin.render;
 
+import com.hoptimization.modules.visual.Nametags;
 import com.hoptimization.modules.visual.killeffects.KillEffectsRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.entity.RendererLivingEntity;
@@ -63,8 +64,10 @@ public abstract class MixinRendererLivingEntityVisual {
 
     /**
      * Target: {@code RendererLivingEntity.canRenderName(EntityLivingBase)} HEAD.
-     * Purpose: Hides entity nametags during internal {@link KillEffectsRenderer} passes.
-     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()}.
+     * Purpose: Hides vanilla entity nametags during internal {@link KillEffectsRenderer} passes
+     * or when {@link Nametags} renders custom billboard cards for the entity.
+     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()} and
+     * {@link Nametags#shouldSuppressVanillaNametag(EntityLivingBase)}.
      *
      * @param entity rendered living entity
      * @param cir return callback controlling nametag visibility
@@ -79,7 +82,7 @@ public abstract class MixinRendererLivingEntityVisual {
         EntityLivingBase entity,
         CallbackInfoReturnable<Boolean> cir
     ) {
-        if (KillEffectsRenderer.isInternalRenderPass()) {
+        if (KillEffectsRenderer.isInternalRenderPass() || Nametags.shouldSuppressVanillaNametag(entity)) {
             cir.setReturnValue(Boolean.FALSE);
         }
     }

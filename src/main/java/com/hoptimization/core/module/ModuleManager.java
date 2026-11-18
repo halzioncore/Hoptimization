@@ -5,7 +5,9 @@ import com.hoptimization.modules.combat.ComboCounter;
 import com.hoptimization.modules.combat.HitColor;
 import com.hoptimization.modules.combat.HitDelayFix;
 import com.hoptimization.modules.combat.OldAnimations;
+import com.hoptimization.modules.combat.TargetRing;
 import com.hoptimization.modules.combat.WTap;
+import com.hoptimization.modules.misc.ChineseInput;
 import com.hoptimization.modules.misc.Fullbright;
 import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.modules.movement.NoJumpDelay;
@@ -20,9 +22,11 @@ import com.hoptimization.modules.ui.FPSDisplay;
 import com.hoptimization.modules.ui.Keystrokes;
 import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.BlockOutline;
+import com.hoptimization.modules.visual.Esp;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.KillEffects;
 import com.hoptimization.modules.visual.LowFire;
+import com.hoptimization.modules.visual.Nametags;
 import com.hoptimization.modules.visual.Theme;
 import com.hoptimization.modules.visual.TimeChanger;
 import com.hoptimization.modules.visual.Zoom;
@@ -71,6 +75,7 @@ public class ModuleManager {
         register(new OldAnimations());
         register(new HitColor());
         register(new ComboCounter());
+        register(new TargetRing());
 
         register(new ToggleSprint());
         register(new NoJumpDelay());
@@ -82,6 +87,8 @@ public class ModuleManager {
         register(new Zoom());
         register(new TimeChanger());
         register(new KillEffects());
+        register(new Nametags());
+        register(new Esp());
 
         register(new ClickGuiModule());
         register(new CheatMode());
@@ -96,6 +103,7 @@ public class ModuleManager {
 
         register(new Fullbright());
         register(new LanguageModule());
+        register(new ChineseInput());
     }
 
     /**
