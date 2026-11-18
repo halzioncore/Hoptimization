@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-18 · 新增未来机甲座舱风格 ESP 玩家透视模块（v0.9.0）
+
+- **做了什么**：通过 `/swarm` 2 名并行工程师（`esp-renderer`、`esp-module`）及集成/验证完成 Visual 分类作弊门禁模块 `Esp`（`esp`，默认关闭，`requiresCheatMode = true`），全仓共注册 **26 个模块**：
+  1. **机甲座舱抽象几何、GLSL 120 着色器与双通道 ESP 渲染器 (`feat/esp-renderer`)**：新增 `EspTargetPolicy`、`EspGeometry`（预计算 8 组倒角关节装甲网格与法线缓冲、`-Z` 额头面罩裂缝与胸腔菱形核心、`+Z` 脊柱凸棱、`default` 4px / `slim` 3px 双手臂规格及脚底战术六边形定位环，`static` 块自检全部 `546` 个三角形外向法线）、`EspMechaShader` 与 `esp_mecha.vsh` / `esp_mecha.fsh`（GLSL 120 菲涅尔边缘发光 + 高度全息扫描线 + 心跳脉冲 + 受伤红闪，含 `GL_CURRENT_PROGRAM != 0` 光影旁路与单次告警固定管线回退），以及 `EspRenderer`（256 槽预分配 `TargetRenderState` 零热路径分配、复刻 1.8.9 `RenderPlayer`/`ModelBiped`/`ModelRenderer` 姿态变换、Pass 1 `GL_GREATER` 穿墙全息态与 Pass 2 `GL_LEQUAL` 可见深度预写/表面着色/高光棱线双通道渲染，以及 `finally` 全量 GL 状态还原）。
+  2. **ESP 模块、作弊门禁、零分配配色与 0.9.0 本地化 (`feat/esp-module`)**：新增 `Esp`（`Category.VISUAL`，`toggleable = true`，`requiresCheatMode = true`），提供 `style`（`cockpit`/`overlay`/`wireframe`）、`through_walls`、`color_mode`（`custom`/`health`/`team`）、`visible_color`、`hidden_color`、`fill_opacity`、`line_width`、`scanlines`、`ground_ring`、`ignore_teammates`、`filter_bots`、`render_self` 共 12 项设置与 `visibleWhen` 动态显隐；`onRenderPlayerPre` 仅在 `cockpit` 且 `renderManager.isRenderShadow()` 为真时抑制世界内原版玩家渲染（保留背包纸娃娃与 `KillEffectsRenderer` 渲染）；`resolveTargetColorArgb` 采用零热路径分配（`ScorePlayerTeam` 前缀/格式与缓存 `getDisplayNameString()` 解析团队色、三段血量插值与穿墙色相/明度衰减），支持 TabList 隐身反作弊假人过滤与队友过滤；在 `ModuleManager` 注册至 **26 个模块**，对齐 `en_US.lang` / `zh_CN.lang`（各 **237 条**，UTF-8 无 BOM），并同步三处版本号至 `0.9.0`。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/visual/Esp.java`、`modules/visual/esp/{EspTargetPolicy,EspGeometry,EspMechaShader,EspRenderer}.java`、`src/main/resources/assets/hoptimization/shader/{esp_mecha.vsh,esp_mecha.fsh}`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（零错误零警告，生成 `hoptimization-0.9.0.jar`）；`.\gradlew.bat launchClient --offline --console=plain` 启动与 `26 modules`/Mixin 初始化 ✅（日志确认 `Pre-initializing Hoptimization 0.9.0`、`Hoptimization initialized (26 modules).`、`Hoptimization mixins active.` 且零模块/Mixin 异常；游戏世界内机甲座舱渲染、穿墙双态配色与热键/ClickGUI 开关交互待所有者手测）
+- **Git**：分支 `feat/esp-renderer` (`dbf0134` → `03a53be`) + `feat/esp-module` (`42fb08c` → `42b1661`、`3575ff9` → `cf22b97`) → `feat/esp` `--no-ff` 合入 `main` (`<merge-short-hash>`)，本地标签 `v0.9.0`，远程 `git push` ⏸ 未推送（待所有者确认）
+- **回退到上一版本**：`git checkout -b fix/rollback v0.8.0`（或从 `v0.9.0` 依次执行 `git revert HEAD && git revert -m 1 <merge-short-hash>`）
+- **已知问题**：游戏世界内 `Esp`（`cockpit`/`overlay`/`wireframe`）机甲座舱渲染、GLSL 着色器实机编译、穿墙双态配色与热键/ClickGUI 开关交互待所有者手测验收；ClickGUI 设置页的 6 主题预览网格、强调色面板、配置档切换弹窗及主题编辑器仍留待后续版本推进。
+- **下一步**：所有者进游戏开启 `UI -> Cheat Mode` 与 `Visual -> ESP` 手测机甲座舱透视效果并确认后执行远程推送；后续继续按 `03 §11` 第 5–6 步完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-18 · 最终击杀触发修复、界面分类中文化与杂项语言切换（v0.8.0）
 
 - **做了什么**：通过 `/swarm` 2 名并行工程师（`final-kill-fix`、`misc-language`）完成修复与新模块开发并集成验证，全仓共注册 **25 个模块**：
