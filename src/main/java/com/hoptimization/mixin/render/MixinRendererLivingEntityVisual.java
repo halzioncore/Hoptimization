@@ -1,7 +1,5 @@
 package com.hoptimization.mixin.render;
 
-import com.hoptimization.modules.visual.Esp;
-import com.hoptimization.modules.visual.esp.EspRenderer;
 import com.hoptimization.modules.visual.killeffects.KillEffectsRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.entity.RendererLivingEntity;
@@ -16,9 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Customizes corpse orientation, ESP original-model suppression, nametag visibility, and blend/depth
- * restoration during internal {@link KillEffectsRenderer} and {@link EspRenderer} passes on
- * {@link RendererLivingEntity}.
+ * Customizes corpse orientation, nametag visibility, and blend restoration during internal
+ * {@link KillEffectsRenderer} passes on {@link RendererLivingEntity}.
  */
 @Mixin(RendererLivingEntity.class)
 public abstract class MixinRendererLivingEntityVisual {
@@ -65,95 +62,9 @@ public abstract class MixinRendererLivingEntityVisual {
     }
 
     /**
-     * Target: {@code RendererLivingEntity.renderModel(EntityLivingBase, float, ...)} HEAD.
-     * Purpose: Suppresses the vanilla world-pass player model when ESP replaces it while preserving nametags
-     * and ground shadows.
-     * Controlled by: {@link Esp#isActive()}, {@link Esp#shouldSuppressOriginalRender},
-     * {@link KillEffectsRenderer#isInternalRenderPass()}, and {@link EspRenderer#isInternalRenderPass()}.
-     *
-     * @param entityLivingBaseIn rendered living entity
-     * @param limbSwing limb swing progress
-     * @param limbSwingAmount limb swing amount
-     * @param ageInTicks entity animation tick age
-     * @param netHeadYaw relative head yaw
-     * @param headPitch head pitch
-     * @param scaleFactor model scale factor
-     * @param ci mixin callback info
-     */
-    @Inject(
-        method = "renderModel(Lnet/minecraft/entity/EntityLivingBase;FFFFFF)V",
-        at = @At("HEAD"),
-        cancellable = true,
-        require = 0
-    )
-    private void hoptimization$onRenderModel(
-        EntityLivingBase entityLivingBaseIn,
-        float limbSwing,
-        float limbSwingAmount,
-        float ageInTicks,
-        float netHeadYaw,
-        float headPitch,
-        float scaleFactor,
-        CallbackInfo ci
-    ) {
-        if (!KillEffectsRenderer.isInternalRenderPass()
-            && !EspRenderer.isInternalRenderPass()
-            && Esp.isActive()
-            && Esp.shouldSuppressOriginalRender(entityLivingBaseIn)) {
-            ci.cancel();
-        }
-    }
-
-    /**
-     * Target: {@code RendererLivingEntity.renderLayers(EntityLivingBase, float, ...)} HEAD.
-     * Purpose: Restores ESP pass depth/blend state before layer rendering during internal {@link EspRenderer}
-     * passes, and suppresses vanilla world-pass armor/held-item layers for players replaced by ESP.
-     * Controlled by: {@link Esp#isActive()}, {@link Esp#shouldSuppressOriginalRender},
-     * {@link KillEffectsRenderer#isInternalRenderPass()}, and {@link EspRenderer#isInternalRenderPass()}.
-     *
-     * @param entityLivingBaseIn rendered living entity
-     * @param limbSwing limb swing progress
-     * @param limbSwingAmount limb swing amount
-     * @param partialTicks render partial tick time
-     * @param ageInTicks entity animation tick age
-     * @param netHeadYaw relative head yaw
-     * @param headPitch head pitch
-     * @param scaleFactor model scale factor
-     * @param ci mixin callback info
-     */
-    @Inject(
-        method = "renderLayers(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
-        at = @At("HEAD"),
-        cancellable = true,
-        require = 0
-    )
-    private void hoptimization$onRenderLayersHead(
-        EntityLivingBase entityLivingBaseIn,
-        float limbSwing,
-        float limbSwingAmount,
-        float partialTicks,
-        float ageInTicks,
-        float netHeadYaw,
-        float headPitch,
-        float scaleFactor,
-        CallbackInfo ci
-    ) {
-        if (EspRenderer.isInternalRenderPass()) {
-            EspRenderer.onBeforeRenderLayers();
-            return;
-        }
-        if (!KillEffectsRenderer.isInternalRenderPass()
-            && Esp.isActive()
-            && Esp.shouldSuppressOriginalRender(entityLivingBaseIn)) {
-            ci.cancel();
-        }
-    }
-
-    /**
      * Target: {@code RendererLivingEntity.canRenderName(EntityLivingBase)} HEAD.
-     * Purpose: Hides entity nametags during internal {@link KillEffectsRenderer} and {@link EspRenderer} passes.
-     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()} and
-     * {@link EspRenderer#isInternalRenderPass()}.
+     * Purpose: Hides entity nametags during internal {@link KillEffectsRenderer} passes.
+     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()}.
      *
      * @param entity rendered living entity
      * @param cir return callback controlling nametag visibility
@@ -168,16 +79,15 @@ public abstract class MixinRendererLivingEntityVisual {
         EntityLivingBase entity,
         CallbackInfoReturnable<Boolean> cir
     ) {
-        if (KillEffectsRenderer.isInternalRenderPass() || EspRenderer.isInternalRenderPass()) {
+        if (KillEffectsRenderer.isInternalRenderPass()) {
             cir.setReturnValue(Boolean.FALSE);
         }
     }
 
     /**
      * Target: {@code RendererLivingEntity.renderLayers(EntityLivingBase, float, ...)} RETURN.
-     * Purpose: Restores blending and depth state after armor/held-item layers during internal effect passes.
-     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()} and
-     * {@link EspRenderer#isInternalRenderPass()}.
+     * Purpose: Restores alpha blending state after armor/held-item layers during internal kill-effect passes.
+     * Controlled by: {@link KillEffectsRenderer#isInternalRenderPass()}.
      *
      * @param entityLivingBaseIn rendered living entity
      * @param limbSwing limb swing progress
@@ -207,9 +117,6 @@ public abstract class MixinRendererLivingEntityVisual {
     ) {
         if (KillEffectsRenderer.isInternalRenderPass()) {
             KillEffectsRenderer.onAfterRenderLayers();
-        }
-        if (EspRenderer.isInternalRenderPass()) {
-            EspRenderer.onAfterRenderLayers();
         }
     }
 }

@@ -191,8 +191,6 @@ module.hoptimization.time_changer.name=Time Changer
 module.hoptimization.time_changer.desc=Overrides client-side world time visually without server impact
 module.hoptimization.kill_effects.name=Kill Effects
 module.hoptimization.kill_effects.desc=Renders Soul Sever or Annihilation visual effects on entity kills
-module.hoptimization.esp.name=ESP
-module.hoptimization.esp.desc=Renders players as restrained monochrome tonal blocks and 1px sketch lines
 
 # Modules - Performance (Feature Pack)
 module.hoptimization.mouse_delay_fix.name=Mouse Delay Fix
@@ -260,17 +258,6 @@ setting.hoptimization.kill_effects.soul_color.name=Soul Color
 setting.hoptimization.kill_effects.weapon_scale.name=Weapon Scale
 setting.hoptimization.kill_effects.particles.name=Particles
 setting.hoptimization.kill_effects.sound.name=Sound
-
-# Settings - ESP
-setting.hoptimization.esp.color.name=Color
-setting.hoptimization.esp.through_walls.name=Through Walls
-setting.hoptimization.esp.fill_opacity.name=Fill Opacity
-setting.hoptimization.esp.line_art.name=Line Art
-setting.hoptimization.esp.line_width.name=Line Width
-setting.hoptimization.esp.posterize.name=Posterize
-setting.hoptimization.esp.ignore_teammates.name=Ignore Teammates
-setting.hoptimization.esp.filter_bots.name=Filter Bots
-setting.hoptimization.esp.render_self.name=Render Self
 
 # Settings - UI HUD Modules
 setting.hoptimization.target_hud.style.name=Style
