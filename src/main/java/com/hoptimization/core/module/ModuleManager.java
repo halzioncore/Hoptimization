@@ -20,6 +20,7 @@ import com.hoptimization.modules.ui.FPSDisplay;
 import com.hoptimization.modules.ui.Keystrokes;
 import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.BlockOutline;
+import com.hoptimization.modules.visual.Esp;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.KillEffects;
 import com.hoptimization.modules.visual.LowFire;
@@ -80,6 +81,7 @@ public class ModuleManager {
         register(new Zoom());
         register(new TimeChanger());
         register(new KillEffects());
+        register(new Esp());
 
         register(new ClickGuiModule());
         register(new CheatMode());
