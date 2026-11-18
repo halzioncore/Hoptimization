@@ -327,11 +327,23 @@ public class TextFieldComponent extends UiComponent {
 
     @Override
     public boolean keyTyped(char typedChar, int keyCode) {
+        return keyTyped(typedChar, keyCode, isCtrlDown(), isShiftDown());
+    }
+
+    /**
+     * Processes a key press using explicit modifier flags so bridged AWT/IME input behaves identically
+     * to direct LWJGL keyboard events.
+     *
+     * @param typedChar typed character
+     * @param keyCode   LWJGL key code
+     * @param ctrl      whether Ctrl (or Cmd on macOS) is pressed
+     * @param shift     whether Shift is pressed
+     * @return {@code true} if handled while enabled and focused
+     */
+    public boolean keyTyped(char typedChar, int keyCode, boolean ctrl, boolean shift) {
         if (!this.enabled || !this.focused) {
             return false;
         }
-        boolean ctrl = isCtrlDown();
-        boolean shift = isShiftDown();
 
         if (keyCode == Keyboard.KEY_ESCAPE) {
             setFocused(false);
@@ -610,6 +622,38 @@ public class TextFieldComponent extends UiComponent {
     }
 
     /**
+     * Returns the current caret logical X coordinate, clamped within the text area bounds.
+     *
+     * @return caret logical X coordinate
+     */
+    public float getCaretScreenLogicalX() {
+        if (this.lastTextAreaX <= 0.0f) {
+            return this.x + UiTokens.PADDING_CONTROL;
+        }
+        float cursorDrawX = this.lastTextAreaX + this.cachedCursorPx - this.scrollOffsetX;
+        float rightEdge = Math.max(this.lastTextAreaX, this.x + this.width - UiTokens.PADDING_CONTROL);
+        return clamp(cursorDrawX, this.lastTextAreaX, rightEdge);
+    }
+
+    /**
+     * Inserts committed text (such as IME CJK output) at the caret or replaces the active selection.
+     *
+     * @param text committed string from input method
+     * @return {@code true} if accepted while enabled and focused
+     */
+    public boolean insertCommittedText(String text) {
+        if (!this.enabled || !this.focused) {
+            return false;
+        }
+        if (text == null || text.isEmpty()) {
+            return true;
+        }
+        insertFilteredText(text);
+        resetBlink();
+        return true;
+    }
+
+    /**
      * Sets the listener notified whenever text changes via user input or {@link #setText(String)}.
      *
      * @param textChangeListener listener instance
@@ -813,6 +857,10 @@ public class TextFieldComponent extends UiComponent {
         if (raw == null || raw.isEmpty()) {
             return;
         }
+        insertFilteredText(raw);
+    }
+
+    private void insertFilteredText(String raw) {
         StringBuilder filtered = new StringBuilder(raw.length());
         int insertAt = Math.min(this.cursorIndex, this.selectionAnchor);
         for (int i = 0; i < raw.length(); i++) {
@@ -820,7 +868,7 @@ public class TextFieldComponent extends UiComponent {
             if (!isAllowedInputChar(c)) {
                 continue;
             }
-            if (this.charFilter != null && !this.charFilter.accept(c, this.text, insertAt)) {
+            if (this.charFilter != null && !this.charFilter.accept(c, this.text, insertAt + filtered.length())) {
                 continue;
             }
             filtered.append(c);

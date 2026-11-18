@@ -1138,6 +1138,99 @@ public class ClickGuiScreen extends GuiScreen {
         return this.sidebar.hasSearchQuery();
     }
 
+    /**
+     * Returns whether the sidebar search box is actively focused for text or IME input.
+     *
+     * @return {@code true} when search is focused and not blocked by closing, popups, or capture states
+     */
+    public boolean isSearchFocused() {
+        return !this.closing
+            && this.sidebar.isSearchFocused()
+            && !this.popupManager.hasActivePopup()
+            && !hasActiveKeybindCapture()
+            && !hasActiveInlineNumberEdit();
+    }
+
+    /**
+     * Commits IME-composed text into the sidebar search box while focused.
+     *
+     * @param text committed text string
+     * @return {@code true} if inserted into the focused search field
+     */
+    public boolean commitSearchText(String text) {
+        if (!isSearchFocused()) {
+            return false;
+        }
+        return this.sidebar.commitSearchText(text);
+    }
+
+    /**
+     * Alias for {@link #commitSearchText(String)} exposed for IME input bridges.
+     *
+     * @param text committed text string
+     * @return {@code true} if inserted into the focused search field
+     */
+    public boolean commitImeText(String text) {
+        return commitSearchText(text);
+    }
+
+    /**
+     * Dispatches a bridged special/shortcut key (such as Escape, Backspace, or Ctrl+A/C/V/X) to the search box.
+     *
+     * @param typedChar character value (or {@code '\0'})
+     * @param keyCode   LWJGL key code
+     * @param ctrlDown  whether Ctrl (or Cmd on macOS) is held
+     * @param shiftDown whether Shift is held
+     * @return {@code true} if handled
+     */
+    public boolean handleImeKeyTyped(char typedChar, int keyCode, boolean ctrlDown, boolean shiftDown) {
+        if (!isSearchFocused()) {
+            return false;
+        }
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            if (this.sidebar.hasSearchQuery()) {
+                this.sidebar.clearSearch();
+            }
+            this.sidebar.unfocusSearch();
+            return true;
+        }
+        return this.sidebar.handleSearchKeyTyped(typedChar, keyCode, ctrlDown, shiftDown);
+    }
+
+    /**
+     * Populates {@code outBounds} with {@code [boxX, boxY, boxW, boxH, caretX, clickGuiUiScale]} in
+     * ClickGUI logical pixels without allocating heap objects.
+     *
+     * @param outBounds pre-allocated array of length at least 6
+     * @return {@code true} if bounds were written
+     */
+    public boolean getSearchBoxLogicalBounds(float[] outBounds) {
+        if (outBounds == null || outBounds.length < 6) {
+            return false;
+        }
+        float uiScale = this.lastUiScale > 0.0f ? this.lastUiScale : resolveClickGuiScale();
+        float boxW = this.sidebar.getSearchBoxWidth();
+        float boxH = this.sidebar.getSearchBoxHeight();
+        float boxX = boxW > 0.0f ? this.sidebar.getSearchBoxX() : (this.windowX + UiTokens.SPACE_12);
+        float boxY = boxH > 0.0f ? this.sidebar.getSearchBoxY() : (this.windowY + ClickGuiSidebar.BRAND_HEIGHT);
+        if (boxW <= 0.0f) {
+            boxW = ClickGuiSidebar.WIDTH - UiTokens.SPACE_12 * 2.0f;
+        }
+        if (boxH <= 0.0f) {
+            boxH = ClickGuiSidebar.SEARCH_HEIGHT;
+        }
+        float caretX = this.sidebar.getSearchBoxWidth() > 0.0f
+            ? this.sidebar.getSearchCaretLogicalX()
+            : (boxX + UiTokens.PADDING_CONTROL);
+        outBounds[0] = boxX;
+        outBounds[1] = boxY;
+        outBounds[2] = boxW;
+        outBounds[3] = boxH;
+        outBounds[4] = caretX;
+        outBounds[5] = uiScale;
+        return true;
+    }
+
     private boolean hasActiveKeybindCapture() {
         for (int i = 0; i < this.allCards.size(); i++) {
             if (this.allCards.get(i).isListeningKeybind()) {
