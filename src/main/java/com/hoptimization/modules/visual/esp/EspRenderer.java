@@ -857,10 +857,12 @@ public final class EspRenderer {
         entry.partInflate[PART_TORSO] = (hasChestplate
             ? 1.0F
             : (player.isWearing(EnumPlayerModelParts.JACKET) ? 0.25F : 0.0F)) + CUBOID_PAD;
-        entry.partInflate[PART_RIGHT_ARM] = (player.isWearing(EnumPlayerModelParts.RIGHT_SLEEVE)
-            ? 0.25F : 0.0F) + CUBOID_PAD;
-        entry.partInflate[PART_LEFT_ARM] = (player.isWearing(EnumPlayerModelParts.LEFT_SLEEVE)
-            ? 0.25F : 0.0F) + CUBOID_PAD;
+        entry.partInflate[PART_RIGHT_ARM] = (hasChestplate
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.RIGHT_SLEEVE) ? 0.25F : 0.0F)) + CUBOID_PAD;
+        entry.partInflate[PART_LEFT_ARM] = (hasChestplate
+            ? 1.0F
+            : (player.isWearing(EnumPlayerModelParts.LEFT_SLEEVE) ? 0.25F : 0.0F)) + CUBOID_PAD;
         entry.partInflate[PART_RIGHT_LEG] = (hasLeggings
             ? 0.5F
             : (player.isWearing(EnumPlayerModelParts.RIGHT_PANTS_LEG) ? 0.25F : 0.0F)) + CUBOID_PAD;
