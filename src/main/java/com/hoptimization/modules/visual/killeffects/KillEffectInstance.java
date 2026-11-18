@@ -9,6 +9,8 @@ import net.minecraft.item.ItemStack;
 public final class KillEffectInstance {
     public static final int MODE_SOUL_SEVER = 0;
     public static final int MODE_ANNIHILATION = 1;
+    public static final int MODE_PHANTOM_SWORDS = 2;
+    public static final int MODE_ABYSS_VORTEX = 3;
 
     public boolean active;
     public int mode;

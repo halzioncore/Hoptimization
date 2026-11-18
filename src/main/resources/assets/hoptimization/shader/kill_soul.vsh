@@ -14,6 +14,7 @@ void main() {
     gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;
 
     vec4 eyePos4 = gl_ModelViewMatrix * gl_Vertex;
+    gl_ClipVertex = eyePos4;
     v_EyePos = eyePos4.xyz;
 
     vec3 rawNormal = gl_NormalMatrix * gl_Normal;
