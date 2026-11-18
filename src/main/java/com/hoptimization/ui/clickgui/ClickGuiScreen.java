@@ -6,6 +6,7 @@ import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.module.ModuleManager;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.modules.ui.ClickGuiModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
@@ -119,6 +120,7 @@ public class ClickGuiScreen extends GuiScreen {
     private float lastUiScale = -1.0f;
     private float lastLogicalW = -1.0f;
     private float lastLogicalH = -1.0f;
+    private int lastLanguageRevision = LanguageModule.getLanguageRevision();
 
     /**
      * 构造 ClickGUI 屏幕并预分配分类容器与搜索监听器。
@@ -161,6 +163,7 @@ public class ClickGuiScreen extends GuiScreen {
 
         ensureCardsInitialized();
         refreshAllLabels();
+        lastLanguageRevision = LanguageModule.getLanguageRevision();
 
         float logicalW = UiScale.getLogicalWidth(uiScale);
         float logicalH = UiScale.getLogicalHeight(uiScale);
@@ -241,11 +244,21 @@ public class ClickGuiScreen extends GuiScreen {
             return;
         }
 
+        int languageRevision = LanguageModule.getLanguageRevision();
+        boolean needsLabelRefresh = false;
+        if (languageRevision != this.lastLanguageRevision) {
+            this.lastLanguageRevision = languageRevision;
+            needsLabelRefresh = true;
+        }
+
         ScaledResolution sr = new ScaledResolution(mc);
         float uiScale = resolveClickGuiScale();
         if (Math.abs(uiScale - lastUiScale) > 0.0001f) {
             lastUiScale = uiScale;
             FontManager.setUiScale(uiScale);
+            needsLabelRefresh = true;
+        }
+        if (needsLabelRefresh) {
             refreshAllLabels();
         }
 
@@ -1016,7 +1029,10 @@ public class ClickGuiScreen extends GuiScreen {
         this.displayListDirty = true;
     }
 
-    private void refreshAllLabels() {
+    /**
+     * 刷新 ClickGUI 内所有缓存的本地化文案与控件尺寸。
+     */
+    public void refreshAllLabels() {
         this.sidebar.refreshLabels();
         this.contentHeader.refreshLabels();
         this.emptySearchLabel = I18n.format("ui.hoptimization.search.empty");

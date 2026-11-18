@@ -2,7 +2,7 @@
 category.hoptimization.combat=战斗
 category.hoptimization.movement=移动
 category.hoptimization.visual=视觉
-category.hoptimization.ui=UI
+category.hoptimization.ui=界面
 category.hoptimization.performance=性能
 category.hoptimization.misc=杂项
 
@@ -37,6 +37,8 @@ module.hoptimization.particle_limit.desc=限制同屏粒子数量以维持高帧
 # 模块 - 杂项
 module.hoptimization.fullbright.name=夜视亮度
 module.hoptimization.fullbright.desc=提升黑暗环境下的场景可见亮度
+module.hoptimization.language.name=语言
+module.hoptimization.language.desc=在客户端内快速切换游戏与模组语言（中文 / 英文）
 
 # 设置 - 通用
 setting.hoptimization.common.keybind.name=快捷键
@@ -92,6 +94,12 @@ setting.hoptimization.particle_limit.mode.option.smart=智能
 
 # 设置 - 夜视亮度
 setting.hoptimization.fullbright.brightness.name=亮度
+
+# 设置 - 语言
+setting.hoptimization.language.language.name=语言
+setting.hoptimization.language.language.option.auto=跟随游戏
+setting.hoptimization.language.language.option.zh_cn=中文
+setting.hoptimization.language.language.option.en_us=English
 
 # 通用界面
 ui.hoptimization.search.placeholder=搜索模块
