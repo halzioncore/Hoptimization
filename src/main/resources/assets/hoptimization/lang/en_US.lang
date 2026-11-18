@@ -15,6 +15,8 @@ module.hoptimization.combo_counter.name=Combo Counter
 module.hoptimization.combo_counter.desc=Tracks and displays consecutive melee hit combos
 
 # Modules - Visual
+module.hoptimization.theme.name=Theme
+module.hoptimization.theme.desc=Switch the global visual theme palette for ClickGUI and HUD
 module.hoptimization.low_fire.name=Low Fire
 module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
 module.hoptimization.block_outline.name=Block Outline
@@ -60,6 +62,19 @@ setting.hoptimization.hit_color.mode.option.armor=Armor
 
 # Settings - Combo Counter
 setting.hoptimization.combo_counter.timeout.name=Timeout
+
+# Settings - Theme
+setting.hoptimization.theme.theme.name=Theme
+setting.hoptimization.theme.theme.option.obsidian_gold=Obsidian Gold
+setting.hoptimization.theme.theme.option.cyber_pulse=Cyber Pulse
+setting.hoptimization.theme.theme.option.spring_blossom=Spring Blossom
+setting.hoptimization.theme.theme.option.abyssal_cyan=Abyssal Cyan
+setting.hoptimization.theme.theme.option.crimson_eclipse=Crimson Eclipse
+setting.hoptimization.theme.theme.option.emerald_grove=Emerald Grove
+setting.hoptimization.theme.theme.option.sunset_amber=Sunset Amber
+setting.hoptimization.theme.theme.option.starlight_indigo=Starlight Indigo
+setting.hoptimization.theme.theme.option.arctic_frost=Arctic Frost
+setting.hoptimization.theme.theme.option.lavender_mist=Lavender Mist
 
 # Settings - Low Fire
 setting.hoptimization.low_fire.height.name=Height
@@ -144,6 +159,16 @@ ui.hoptimization.settings.about=About
 ui.hoptimization.settings.about.version=Version
 ui.hoptimization.settings.about.open_config_folder=Open Config Folder
 
+ui.hoptimization.theme.obsidian_gold=Obsidian Gold
+ui.hoptimization.theme.cyber_pulse=Cyber Pulse
+ui.hoptimization.theme.spring_blossom=Spring Blossom
+ui.hoptimization.theme.abyssal_cyan=Abyssal Cyan
+ui.hoptimization.theme.crimson_eclipse=Crimson Eclipse
+ui.hoptimization.theme.emerald_grove=Emerald Grove
+ui.hoptimization.theme.sunset_amber=Sunset Amber
+ui.hoptimization.theme.starlight_indigo=Starlight Indigo
+ui.hoptimization.theme.arctic_frost=Arctic Frost
+ui.hoptimization.theme.lavender_mist=Lavender Mist
 ui.hoptimization.theme.graphite=Graphite
 ui.hoptimization.theme.midnight=Midnight
 ui.hoptimization.theme.oled=OLED
