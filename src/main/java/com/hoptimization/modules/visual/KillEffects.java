@@ -36,12 +36,15 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Replaces vanilla entity death tilting with stylized Soul Sever or Annihilation kill effects.
+ * Replaces vanilla entity death tilting with stylized Soul Sever, Annihilation,
+ * Phantom Swords, or Abyss Vortex kill effects.
  */
 public class KillEffects extends Module {
     public static final String ID = "kill_effects";
     public static final String MODE_SOUL_SEVER = "soul_sever";
     public static final String MODE_ANNIHILATION = "annihilation";
+    public static final String MODE_PHANTOM_SWORDS = "phantom_swords";
+    public static final String MODE_ABYSS_VORTEX = "abyss_vortex";
     public static final String TARGET_ALL = "all";
     public static final String TARGET_PLAYERS = "players";
     public static final String TARGET_MOBS = "mobs";
@@ -85,7 +88,9 @@ public class KillEffects extends Module {
                 "setting.hoptimization.kill_effects.mode.name",
                 MODE_SOUL_SEVER,
                 MODE_SOUL_SEVER,
-                MODE_ANNIHILATION
+                MODE_ANNIHILATION,
+                MODE_PHANTOM_SWORDS,
+                MODE_ABYSS_VORTEX
             )
         );
         this.targets = addSetting(
@@ -114,7 +119,7 @@ public class KillEffects extends Module {
         );
         this.soulColor = addSetting(
             new ColorSetting("soul_color", "setting.hoptimization.kill_effects.soul_color.name", 0xFFDCEEFF, false)
-                .visibleWhen(() -> Boolean.valueOf(this.mode.is(MODE_SOUL_SEVER)))
+                .visibleWhen(() -> Boolean.valueOf(this.mode.is(MODE_SOUL_SEVER) || this.mode.is(MODE_PHANTOM_SWORDS)))
         );
         this.weaponScale = addSetting(
             new NumberSetting(
@@ -125,7 +130,7 @@ public class KillEffects extends Module {
                 3.0D,
                 0.1D,
                 "x"
-            ).visibleWhen(() -> Boolean.valueOf(this.mode.is(MODE_SOUL_SEVER)))
+            ).visibleWhen(() -> Boolean.valueOf(this.mode.is(MODE_SOUL_SEVER) || this.mode.is(MODE_PHANTOM_SWORDS)))
         );
         this.particles = addSetting(
             new BooleanSetting("particles", "setting.hoptimization.kill_effects.particles.name", true)
@@ -856,9 +861,16 @@ public class KillEffects extends Module {
         this.tracker.markDead(entityId, identityHash, nowNanos, suppressOriginalRender);
 
         KillEffectInstance slot = this.tracker.acquireSlot(nowNanos, suppressOriginalRender);
-        int effectMode = this.mode.is(MODE_ANNIHILATION)
-            ? KillEffectInstance.MODE_ANNIHILATION
-            : KillEffectInstance.MODE_SOUL_SEVER;
+        int effectMode;
+        if (this.mode.is(MODE_ANNIHILATION)) {
+            effectMode = KillEffectInstance.MODE_ANNIHILATION;
+        } else if (this.mode.is(MODE_PHANTOM_SWORDS)) {
+            effectMode = KillEffectInstance.MODE_PHANTOM_SWORDS;
+        } else if (this.mode.is(MODE_ABYSS_VORTEX)) {
+            effectMode = KillEffectInstance.MODE_ABYSS_VORTEX;
+        } else {
+            effectMode = KillEffectInstance.MODE_SOUL_SEVER;
+        }
 
         double dx = spawnX - mc.thePlayer.posX;
         double dz = spawnZ - mc.thePlayer.posZ;
@@ -940,6 +952,10 @@ public class KillEffects extends Module {
             double soundY = slot.y + (double) slot.entityHeight * 0.5D;
             if (effectMode == KillEffectInstance.MODE_ANNIHILATION) {
                 mc.theWorld.playSound(slot.x, soundY, slot.z, "random.fizz", 0.25F, 1.5F, false);
+            } else if (effectMode == KillEffectInstance.MODE_PHANTOM_SWORDS) {
+                mc.theWorld.playSound(slot.x, soundY, slot.z, "mob.endermen.portal", 0.38F, 1.65F, false);
+            } else if (effectMode == KillEffectInstance.MODE_ABYSS_VORTEX) {
+                mc.theWorld.playSound(slot.x, soundY, slot.z, "mob.endermen.portal", 0.45F, 0.55F, false);
             } else {
                 mc.theWorld.playSound(slot.x, soundY, slot.z, "mob.endermen.portal", 0.4F, 1.45F, false);
             }

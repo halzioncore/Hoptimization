@@ -40,7 +40,7 @@ module.hoptimization.particle_limit.desc=Caps active particle count to keep fram
 module.hoptimization.fullbright.name=Fullbright
 module.hoptimization.fullbright.desc=Increases scene brightness in dark areas
 module.hoptimization.language.name=Language
-module.hoptimization.language.desc=Switch game and mod language between Chinese and English
+module.hoptimization.language.desc=Switch mod ClickGUI and HUD display language without changing vanilla game language
 
 # Settings - Common
 setting.hoptimization.common.keybind.name=Keybind
@@ -215,7 +215,7 @@ module.hoptimization.zoom.desc=Smoothly zooms camera FOV with optional cinematic
 module.hoptimization.time_changer.name=Time Changer
 module.hoptimization.time_changer.desc=Overrides client-side world time visually without server impact
 module.hoptimization.kill_effects.name=Kill Effects
-module.hoptimization.kill_effects.desc=Renders Soul Sever or Annihilation visual effects on entity kills
+module.hoptimization.kill_effects.desc=Renders Soul Sever, Annihilation, Phantom Swords, or Abyss Vortex effects on kills
 
 # Modules - Performance (Feature Pack)
 module.hoptimization.mouse_delay_fix.name=Mouse Delay Fix
@@ -273,6 +273,8 @@ setting.hoptimization.time_changer.time.name=Time
 setting.hoptimization.kill_effects.mode.name=Effect Mode
 setting.hoptimization.kill_effects.mode.option.soul_sever=Soul Sever
 setting.hoptimization.kill_effects.mode.option.annihilation=Annihilation
+setting.hoptimization.kill_effects.mode.option.phantom_swords=Phantom Swords
+setting.hoptimization.kill_effects.mode.option.abyss_vortex=Abyss Vortex
 setting.hoptimization.kill_effects.targets.name=Targets
 setting.hoptimization.kill_effects.targets.option.all=All
 setting.hoptimization.kill_effects.targets.option.players=Players
