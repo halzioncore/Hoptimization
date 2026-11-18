@@ -6,6 +6,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.network.play.server.S03PacketTimeUpdate;
 import net.minecraft.network.play.server.S13PacketDestroyEntities;
+import net.minecraft.network.play.server.S18PacketEntityTeleport;
+import net.minecraft.network.play.server.S1CPacketEntityMetadata;
+import net.minecraft.network.play.server.S38PacketPlayerListItem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -61,5 +64,74 @@ public class MixinNetHandlerPlayClientVisual {
         for (int i = 0; i < ids.length; i++) {
             KillEffects.onClientEntityDestroy(ids[i]);
         }
+    }
+
+    /**
+     * Target: {@code NetHandlerPlayClient.handleEntityMetadata(S1CPacketEntityMetadata)} RETURN.
+     * Purpose: Captures lethal health metadata updates even when {@code S19(3)} is suppressed by plugins.
+     * Controlled by: {@link KillEffects#isActive()}.
+     *
+     * @param packetIn incoming entity metadata packet
+     * @param ci mixin callback info
+     */
+    @Inject(
+        method = "handleEntityMetadata(Lnet/minecraft/network/play/server/S1CPacketEntityMetadata;)V",
+        at = @At("RETURN"),
+        require = 0
+    )
+    private void hoptimization$onHandleEntityMetadata(S1CPacketEntityMetadata packetIn, CallbackInfo ci) {
+        if (packetIn == null || !KillEffects.isActive()) {
+            return;
+        }
+        if (this.gameController == null || !this.gameController.isCallingFromMinecraftThread()) {
+            return;
+        }
+        KillEffects.onClientEntityMetadata(packetIn.getEntityId());
+    }
+
+    /**
+     * Target: {@code NetHandlerPlayClient.handleEntityTeleport(S18PacketEntityTeleport)} HEAD.
+     * Purpose: Snapshots pre-teleport combat coordinates before server spectator/respawn teleports.
+     * Controlled by: {@link KillEffects#isActive()}.
+     *
+     * @param packetIn incoming entity teleport packet
+     * @param ci mixin callback info
+     */
+    @Inject(
+        method = "handleEntityTeleport(Lnet/minecraft/network/play/server/S18PacketEntityTeleport;)V",
+        at = @At("HEAD"),
+        require = 0
+    )
+    private void hoptimization$onHandleEntityTeleport(S18PacketEntityTeleport packetIn, CallbackInfo ci) {
+        if (packetIn == null || !KillEffects.isActive()) {
+            return;
+        }
+        if (this.gameController == null || !this.gameController.isCallingFromMinecraftThread()) {
+            return;
+        }
+        KillEffects.onClientEntityPreTeleport(packetIn);
+    }
+
+    /**
+     * Target: {@code NetHandlerPlayClient.handlePlayerListItem(S38PacketPlayerListItem)} HEAD.
+     * Purpose: Captures final kills signaled via Spectator transition or player list removal.
+     * Controlled by: {@link KillEffects#isActive()}.
+     *
+     * @param packetIn incoming player list item packet
+     * @param ci mixin callback info
+     */
+    @Inject(
+        method = "handlePlayerListItem(Lnet/minecraft/network/play/server/S38PacketPlayerListItem;)V",
+        at = @At("HEAD"),
+        require = 0
+    )
+    private void hoptimization$onHandlePlayerListItem(S38PacketPlayerListItem packetIn, CallbackInfo ci) {
+        if (packetIn == null || !KillEffects.isActive()) {
+            return;
+        }
+        if (this.gameController == null || !this.gameController.isCallingFromMinecraftThread()) {
+            return;
+        }
+        KillEffects.onClientPlayerListItem(packetIn);
     }
 }

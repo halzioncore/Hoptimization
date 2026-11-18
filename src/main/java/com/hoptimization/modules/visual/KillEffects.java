@@ -11,18 +11,29 @@ import com.hoptimization.modules.visual.killeffects.KillEffectsRenderer;
 import com.hoptimization.modules.visual.killeffects.KillEffectsTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.client.network.NetHandlerPlayClient;
+import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.server.S18PacketEntityTeleport;
+import net.minecraft.network.play.server.S38PacketPlayerListItem;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
+import net.minecraft.world.WorldSettings;
+import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Replaces vanilla entity death tilting with stylized Soul Sever or Annihilation kill effects.
@@ -37,7 +48,18 @@ public class KillEffects extends Module {
 
     private static final double NANOS_PER_SECOND = 1_000_000_000.0D;
     private static final double MIN_DIRECTION_DIST_SQ = 1.0E-8D;
+    private static final double DESTROY_ATTRIBUTION_RANGE_SQ = 42.0D * 42.0D;
+    private static final double SPECTATOR_OTHER_KILL_RANGE_SQ = 24.0D * 24.0D;
+    private static final double PRE_TELEPORT_MIN_JUMP_SQ = 64.0D;
     private static final float DEG_TO_RAD = 0.017453292F;
+
+    private static final String[] KILL_CHAT_INDICATORS = {
+        "killed", "void", "shot", "knock", "slain", "final", "eliminat", "fell", "died", "blown",
+        "\u51fb\u6740", "\u6740", "\u865a\u7a7a", "\u7ec8\u7ed3", "\u6dd8\u6c70", "\u63a8", "\u5c04", "\u5760"
+    };
+    private static final String[] PASSIVE_CHAT_MARKERS = {
+        " by ", "while escaping", "while trying to escape", "to escape", "\u88ab", "\u9003\u79bb", "\u6b7b\u4e8e"
+    };
 
     private static KillEffects instance;
 
@@ -270,6 +292,99 @@ public class KillEffects extends Module {
     }
 
     /**
+     * Handles entity metadata updates ({@code S1CPacketEntityMetadata}) for lethal health changes.
+     *
+     * @param entityId updated entity network id
+     */
+    public static void onClientEntityMetadata(int entityId) {
+        KillEffects module = instance;
+        if (module == null || !module.isEnabled()) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !mc.isCallingFromMinecraftThread() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+        Entity raw = mc.theWorld.getEntityByID(entityId);
+        if (!(raw instanceof EntityLivingBase)) {
+            return;
+        }
+        EntityLivingBase entity = (EntityLivingBase) raw;
+        if (entity.worldObj == null || !entity.worldObj.isRemote || entity.worldObj != mc.theWorld) {
+            return;
+        }
+        if (entity.getHealth() > 0.0F || !module.isTargetEligible(entity, mc)) {
+            return;
+        }
+        long nowNanos = System.nanoTime();
+        if (module.tracker.isRecentlyDead(entityId, System.identityHashCode(entity), nowNanos)) {
+            return;
+        }
+        if (!module.hasOwnKillAttribution(entity, mc, nowNanos)) {
+            return;
+        }
+        module.captureAndRemoveCorpse(entity, mc, nowNanos);
+    }
+
+    /**
+     * Captures pre-teleport combat coordinates before large {@code S18PacketEntityTeleport} jumps.
+     *
+     * @param packetIn incoming entity teleport packet
+     */
+    public static void onClientEntityPreTeleport(S18PacketEntityTeleport packetIn) {
+        KillEffects module = instance;
+        if (module == null || !module.isEnabled() || packetIn == null) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !mc.isCallingFromMinecraftThread() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+        int entityId = packetIn.getEntityId();
+        Entity raw = mc.theWorld.getEntityByID(entityId);
+        if (!(raw instanceof EntityLivingBase)) {
+            return;
+        }
+        EntityLivingBase entity = (EntityLivingBase) raw;
+        if (entity.worldObj == null || !entity.worldObj.isRemote || entity.worldObj != mc.theWorld) {
+            return;
+        }
+        if (!module.isTargetEligible(entity, mc) || isAntiCheatBot(entity, mc)) {
+            return;
+        }
+        long nowNanos = System.nanoTime();
+        boolean trackedCombat = module.tracker.wasRecentlyAttacked(
+            entityId,
+            nowNanos,
+            KillEffectsTracker.ATTACK_WINDOW_NANOS
+        ) || module.tracker.wasRecentlyHurtGlobally(
+            entityId,
+            nowNanos,
+            KillEffectsTracker.GLOBAL_HURT_WINDOW_NANOS
+        ) || (!module.onlyOwnKills.isEnabled() && entity.hurtTime > 0)
+            || module.tracker.isRecentPlayerProjectileNear(entity, mc.theWorld, mc.thePlayer, nowNanos);
+        if (!trackedCombat) {
+            return;
+        }
+        double targetX = (double) packetIn.getX() / 32.0D;
+        double targetY = (double) packetIn.getY() / 32.0D;
+        double targetZ = (double) packetIn.getZ() / 32.0D;
+        double dx = targetX - entity.posX;
+        double dy = targetY - entity.posY;
+        double dz = targetZ - entity.posZ;
+        if ((dx * dx + dy * dy + dz * dz) >= PRE_TELEPORT_MIN_JUMP_SQ) {
+            module.tracker.recordPreTeleport(
+                entityId,
+                entity.posX,
+                entity.posY,
+                entity.posZ,
+                entity.rotationYaw,
+                nowNanos
+            );
+        }
+    }
+
+    /**
      * Handles entity destruction packets ({@code S13PacketDestroyEntities}) for instant-despawn kills.
      *
      * @param entityId destroyed entity network id
@@ -291,7 +406,7 @@ public class KillEffects extends Module {
         if (entity.worldObj == null || !entity.worldObj.isRemote || entity.worldObj != mc.theWorld) {
             return;
         }
-        if (!module.isTargetEligible(entity, mc)) {
+        if (!module.isTargetEligible(entity, mc) || isAntiCheatBot(entity, mc)) {
             return;
         }
         long nowNanos = System.nanoTime();
@@ -299,23 +414,152 @@ public class KillEffects extends Module {
         if (module.tracker.isRecentlyDead(entityId, identityHash, nowNanos)) {
             return;
         }
-        boolean attackedRecently1_5s = module.tracker.wasRecentlyAttacked(
-            entityId,
-            nowNanos,
-            KillEffectsTracker.DESTROY_HURT_WINDOW_NANOS
-        ) || module.tracker.isRecentPlayerProjectileNear(entity, mc.theWorld, mc.thePlayer, nowNanos);
-        boolean lethalDestroy = entity.getHealth() <= 0.0F
-            || entity.deathTime > 0
-            || (attackedRecently1_5s && entity.hurtTime > 0);
+        boolean hasPreTeleport = module.tracker.hasPreTeleportPos(entityId, nowNanos);
+        boolean lethalDestroy;
+        if (module.onlyOwnKills.isEnabled()) {
+            boolean ownAttributed = module.tracker.wasRecentlyAttacked(
+                entityId,
+                nowNanos,
+                KillEffectsTracker.ATTACK_WINDOW_NANOS
+            ) || module.tracker.isRecentPlayerProjectileNear(entity, mc.theWorld, mc.thePlayer, nowNanos);
+            if (!ownAttributed) {
+                return;
+            }
+            double dx = entity.posX - mc.thePlayer.posX;
+            double dy = entity.posY - mc.thePlayer.posY;
+            double dz = entity.posZ - mc.thePlayer.posZ;
+            double distSq = dx * dx + dy * dy + dz * dz;
+            lethalDestroy = entity.getHealth() <= 0.0F
+                || entity.deathTime > 0
+                || entity.hurtTime > 0
+                || distSq <= DESTROY_ATTRIBUTION_RANGE_SQ
+                || entity.posY < 2.0D
+                || hasPreTeleport;
+        } else {
+            lethalDestroy = entity.getHealth() <= 0.0F
+                || entity.deathTime > 0
+                || entity.hurtTime > 0
+                || module.tracker.wasRecentlyHurtGlobally(
+                    entityId,
+                    nowNanos,
+                    KillEffectsTracker.GLOBAL_HURT_WINDOW_NANOS
+                )
+                || hasPreTeleport;
+        }
         if (!lethalDestroy) {
             return;
         }
-        if (module.onlyOwnKills.isEnabled()
-            && !attackedRecently1_5s
-            && !module.tracker.wasRecentlyAttacked(entityId, nowNanos, KillEffectsTracker.ATTACK_WINDOW_NANOS)) {
+        module.captureAndRemoveCorpse(entity, mc, nowNanos);
+    }
+
+    /**
+     * Handles tablist updates ({@code S38PacketPlayerListItem}) for spectator transitions and player removals.
+     *
+     * @param packetIn incoming player list item packet
+     */
+    public static void onClientPlayerListItem(S38PacketPlayerListItem packetIn) {
+        KillEffects module = instance;
+        if (module == null || !module.isEnabled() || packetIn == null) {
             return;
         }
-        module.captureAndRemoveCorpse(entity, mc, nowNanos);
+        if (module.targets.is(TARGET_MOBS)) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !mc.isCallingFromMinecraftThread() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+        S38PacketPlayerListItem.Action action = packetIn.getAction();
+        boolean isSpectatorUpdate = action == S38PacketPlayerListItem.Action.UPDATE_GAME_MODE;
+        boolean isRemovePlayer = action == S38PacketPlayerListItem.Action.REMOVE_PLAYER;
+        if (!isSpectatorUpdate && !isRemovePlayer) {
+            return;
+        }
+        List<S38PacketPlayerListItem.AddPlayerData> entries = packetIn.getEntries();
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+
+        NetHandlerPlayClient netHandler = mc.getNetHandler();
+        long nowNanos = System.nanoTime();
+        UUID localUuid = mc.thePlayer.getUniqueID();
+
+        for (int i = 0, size = entries.size(); i < size; i++) {
+            S38PacketPlayerListItem.AddPlayerData entry = entries.get(i);
+            if (entry == null || entry.getProfile() == null) {
+                continue;
+            }
+            UUID uuid = entry.getProfile().getId();
+            if (uuid == null || uuid.equals(localUuid)) {
+                continue;
+            }
+            if (isSpectatorUpdate) {
+                if (entry.getGameMode() != WorldSettings.GameType.SPECTATOR || netHandler == null) {
+                    continue;
+                }
+                NetworkPlayerInfo existing = netHandler.getPlayerInfo(uuid);
+                if (existing == null || existing.getGameType() == WorldSettings.GameType.SPECTATOR) {
+                    continue;
+                }
+            }
+
+            EntityPlayer target = findWorldPlayerByUuid(mc.theWorld, mc.thePlayer, uuid);
+            if (target == null || !module.isTargetEligible(target, mc)) {
+                continue;
+            }
+            int targetId = target.getEntityId();
+            int identityHash = System.identityHashCode(target);
+            if (module.tracker.isRecentlyDead(targetId, identityHash, nowNanos)) {
+                continue;
+            }
+            if (isRemovePlayer
+                && target.isInvisible()
+                && target.hurtTime == 0
+                && target.getHealth() > 0.0F
+                && target.deathTime <= 0
+                && target.ticksExisted <= 10) {
+                continue;
+            }
+
+            boolean attributed;
+            if (module.onlyOwnKills.isEnabled()) {
+                attributed = module.hasOwnKillAttribution(target, mc, nowNanos);
+            } else {
+                double dx = target.posX - mc.thePlayer.posX;
+                double dy = target.posY - mc.thePlayer.posY;
+                double dz = target.posZ - mc.thePlayer.posZ;
+                double distSq = dx * dx + dy * dy + dz * dz;
+                boolean closeVisibleKill = distSq <= SPECTATOR_OTHER_KILL_RANGE_SQ
+                    && (!isRemovePlayer || (!target.isInvisible() && target.ticksExisted > 10));
+                attributed = module.tracker.wasRecentlyHurtGlobally(
+                        targetId,
+                        nowNanos,
+                        KillEffectsTracker.GLOBAL_HURT_WINDOW_NANOS
+                    )
+                    || target.hurtTime > 0
+                    || target.getHealth() <= 0.0F
+                    || target.deathTime > 0
+                    || module.tracker.hasPreTeleportPos(targetId, nowNanos)
+                    || closeVisibleKill;
+            }
+            if (!attributed) {
+                continue;
+            }
+
+            if (isSpectatorUpdate) {
+                module.captureAndRemoveCorpse(target, mc, nowNanos);
+            } else {
+                boolean removeNow = target.isDead
+                    || target.getHealth() <= 0.0F
+                    || target.deathTime > 0
+                    || target.isInvisible();
+                if (removeNow) {
+                    module.captureAndRemoveCorpse(target, mc, nowNanos);
+                } else {
+                    module.captureAtEntityWithPreTeleport(target, mc, nowNanos, false, false);
+                }
+            }
+        }
     }
 
     /**
@@ -364,7 +608,120 @@ public class KillEffects extends Module {
         if (event.target instanceof EntityLivingBase
             && event.target != mc.thePlayer
             && !(event.target instanceof EntityArmorStand)) {
-            this.tracker.recordAttack(event.target.getEntityId(), System.nanoTime());
+            EntityLivingBase target = (EntityLivingBase) event.target;
+            if (isAntiCheatBot(target, mc)) {
+                return;
+            }
+            long nowNanos = System.nanoTime();
+            int targetId = target.getEntityId();
+            if (target.isEntityAlive() && target.getHealth() > 0.0F) {
+                this.tracker.clearExpiredRespawnDead(targetId, System.identityHashCode(target), nowNanos);
+            }
+            this.tracker.recordAttack(targetId, nowNanos);
+            this.tracker.trackRecentPlayerSnapshot(target, nowNanos, true);
+        }
+    }
+
+    /**
+     * Falls back to server kill chat broadcasts for final kills and instant-respawn plugins.
+     *
+     * @param event Forge client chat event
+     */
+    @SubscribeEvent
+    public void onClientChat(ClientChatReceivedEvent event) {
+        if (!isEnabled() || event == null || event.type != 0 || event.message == null) {
+            return;
+        }
+        if (this.targets.is(TARGET_MOBS)) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || !mc.isCallingFromMinecraftThread() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+        if (!mc.thePlayer.isEntityAlive() || mc.thePlayer.getHealth() <= 0.0F) {
+            return;
+        }
+        String rawText = event.message.getUnformattedText();
+        if (rawText == null || rawText.isEmpty()) {
+            return;
+        }
+        String cleanText = EnumChatFormatting.getTextWithoutFormattingCodes(rawText);
+        if (cleanText == null || cleanText.isEmpty()) {
+            return;
+        }
+        String localName = stripFormattingIfNeeded(mc.thePlayer.getName());
+        if (localName == null || localName.isEmpty()) {
+            return;
+        }
+        if (!containsKillIndicator(cleanText)) {
+            return;
+        }
+        int killerIdx = findWordIndex(cleanText, localName, 0);
+        if (killerIdx < 0) {
+            return;
+        }
+        boolean isPassive = containsPassiveMarker(cleanText);
+        long nowNanos = System.nanoTime();
+        int cap = this.tracker.getSnapshotCapacity();
+
+        for (int i = 0; i < cap; i++) {
+            if (!this.tracker.isSnapshotValid(i, nowNanos)) {
+                continue;
+            }
+            String victimName = this.tracker.getSnapshotName(i);
+            if (victimName == null || victimName.isEmpty() || victimName.equals(localName)) {
+                continue;
+            }
+            int victimIdx = findWordIndex(cleanText, victimName, 0);
+            if (victimIdx < 0) {
+                continue;
+            }
+            boolean validDirection = isPassive ? (victimIdx < killerIdx) : (killerIdx < victimIdx);
+            if (!validDirection) {
+                continue;
+            }
+
+            EntityLivingBase snapEntity = this.tracker.getSnapshotEntity(i);
+            int snapEntityId = this.tracker.getSnapshotEntityId(i);
+            int identityHash = snapEntity != null ? System.identityHashCode(snapEntity) : 0;
+            if (this.tracker.isRecentlyDead(snapEntityId, identityHash, nowNanos)) {
+                return;
+            }
+
+            double spawnX = this.tracker.getSnapshotX(i);
+            double spawnY = this.tracker.getSnapshotY(i);
+            double spawnZ = this.tracker.getSnapshotZ(i);
+            float spawnYaw = this.tracker.getSnapshotYaw(i);
+            int preTpSlot = this.tracker.findPreTeleportSlot(snapEntityId, nowNanos);
+            if (preTpSlot >= 0) {
+                spawnX = this.tracker.getPreTeleportX(preTpSlot);
+                spawnY = this.tracker.getPreTeleportY(preTpSlot);
+                spawnZ = this.tracker.getPreTeleportZ(preTpSlot);
+                spawnYaw = this.tracker.getPreTeleportYaw(preTpSlot);
+                this.tracker.consumePreTeleportSlot(preTpSlot);
+            }
+
+            float width = snapEntity != null ? snapEntity.width : this.tracker.getSnapshotWidth(i);
+            float height = snapEntity != null ? snapEntity.height : this.tracker.getSnapshotHeight(i);
+            boolean stillInWorld = snapEntity != null && mc.theWorld.getEntityByID(snapEntityId) == snapEntity;
+            boolean deadCorpseInWorld = stillInWorld
+                && (snapEntity.isDead || snapEntity.getHealth() <= 0.0F || snapEntity.deathTime > 0);
+            captureKillEffect(
+                snapEntity,
+                snapEntityId,
+                spawnX,
+                spawnY,
+                spawnZ,
+                width,
+                height,
+                spawnYaw,
+                deadCorpseInWorld,
+                deadCorpseInWorld,
+                mc,
+                nowNanos
+            );
+            return;
         }
     }
 
@@ -440,17 +797,71 @@ public class KillEffects extends Module {
     }
 
     private void captureAndRemoveCorpse(EntityLivingBase entity, Minecraft mc, long nowNanos) {
-        int entityId = entity.getEntityId();
-        int identityHash = System.identityHashCode(entity);
-        this.tracker.markDead(entityId, identityHash, nowNanos);
+        captureAtEntityWithPreTeleport(entity, mc, nowNanos, true, true);
+    }
 
-        KillEffectInstance slot = this.tracker.acquireSlot(nowNanos);
+    private void captureAtEntityWithPreTeleport(
+        EntityLivingBase entity,
+        Minecraft mc,
+        long nowNanos,
+        boolean suppressOriginalRender,
+        boolean removeFromWorld
+    ) {
+        int entityId = entity.getEntityId();
+        double spawnX = entity.posX;
+        double spawnY = entity.posY;
+        double spawnZ = entity.posZ;
+        float spawnYaw = entity.rotationYaw;
+
+        int preTpSlot = this.tracker.findPreTeleportSlot(entityId, nowNanos);
+        if (preTpSlot >= 0) {
+            spawnX = this.tracker.getPreTeleportX(preTpSlot);
+            spawnY = this.tracker.getPreTeleportY(preTpSlot);
+            spawnZ = this.tracker.getPreTeleportZ(preTpSlot);
+            spawnYaw = this.tracker.getPreTeleportYaw(preTpSlot);
+            this.tracker.consumePreTeleportSlot(preTpSlot);
+        }
+
+        captureKillEffect(
+            entity,
+            entityId,
+            spawnX,
+            spawnY,
+            spawnZ,
+            entity.width,
+            entity.height,
+            spawnYaw,
+            suppressOriginalRender,
+            removeFromWorld,
+            mc,
+            nowNanos
+        );
+    }
+
+    private void captureKillEffect(
+        EntityLivingBase entity,
+        int entityId,
+        double spawnX,
+        double spawnY,
+        double spawnZ,
+        float width,
+        float height,
+        float yaw,
+        boolean suppressOriginalRender,
+        boolean removeFromWorld,
+        Minecraft mc,
+        long nowNanos
+    ) {
+        int identityHash = entity != null ? System.identityHashCode(entity) : 0;
+        this.tracker.markDead(entityId, identityHash, nowNanos, suppressOriginalRender);
+
+        KillEffectInstance slot = this.tracker.acquireSlot(nowNanos, suppressOriginalRender);
         int effectMode = this.mode.is(MODE_ANNIHILATION)
             ? KillEffectInstance.MODE_ANNIHILATION
             : KillEffectInstance.MODE_SOUL_SEVER;
 
-        double dx = entity.posX - mc.thePlayer.posX;
-        double dz = entity.posZ - mc.thePlayer.posZ;
+        double dx = spawnX - mc.thePlayer.posX;
+        double dz = spawnZ - mc.thePlayer.posZ;
         double distSq = dx * dx + dz * dz;
         float behindDirX;
         float behindDirZ;
@@ -459,7 +870,7 @@ public class KillEffects extends Module {
             behindDirX = (float) (dx * invDist);
             behindDirZ = (float) (dz * invDist);
         } else {
-            Vec3 look = entity.getLookVec();
+            Vec3 look = entity != null ? entity.getLookVec() : null;
             double lx = look != null ? look.xCoord : 0.0D;
             double lz = look != null ? look.zCoord : 1.0D;
             double lookDistSq = lx * lx + lz * lz;
@@ -468,7 +879,7 @@ public class KillEffects extends Module {
                 behindDirX = (float) (lx * invLook);
                 behindDirZ = (float) (lz * invLook);
             } else {
-                float yawRad = entity.rotationYaw * DEG_TO_RAD;
+                float yawRad = yaw * DEG_TO_RAD;
                 behindDirX = -MathHelper.sin(yawRad);
                 behindDirZ = MathHelper.cos(yawRad);
             }
@@ -480,12 +891,12 @@ public class KillEffects extends Module {
         slot.entity = entity;
         slot.startNanos = nowNanos;
         slot.durationNanos = Math.max(1L, (long) (this.duration.getDoubleValue() * NANOS_PER_SECOND));
-        slot.x = entity.posX;
-        slot.y = entity.posY;
-        slot.z = entity.posZ;
-        slot.entityWidth = entity.width;
-        slot.entityHeight = entity.height;
-        slot.yaw = entity.rotationYaw;
+        slot.x = spawnX;
+        slot.y = spawnY;
+        slot.z = spawnZ;
+        slot.entityWidth = width > 0.0F ? width : 0.6F;
+        slot.entityHeight = height > 0.0F ? height : 1.8F;
+        slot.yaw = yaw;
         slot.behindDirX = behindDirX;
         slot.behindDirZ = behindDirZ;
         slot.heldItem = rawHeld != null ? rawHeld.copy() : null;
@@ -495,29 +906,35 @@ public class KillEffects extends Module {
         slot.soundEnabled = this.sound.isEnabled();
         slot.cleaveTriggered = false;
         slot.burstSpawned = false;
-        slot.savedDeathTime = entity.deathTime;
-        slot.savedHurtTime = entity.hurtTime;
+        slot.savedDeathTime = entity != null ? entity.deathTime : 0;
+        slot.savedHurtTime = entity != null ? entity.hurtTime : 0;
 
-        // Freeze interpolation and hurt/death timers so the rendered ghost stands upright in its lethal pose.
-        entity.prevRenderYawOffset = entity.renderYawOffset;
-        entity.prevRotationYawHead = entity.rotationYawHead;
-        entity.prevRotationYaw = entity.rotationYaw;
-        entity.prevRotationPitch = entity.rotationPitch;
-        entity.prevLimbSwingAmount = entity.limbSwingAmount;
-        entity.prevSwingProgress = entity.swingProgress;
-        entity.lastTickPosX = entity.posX;
-        entity.lastTickPosY = entity.posY;
-        entity.lastTickPosZ = entity.posZ;
-        entity.prevPosX = entity.posX;
-        entity.prevPosY = entity.posY;
-        entity.prevPosZ = entity.posZ;
-        entity.deathTime = 0;
-        entity.hurtTime = 0;
+        if (removeFromWorld && entity != null) {
+            // Freeze interpolation and hurt/death timers so the rendered ghost stands upright in its lethal pose.
+            entity.posX = spawnX;
+            entity.posY = spawnY;
+            entity.posZ = spawnZ;
+            entity.rotationYaw = yaw;
+            entity.prevRenderYawOffset = entity.renderYawOffset;
+            entity.prevRotationYawHead = entity.rotationYawHead;
+            entity.prevRotationYaw = yaw;
+            entity.prevRotationPitch = entity.rotationPitch;
+            entity.prevLimbSwingAmount = entity.limbSwingAmount;
+            entity.prevSwingProgress = entity.swingProgress;
+            entity.lastTickPosX = spawnX;
+            entity.lastTickPosY = spawnY;
+            entity.lastTickPosZ = spawnZ;
+            entity.prevPosX = spawnX;
+            entity.prevPosY = spawnY;
+            entity.prevPosZ = spawnZ;
+            entity.deathTime = 0;
+            entity.hurtTime = 0;
 
-        if (entity.worldObj instanceof WorldClient) {
-            ((WorldClient) entity.worldObj).removeEntityFromWorld(entityId);
+            if (entity.worldObj instanceof WorldClient) {
+                ((WorldClient) entity.worldObj).removeEntityFromWorld(entityId);
+            }
+            entity.setDead();
         }
-        entity.setDead();
 
         if (slot.soundEnabled && mc.getRenderViewEntity() != null) {
             double soundY = slot.y + (double) slot.entityHeight * 0.5D;
@@ -527,5 +944,84 @@ public class KillEffects extends Module {
                 mc.theWorld.playSound(slot.x, soundY, slot.z, "mob.endermen.portal", 0.4F, 1.45F, false);
             }
         }
+    }
+
+    private static boolean isAntiCheatBot(EntityLivingBase entity, Minecraft mc) {
+        if (!(entity instanceof EntityPlayer)) {
+            return false;
+        }
+        if (!entity.isInvisible() || entity.getHealth() <= 0.0F || entity.deathTime > 0) {
+            return false;
+        }
+        NetHandlerPlayClient netHandler = mc.getNetHandler();
+        return netHandler != null && netHandler.getPlayerInfo(entity.getUniqueID()) == null;
+    }
+
+    private static EntityPlayer findWorldPlayerByUuid(
+        WorldClient world,
+        EntityPlayer localPlayer,
+        UUID targetUuid
+    ) {
+        List<EntityPlayer> players = world.playerEntities;
+        for (int i = 0, size = players.size(); i < size; i++) {
+            EntityPlayer candidate = players.get(i);
+            if (candidate != null && candidate != localPlayer && targetUuid.equals(candidate.getUniqueID())) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static String stripFormattingIfNeeded(String text) {
+        if (text == null || text.indexOf('\u00a7') < 0) {
+            return text;
+        }
+        return EnumChatFormatting.getTextWithoutFormattingCodes(text);
+    }
+
+    private static boolean containsKillIndicator(String cleanText) {
+        String lower = cleanText.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < KILL_CHAT_INDICATORS.length; i++) {
+            if (lower.contains(KILL_CHAT_INDICATORS[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsPassiveMarker(String cleanText) {
+        String lower = cleanText.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < PASSIVE_CHAT_MARKERS.length; i++) {
+            if (lower.contains(PASSIVE_CHAT_MARKERS[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int findWordIndex(String text, String word, int fromIndex) {
+        int textLen = text.length();
+        int wordLen = word.length();
+        if (wordLen == 0 || textLen < wordLen) {
+            return -1;
+        }
+        int idx = text.indexOf(word, fromIndex);
+        while (idx >= 0) {
+            boolean leftOk = idx == 0 || !isUsernameChar(text.charAt(idx - 1));
+            int after = idx + wordLen;
+            boolean rightOk = after >= textLen || !isUsernameChar(text.charAt(after));
+            if (leftOk && rightOk) {
+                return idx;
+            }
+            idx = text.indexOf(word, idx + 1);
+        }
+        return -1;
+    }
+
+    private static boolean isUsernameChar(char c) {
+        return (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c == '_';
     }
 }
