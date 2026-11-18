@@ -8,53 +8,209 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 规范定义的 6 套只读内置主题与 8 个强调色预设（参见 {@code 02_美术规范.md} §2.3–§2.4）。
+ * 规范定义的 10 套只读内置主题与 8 个强调色预设（参见 {@code 02_美术规范.md} §2.3–§2.4）。
  */
 public final class BuiltinThemes {
 
-    /** 1. 石墨 Graphite（默认深色主题）。 */
-    public static final ThemeData GRAPHITE = new ThemeData.Builder()
-            .id("graphite")
-            .name("石墨")
+    /** 1. 黑曜流金 Obsidian Gold（默认深色主题）。 */
+    public static final ThemeData OBSIDIAN_GOLD = new ThemeData.Builder()
+            .id("obsidian_gold")
+            .name("黑曜流金")
             .mode(ThemeMode.DARK)
-            .backdrop(0x73000000)
-            .surface0(0xFF0F1012)
-            .surface1(0xFF16171A)
-            .surface2(0xFF1D1F23)
-            .surface3(0xFF25272C)
-            .surface4(0xFF2E3137)
-            .border(0x0FFFFFFF)
-            .borderStrong(0x1AFFFFFF)
-            .textPrimary(0xFFECEDEE)
-            .textSecondary(0xFF9BA1A6)
-            .textTertiary(0xFF5E636A)
-            .accent(0xFF5B8CFF)
+            .backdrop(0x80090806)
+            .surface0(0xFF0E0D0B)
+            .surface1(0xFF151310)
+            .surface2(0xFF1D1A15)
+            .surface3(0xFF26221B)
+            .surface4(0xFF312B22)
+            .border(0x1AD4AF6A)
+            .borderStrong(0x2ED4AF6A)
+            .textPrimary(0xFFF4EFE6)
+            .textSecondary(0xFFA89E8E)
+            .textTertiary(0xFF6B6255)
+            .accent(0xFFD4AF6A)
+            .textOnAccent(0xFF14110B)
+            .thumb(0xFFFFFBF2)
+            .success(0xFF42C985)
+            .warning(0xFFE8A838)
+            .danger(0xFFE85454)
+            .shadow(0x80000000)
+            .style(new ThemeStyle(1.0f, 1.0f, 0.75f, 1.1f, false, true))
+            .build();
+
+    /** 2. 霓虹脉冲 Cyber Pulse（粉紫未来深色主题）。 */
+    public static final ThemeData CYBER_PULSE = new ThemeData.Builder()
+            .id("cyber_pulse")
+            .name("霓虹脉冲")
+            .mode(ThemeMode.DARK)
+            .backdrop(0x85070510)
+            .surface0(0xFF0D0A18)
+            .surface1(0xFF130F24)
+            .surface2(0xFF1B1531)
+            .surface3(0xFF241C40)
+            .surface4(0xFF2F2552)
+            .border(0x24E066FF)
+            .borderStrong(0x3DFF4DB8)
+            .textPrimary(0xFFF6EBFF)
+            .textSecondary(0xFFB79EE0)
+            .textTertiary(0xFF735C9C)
+            .accent(0xFFFF4DB8)
             .textOnAccent(0xFFFFFFFF)
+            .thumb(0xFFFFFFFF)
+            .success(0xFF2EE6A6)
+            .warning(0xFFFFB84D)
+            .danger(0xFFFF4D6D)
+            .shadow(0x8805020D)
+            .style(new ThemeStyle(0.85f, 0.96f, 0.75f, 1.2f, false, true))
+            .build();
+
+    /** 3. 桃夭新茗 Spring Blossom（粉绿清新浅色主题）。 */
+    public static final ThemeData SPRING_BLOSSOM = new ThemeData.Builder()
+            .id("spring_blossom")
+            .name("桃夭新茗")
+            .mode(ThemeMode.LIGHT)
+            .backdrop(0x4214261D)
+            .surface0(0xFFEBF5EE)
+            .surface1(0xFFFDF8FA)
+            .surface2(0xFFF2F9F4)
+            .surface3(0xFFE4F2E9)
+            .surface4(0xFFD4E9DC)
+            .border(0x1F2E6B4E)
+            .borderStrong(0x33E85D88)
+            .textPrimary(0xFF1A2E23)
+            .textSecondary(0xFF4E6E5D)
+            .textTertiary(0xFF82A390)
+            .accent(0xFFE85D88)
+            .textOnAccent(0xFFFFFFFF)
+            .thumb(0xFFFFFFFF)
+            .success(0xFF22A86B)
+            .warning(0xFFD9941A)
+            .danger(0xFFE0485A)
+            .shadow(0x241A3326)
+            .style(new ThemeStyle(1.15f, 1.0f, 0.82f, 1.0f, false, true))
+            .build();
+
+    /** 4. 深海极光 Abyssal Cyan（深海青蓝主题）。 */
+    public static final ThemeData ABYSSAL_CYAN = new ThemeData.Builder()
+            .id("abyssal_cyan")
+            .name("深海极光")
+            .mode(ThemeMode.DARK)
+            .backdrop(0x8004080D)
+            .surface0(0xFF081018)
+            .surface1(0xFF0C1722)
+            .surface2(0xFF12202E)
+            .surface3(0xFF192B3C)
+            .surface4(0xFF22384D)
+            .border(0x1A00E5CC)
+            .borderStrong(0x2E00E5CC)
+            .textPrimary(0xFFE6F7FA)
+            .textSecondary(0xFF88AEB8)
+            .textTertiary(0xFF4F6F7A)
+            .accent(0xFF00E5CC)
+            .textOnAccent(0xFF041A17)
             .thumb(0xFFFFFFFF)
             .success(0xFF3DD68C)
             .warning(0xFFF5B544)
             .danger(0xFFF2555A)
-            .shadow(0x73000000)
+            .shadow(0x80000000)
             .style(ThemeStyle.defaultFor(ThemeMode.DARK))
             .build();
 
-    /** 2. 午夜 Midnight（深蓝冷色主题）。 */
-    public static final ThemeData MIDNIGHT = new ThemeData.Builder()
-            .id("midnight")
-            .name("午夜")
+    /** 5. 绯红月蚀 Crimson Eclipse（暗红炽烈主题）。 */
+    public static final ThemeData CRIMSON_ECLIPSE = new ThemeData.Builder()
+            .id("crimson_eclipse")
+            .name("绯红月蚀")
+            .mode(ThemeMode.DARK)
+            .backdrop(0x800A0406)
+            .surface0(0xFF12090C)
+            .surface1(0xFF1A0D11)
+            .surface2(0xFF241318)
+            .surface3(0xFF301A21)
+            .surface4(0xFF3D222B)
+            .border(0x1AFF4D6D)
+            .borderStrong(0x2EFF4D6D)
+            .textPrimary(0xFFF7E8EC)
+            .textSecondary(0xFFB88F9A)
+            .textTertiary(0xFF75525C)
+            .accent(0xFFF23F5D)
+            .textOnAccent(0xFFFFFFFF)
+            .thumb(0xFFFFFFFF)
+            .success(0xFF3DD68C)
+            .warning(0xFFF5B544)
+            .danger(0xFFFF4D6D)
+            .shadow(0x80000000)
+            .style(ThemeStyle.defaultFor(ThemeMode.DARK))
+            .build();
+
+    /** 6. 幽林萤火 Emerald Grove（深翠森林主题）。 */
+    public static final ThemeData EMERALD_GROVE = new ThemeData.Builder()
+            .id("emerald_grove")
+            .name("幽林萤火")
+            .mode(ThemeMode.DARK)
+            .backdrop(0x78040A07)
+            .surface0(0xFF09120E)
+            .surface1(0xFF0E1A14)
+            .surface2(0xFF14241C)
+            .surface3(0xFF1C3026)
+            .surface4(0xFF253E31)
+            .border(0x176BFFB8)
+            .borderStrong(0x296BFFB8)
+            .textPrimary(0xFFE6F4EC)
+            .textSecondary(0xFF8EB09C)
+            .textTertiary(0xFF526E5E)
+            .accent(0xFF34E090)
+            .textOnAccent(0xFF051A10)
+            .thumb(0xFFFFFFFF)
+            .success(0xFF34E090)
+            .warning(0xFFF5B544)
+            .danger(0xFFF2555A)
+            .shadow(0x78000000)
+            .style(ThemeStyle.defaultFor(ThemeMode.DARK))
+            .build();
+
+    /** 7. 落日琥珀 Sunset Amber（暖棕落日主题）。 */
+    public static final ThemeData SUNSET_AMBER = new ThemeData.Builder()
+            .id("sunset_amber")
+            .name("落日琥珀")
+            .mode(ThemeMode.DARK)
+            .backdrop(0x780C0604)
+            .surface0(0xFF140D0B)
+            .surface1(0xFF1D1310)
+            .surface2(0xFF271A16)
+            .surface3(0xFF33221D)
+            .surface4(0xFF402C25)
+            .border(0x1AFF9E66)
+            .borderStrong(0x2EFF9E66)
+            .textPrimary(0xFFF9ECE6)
+            .textSecondary(0xFFBA9A8C)
+            .textTertiary(0xFF785D52)
+            .accent(0xFFFF7A3D)
+            .textOnAccent(0xFF1A0900)
+            .thumb(0xFFFFFFFF)
+            .success(0xFF3DD68C)
+            .warning(0xFFFFB03B)
+            .danger(0xFFF2555A)
+            .shadow(0x78000000)
+            .style(ThemeStyle.defaultFor(ThemeMode.DARK))
+            .build();
+
+    /** 8. 星穹靛紫 Starlight Indigo（深邃星夜主题）。 */
+    public static final ThemeData STARLIGHT_INDIGO = new ThemeData.Builder()
+            .id("starlight_indigo")
+            .name("星穹靛紫")
             .mode(ThemeMode.DARK)
             .backdrop(0x8005070D)
-            .surface0(0xFF0B0E14)
-            .surface1(0xFF111520)
-            .surface2(0xFF171C29)
-            .surface3(0xFF1F2533)
-            .surface4(0xFF283040)
-            .border(0x12A0B4FF)
-            .borderStrong(0x1FA0B4FF)
-            .textPrimary(0xFFE6EAF2)
-            .textSecondary(0xFF8F99AD)
-            .textTertiary(0xFF566075)
-            .accent(0xFF7C8CFF)
+            .surface0(0xFF0A0D18)
+            .surface1(0xFF101424)
+            .surface2(0xFF161C31)
+            .surface3(0xFF1E2640)
+            .surface4(0xFF283252)
+            .border(0x178FA2FF)
+            .borderStrong(0x298FA2FF)
+            .textPrimary(0xFFE8ECFA)
+            .textSecondary(0xFF919CC0)
+            .textTertiary(0xFF566082)
+            .accent(0xFF6E7BFF)
             .textOnAccent(0xFFFFFFFF)
             .thumb(0xFFFFFFFF)
             .success(0xFF3DD68C)
@@ -64,111 +220,72 @@ public final class BuiltinThemes {
             .style(ThemeStyle.defaultFor(ThemeMode.DARK))
             .build();
 
-    /** 3. 纯黑 OLED（高对比纯黑主题，阴影为 0）。 */
-    public static final ThemeData OLED = new ThemeData.Builder()
-            .id("oled")
-            .name("纯黑 OLED")
-            .mode(ThemeMode.DARK)
-            .backdrop(0x99000000)
-            .surface0(0xFF000000)
-            .surface1(0xFF0A0A0A)
-            .surface2(0xFF121212)
-            .surface3(0xFF1A1A1A)
-            .surface4(0xFF242424)
-            .border(0x14FFFFFF)
-            .borderStrong(0x24FFFFFF)
-            .textPrimary(0xFFF2F2F2)
-            .textSecondary(0xFFA0A0A0)
-            .textTertiary(0xFF5C5C5C)
-            .accent(0xFF2EC4A6)
-            .textOnAccent(0xFF00140F)
-            .thumb(0xFFFFFFFF)
-            .success(0xFF3DD68C)
-            .warning(0xFFF5B544)
-            .danger(0xFFF2555A)
-            .shadow(0x00000000)
-            .style(ThemeStyle.defaultFor(ThemeMode.DARK))
-            .build();
-
-    /** 4. 松林 Forest（深绿自然主题）。 */
-    public static final ThemeData FOREST = new ThemeData.Builder()
-            .id("forest")
-            .name("松林")
-            .mode(ThemeMode.DARK)
-            .backdrop(0x73000000)
-            .surface0(0xFF0D1110)
-            .surface1(0xFF131816)
-            .surface2(0xFF19201D)
-            .surface3(0xFF212924)
-            .surface4(0xFF2A332D)
-            .border(0x0FC8FFE0)
-            .borderStrong(0x1AC8FFE0)
-            .textPrimary(0xFFE8EEEA)
-            .textSecondary(0xFF94A39A)
-            .textTertiary(0xFF5A6760)
-            .accent(0xFF3DD68C)
-            .textOnAccent(0xFF04140C)
-            .thumb(0xFFFFFFFF)
-            .success(0xFF3DD68C)
-            .warning(0xFFF5B544)
-            .danger(0xFFF2555A)
-            .shadow(0x73000000)
-            .style(ThemeStyle.defaultFor(ThemeMode.DARK))
-            .build();
-
-    /** 5. 雾白 Mist（浅色主题，默认开启卡片 1px 描边）。 */
-    public static final ThemeData MIST = new ThemeData.Builder()
-            .id("mist")
-            .name("雾白")
+    /** 9. 极地冰川 Arctic Frost（冷调浅色主题，默认开启卡片 1px 描边）。 */
+    public static final ThemeData ARCTIC_FROST = new ThemeData.Builder()
+            .id("arctic_frost")
+            .name("极地冰川")
             .mode(ThemeMode.LIGHT)
-            .backdrop(0x4D0B0D10)
-            .surface0(0xFFF1F2F4)
-            .surface1(0xFFFFFFFF)
-            .surface2(0xFFF7F8F9)
-            .surface3(0xFFEEF0F2)
-            .surface4(0xFFE3E6EA)
-            .border(0x14000000)
-            .borderStrong(0x24000000)
-            .textPrimary(0xFF16181B)
-            .textSecondary(0xFF5F656D)
-            .textTertiary(0xFF9BA1A8)
-            .accent(0xFF3B6FF0)
+            .backdrop(0x470B1528)
+            .surface0(0xFFEBF1F7)
+            .surface1(0xFFF9FCFF)
+            .surface2(0xFFF1F6FB)
+            .surface3(0xFFE4EDF6)
+            .surface4(0xFFD5E2F0)
+            .border(0x171E3A5F)
+            .borderStrong(0x291E3A5F)
+            .textPrimary(0xFF0F1D33)
+            .textSecondary(0xFF4A607D)
+            .textTertiary(0xFF8498B3)
+            .accent(0xFF2563EB)
             .textOnAccent(0xFFFFFFFF)
             .thumb(0xFFFFFFFF)
             .success(0xFF1FA86A)
             .warning(0xFFD9961A)
             .danger(0xFFE0434A)
-            .shadow(0x24101828)
+            .shadow(0x240F1D33)
             .style(ThemeStyle.defaultFor(ThemeMode.LIGHT))
             .build();
 
-    /** 6. 暖沙 Sand（暖色调浅色主题，默认开启卡片 1px 描边）。 */
-    public static final ThemeData SAND = new ThemeData.Builder()
-            .id("sand")
-            .name("暖沙")
+    /** 10. 晴空薰衣草 Lavender Mist（柔紫浅色主题，默认开启卡片 1px 描边）。 */
+    public static final ThemeData LAVENDER_MIST = new ThemeData.Builder()
+            .id("lavender_mist")
+            .name("晴空薰衣草")
             .mode(ThemeMode.LIGHT)
-            .backdrop(0x471E160C)
-            .surface0(0xFFEFEBE4)
-            .surface1(0xFFFAF8F4)
-            .surface2(0xFFF3F0EA)
-            .surface3(0xFFEAE5DC)
-            .surface4(0xFFDFD8CC)
-            .border(0x1A3C2A14)
-            .borderStrong(0x293C2A14)
-            .textPrimary(0xFF2A241C)
-            .textSecondary(0xFF6E6456)
-            .textTertiary(0xFFA39886)
-            .accent(0xFFD9822B)
+            .backdrop(0x471A1029)
+            .surface0(0xFFF0ECF7)
+            .surface1(0xFFFBF9FE)
+            .surface2(0xFFF5F1FB)
+            .surface3(0xFFEAE3F5)
+            .surface4(0xFFDDD3ED)
+            .border(0x173B235E)
+            .borderStrong(0x293B235E)
+            .textPrimary(0xFF1E162B)
+            .textSecondary(0xFF5E5073)
+            .textTertiary(0xFF9688AD)
+            .accent(0xFF7C4DFF)
             .textOnAccent(0xFFFFFFFF)
             .thumb(0xFFFFFFFF)
             .success(0xFF1FA86A)
             .warning(0xFFD9961A)
             .danger(0xFFE0434A)
-            .shadow(0x243C2A14)
+            .shadow(0x24261642)
             .style(ThemeStyle.defaultFor(ThemeMode.LIGHT))
             .build();
 
-    /** 按规范顺序排列的全部 6 套内置主题。 */
+    /** 向后兼容旧常量别名：石墨 -> 黑曜流金。 */
+    public static final ThemeData GRAPHITE = OBSIDIAN_GOLD;
+    /** 向后兼容旧常量别名：午夜 -> 星穹靛紫。 */
+    public static final ThemeData MIDNIGHT = STARLIGHT_INDIGO;
+    /** 向后兼容旧常量别名：纯黑 OLED -> 黑曜流金。 */
+    public static final ThemeData OLED = OBSIDIAN_GOLD;
+    /** 向后兼容旧常量别名：松林 -> 幽林萤火。 */
+    public static final ThemeData FOREST = EMERALD_GROVE;
+    /** 向后兼容旧常量别名：雾白 -> 极地冰川。 */
+    public static final ThemeData MIST = ARCTIC_FROST;
+    /** 向后兼容旧常量别名：暖沙 -> 晴空薰衣草。 */
+    public static final ThemeData SAND = LAVENDER_MIST;
+
+    /** 按规范顺序排列的全部 10 套内置主题。 */
     public static final List<ThemeData> ALL;
     private static final Map<String, ThemeData> BY_ID;
 
@@ -176,19 +293,30 @@ public final class BuiltinThemes {
     public static final List<AccentPreset> ACCENT_PRESETS;
 
     static {
-        List<ThemeData> list = new ArrayList<ThemeData>(6);
-        list.add(GRAPHITE);
-        list.add(MIDNIGHT);
-        list.add(OLED);
-        list.add(FOREST);
-        list.add(MIST);
-        list.add(SAND);
+        List<ThemeData> list = new ArrayList<ThemeData>(10);
+        list.add(OBSIDIAN_GOLD);
+        list.add(CYBER_PULSE);
+        list.add(SPRING_BLOSSOM);
+        list.add(ABYSSAL_CYAN);
+        list.add(CRIMSON_ECLIPSE);
+        list.add(EMERALD_GROVE);
+        list.add(SUNSET_AMBER);
+        list.add(STARLIGHT_INDIGO);
+        list.add(ARCTIC_FROST);
+        list.add(LAVENDER_MIST);
         ALL = Collections.unmodifiableList(list);
 
-        Map<String, ThemeData> map = new LinkedHashMap<String, ThemeData>(8);
+        Map<String, ThemeData> map = new LinkedHashMap<String, ThemeData>(24);
         for (ThemeData theme : list) {
             map.put(theme.getId(), theme);
         }
+        // 保留旧版本主题 ID 向后兼容映射，不加入 ALL 列表
+        map.put("graphite", GRAPHITE);
+        map.put("midnight", MIDNIGHT);
+        map.put("oled", OLED);
+        map.put("forest", FOREST);
+        map.put("mist", MIST);
+        map.put("sand", SAND);
         BY_ID = Collections.unmodifiableMap(map);
 
         List<AccentPreset> presets = new ArrayList<AccentPreset>(8);
