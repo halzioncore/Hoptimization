@@ -23,7 +23,7 @@ public final class ThemeManager {
     private static final long TRANSITION_DURATION_NANOS = UiTokens.DURATION_NORMAL_MS * 1_000_000L;
     private static final ThemeManager INSTANCE = new ThemeManager();
 
-    private final Map<String, ThemeData> builtinThemes = new LinkedHashMap<String, ThemeData>(8);
+    private final Map<String, ThemeData> builtinThemes = new LinkedHashMap<String, ThemeData>(16);
     private final Map<String, ThemeData> customThemes = new LinkedHashMap<String, ThemeData>();
 
     private File themesDirectory;
@@ -44,9 +44,9 @@ public final class ThemeManager {
         for (ThemeData builtin : BuiltinThemes.ALL) {
             builtinThemes.put(builtin.getId(), builtin);
         }
-        this.activeBaseTheme = BuiltinThemes.GRAPHITE;
-        this.targetTheme = BuiltinThemes.GRAPHITE;
-        this.fromTheme = BuiltinThemes.GRAPHITE;
+        this.activeBaseTheme = BuiltinThemes.OBSIDIAN_GOLD;
+        this.targetTheme = BuiltinThemes.OBSIDIAN_GOLD;
+        this.fromTheme = BuiltinThemes.OBSIDIAN_GOLD;
     }
 
     /**
@@ -172,7 +172,7 @@ public final class ThemeManager {
     }
 
     /**
-     * 获取全部主题列表（6 套内置主题在前，自定义主题在后）。
+     * 获取全部主题列表（10 套内置主题在前，自定义主题在后）。
      *
      * @return 主题列表快照
      */
@@ -204,7 +204,7 @@ public final class ThemeManager {
     }
 
     /**
-     * 按 ID 查找主题（内置优先，其次自定义）。
+     * 按 ID 查找主题（内置优先，支持旧版本内置 ID 别名查找，其次自定义）。
      *
      * @param id 主题 ID
      * @return 找到的 {@link ThemeData}，不存在则返回 {@code null}
@@ -215,6 +215,9 @@ public final class ThemeManager {
         }
         String normalized = id.trim().toLowerCase(Locale.ROOT);
         ThemeData builtin = builtinThemes.get(normalized);
+        if (builtin == null) {
+            builtin = BuiltinThemes.findById(normalized);
+        }
         if (builtin != null) {
             return builtin;
         }
@@ -337,7 +340,7 @@ public final class ThemeManager {
     }
 
     /**
-     * 启动期无动画直接应用主题与强调色（未知主题时回退石墨主题）。
+     * 启动期无动画直接应用主题与强调色（未知主题时回退黑曜流金主题）。
      *
      * @param themeId 主题 ID
      * @param accentArgb 全局强调色覆盖或 {@code null}
@@ -346,9 +349,10 @@ public final class ThemeManager {
         ThemeData resolved = getTheme(themeId);
         if (resolved == null) {
             if (themeId != null && !themeId.trim().isEmpty()) {
-                HoptimizationMod.LOGGER.warn("Configured theme '{}' not found, falling back to 'graphite'.", themeId);
+                HoptimizationMod.LOGGER.warn("Configured theme '{}' not found, falling back to 'obsidian_gold'.",
+                        themeId);
             }
-            resolved = BuiltinThemes.GRAPHITE;
+            resolved = BuiltinThemes.OBSIDIAN_GOLD;
         }
         this.activeBaseTheme = resolved;
         this.accentOverride = accentArgb;
@@ -434,7 +438,7 @@ public final class ThemeManager {
     }
 
     /**
-     * 删除自定义主题及对应 JSON 文件；若当前正使用该主题则平滑切回石墨主题。
+     * 删除自定义主题及对应 JSON 文件；若当前正使用该主题则平滑切回黑曜流金主题。
      *
      * @param id 自定义主题 ID
      * @return 是否删除成功
@@ -453,7 +457,7 @@ public final class ThemeManager {
             HoptimizationMod.LOGGER.warn("Failed to delete custom theme file '{}'", file.getAbsolutePath());
         }
         if (activeBaseTheme.getId().equals(id)) {
-            setTheme(BuiltinThemes.GRAPHITE);
+            setTheme(BuiltinThemes.OBSIDIAN_GOLD);
         }
         return true;
     }

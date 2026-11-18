@@ -15,7 +15,7 @@ import java.util.Map;
 public class UiConfig {
     public static final int CURRENT_SCHEMA = 1;
     public static final String DEFAULT_PROFILE = "default";
-    public static final String DEFAULT_THEME_ID = "graphite";
+    public static final String DEFAULT_THEME_ID = "obsidian_gold";
     public static final float MIN_UI_SCALE_MULTIPLIER = 0.5f;
     public static final float MAX_UI_SCALE_MULTIPLIER = 2.0f;
     public static final float DEFAULT_CLICK_GUI_SCALE = 1.25f;
