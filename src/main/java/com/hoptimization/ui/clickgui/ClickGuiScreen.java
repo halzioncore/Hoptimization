@@ -8,6 +8,7 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.modules.ui.ClickGuiModule;
+import com.hoptimization.modules.visual.Theme;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
@@ -68,6 +69,10 @@ public class ClickGuiScreen extends GuiScreen {
     private static final Category[] CATEGORIES = Category.values();
     private static final float[] SESSION_CATEGORY_SCROLL = new float[CATEGORIES.length];
     private static final Set<String> SESSION_EXPANDED_IDS = new HashSet<String>();
+
+    static {
+        SESSION_EXPANDED_IDS.add(Theme.ID);
+    }
 
     private final ClickGuiSidebar sidebar = new ClickGuiSidebar();
     private final ClickGuiContentHeader contentHeader = new ClickGuiContentHeader();
