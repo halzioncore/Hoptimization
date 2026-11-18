@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-18 · 击杀效果新模式（幻影剑 / 深渊噬魂）与模组独立语言修复（v0.10.0）
+
+- **做了什么**：通过 `/swarm` 2 名并行工程师（`kill-effects-modes`、`mod-language-fix`）与 `@verifier-2` 交叉审查完成 `KillEffects` 双新模式及模组独立语言切换修复集成，全仓保持 **26 个模块**：
+  1. **KillEffects 幻影剑与深渊噬魂模式 (`feat/kill-effects-modes`)**：在 `KillEffects` 与 `KillEffectInstance` 新增 `MODE_PHANTOM_SWORDS`（`phantom_swords`）与 `MODE_ABYSS_VORTEX`（`abyss_vortex`），扩展 `mode` 至 4 项并更新 `soulColor`/`weaponScale` 的 `visibleWhen` 条件（`soul_sever` 与 `phantom_swords` 下可见）；在 `KillEffectsRenderer` 实现 `renderPhantomSwords`（头顶召唤光环、6 柄 3D 幻影剑环绕旋转与交错俯冲刺入、穿刺闪光/音效与迸发粒子）及 `renderAbyssVortex`（地面黑洞传送门、4 条螺旋吸积旋臂与 8 条引力流线、实体旋转收束下沉、`CLIP_PLANE_BUF` 配合 `GL_CLIP_PLANE0` 平面裁剪与 `finally` 还原、坍缩音效与持续吸入粒子）；在 `kill_soul.vsh` 写入 `gl_ClipVertex = eyePos4;`，并在 `SoulParticlePool` 新增 `KIND_ABYSS_VORTEX`（预分配 `targetX/Y/Z` 数组）、向心螺旋更新与新粒子生成方法，全热路径零分配。
+  2. **模组独立语言切换修复与 v0.10.0 本地化 (`feat/mod-language-fix`)**：重构 `LanguageModule`，移除全部对原版 `LanguageManager`、`mc.gameSettings.language`、字体标志与 `saveOptions()` 的改动，改为静态加载 UTF-8 词典 `ZH_CN_TABLE`/`EN_US_TABLE`，提供只读 `getEffectiveLanguageCode()`、零分配 `format(String)`、`format(String, Object...)` 与仅同步修订号的 `applyConfiguredLanguageOnInit()`；将模组内 11 个文件中的 `I18n.format` 统一替换为 `LanguageModule.format`（`ClickGuiScreen` 同时追踪 `languageRevision` 与 `effectiveLanguageCode` 响应 `auto` 模式变化，`HudRenderHelper` 同步接入）；在 `zh_CN.lang` 与 `en_US.lang` 新增 `phantom_swords`/`abyss_vortex` 选项键并更新描述（各 242 条唯一键，UTF-8 无 BOM），同步 `gradle.properties` 与 `HoptimizationMod.VERSION` 至 `0.10.0`。
+- **改动文件**：`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/{Category,Module}.java`、`core/setting/{KeybindSetting,ModeSetting,Setting}.java`、`modules/misc/LanguageModule.java`、`modules/visual/KillEffects.java`、`modules/visual/killeffects/{KillEffectInstance,KillEffectsRenderer,SoulParticlePool}.java`、`ui/clickgui/{ClickGuiContentHeader,ClickGuiScreen,ClickGuiSidebar,ModuleCard}.java`、`ui/component/KeybindComponent.java`、`ui/hud/HudRenderHelper.java`、`src/main/resources/assets/hoptimization/shader/kill_soul.vsh`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 12s`，零编译错误与零 Mixin 警告，生成 `build/libs/hoptimization-0.10.0.jar`，`2172023` 字节）；Java 8 集成校验 ✅（Zulu JDK `1.8.0_504`：`HoptimizationMod.VERSION` 与 `gradle.properties` 均为 `0.10.0`、`ModuleManager` 注册 26 模块、`KillEffects.mode` 含 4 项且 `soul_color`/`weapon_scale` 在 `soul_sever`/`phantom_swords` 下可见而在 `annihilation`/`abyss_vortex` 下隐藏、`LanguageModule` 切 `zh_cn`/`en_us` 分别返回 `"视觉"`/`"Visual"` 且字节码不含原版语言修改符号、`zh_CN.lang` 与 `en_US.lang` 各 242 条键 100% 对齐且无 UTF-8 BOM）；`.\gradlew.bat launchClient --offline --console=plain` ✅（日志确认 `Pre-initializing Hoptimization 0.10.0`、`Hoptimization initialized (26 modules).`、`Hoptimization mixins active.`，无 `InvalidInjectionException`、`MixinApplyError` 或致命异常；游戏内幻影剑/深渊噬魂特效画面与 ClickGUI/HUD 独立语言切换待所有者手测）
+- **Git**：分支 `feat/kill-effects-modes` (`fa9f47a`) + `feat/mod-language-fix` (`0de077d`) → `feat/v0.10.0-effects-lang` (`<待补>`) `--no-ff` 合入 `main` (`<待补合并提交短哈希>`)，标签 `v0.10.0`，推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert HEAD && git revert -m 1 <合并提交短哈希>`（或 `git checkout -b fix/rollback v0.9.0`）
+- **已知问题**：游戏世界内 `KillEffects` 的 `phantom_swords` 与 `abyss_vortex` 实时渲染/粒子/剪裁表现及 `Misc -> Language` 仅切换模组界面且不影响原版语言的实机交互待所有者手测验收；ClickGUI 设置页 6 主题预览网格与主题编辑器留待后续版本推进。
+- **下一步**：等待所有者进游戏手测 `Visual -> Kill Effects`（幻影剑 / 深渊噬魂）与 `Misc -> Language` 独立切换效果并确认后执行远程推送；后续继续完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-18 · 10 套视觉主题系统与 Visual 主题模块（v0.9.0）
 
 - **做了什么**：通过 `/swarm` 2 名并行工程师（`theme-palettes`、`visual-theme-module`）与 `@verifier` 交叉审查完成 10 套内置视觉主题系统及 Visual 分类主题切换模块集成，全仓共注册 **26 个模块**：
