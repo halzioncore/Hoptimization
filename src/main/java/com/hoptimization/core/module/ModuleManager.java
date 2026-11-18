@@ -23,6 +23,7 @@ import com.hoptimization.modules.visual.BlockOutline;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.KillEffects;
 import com.hoptimization.modules.visual.LowFire;
+import com.hoptimization.modules.visual.Theme;
 import com.hoptimization.modules.visual.TimeChanger;
 import com.hoptimization.modules.visual.Zoom;
 
@@ -74,6 +75,7 @@ public class ModuleManager {
         register(new ToggleSprint());
         register(new NoJumpDelay());
 
+        register(new Theme());
         register(new LowFire());
         register(new BlockOutline());
         register(new HurtCam());
@@ -213,10 +215,10 @@ public class ModuleManager {
     }
 
     /**
-     * Toggles available, toggleable modules bound to the given LWJGL key code.
+     * Toggles available, toggleable modules (or cycles bound {@link Theme} options) for the given LWJGL key code.
      *
      * @param keyCode pressed LWJGL key code
-     * @return true if at least one module was toggled
+     * @return true if at least one module was toggled or cycled
      */
     public boolean handleKeyPress(int keyCode) {
         if (keyCode <= 0) {
@@ -226,6 +228,13 @@ public class ModuleManager {
         for (int i = 0; i < this.modules.size(); i++) {
             Module module = this.modules.get(i);
             if (module.getKeybind() == keyCode) {
+                if (module instanceof Theme) {
+                    if (module.isAvailable()) {
+                        ((Theme) module).getThemeSetting().cycle();
+                        toggled = true;
+                    }
+                    continue;
+                }
                 if (!module.isToggleable() || !module.isAvailable()) {
                     continue;
                 }

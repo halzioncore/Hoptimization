@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-18 · 10 套视觉主题系统与 Visual 主题模块（v0.9.0）
+
+- **做了什么**：通过 `/swarm` 2 名并行工程师（`theme-palettes`、`visual-theme-module`）与 `@verifier` 交叉审查完成 10 套内置视觉主题系统及 Visual 分类主题切换模块集成，全仓共注册 **26 个模块**：
+  1. **10 套内置视觉主题与默认黑曜流金升级 (`feat/theme-palettes`)**：在 `BuiltinThemes` 按序定义并注册 `OBSIDIAN_GOLD`（`obsidian_gold` 黑曜流金，新默认主题）、`CYBER_PULSE`、`SPRING_BLOSSOM`、`ABYSSAL_CYAN`、`CRIMSON_ECLIPSE`、`EMERALD_GROVE`、`SUNSET_AMBER`、`STARLIGHT_INDIGO`、`ARCTIC_FROST`、`LAVENDER_MIST` 共 10 套主题（7 深色 + 3 浅色），全部满足 WCAG `textPrimary >= 4.5` 与 `textSecondary >= 3.0`；保留 6 个旧常量别名及 `BY_ID`/`findById`/`isBuiltin`/`ThemeManager.getTheme` 向后兼容映射而不重复加入 `ALL`；将 `UiConfig.DEFAULT_THEME_ID` 与 `ThemeManager` 默认/回退主题升级为 `obsidian_gold`，同步更新 `docs/agent必看/02_美术规范.md §2.3`。
+  2. **Visual 主题模块与 0.9.0 本地化 (`feat/visual-theme-module`)**：新增不可开关配置模块 `Theme`（`id = "theme"`，`Category.VISUAL` 首位，`toggleable = false`），内置 10 项 `ModeSetting`（默认 `obsidian_gold`），支持 `Theme.syncOnStartup(uiConfig)` 启动期 `applyImmediate` 同步、运行期切换调用 `ThemeManager.setTheme(...)` 平滑过渡并防抖保存 `UiConfig`、以及 `ModuleManager.handleKeyPress` 绑键循环切换；在 `ClickGuiScreen` 默认展开 `Theme` 卡片；对齐 `en_US.lang` 与 `zh_CN.lang`（各 240 条唯一键，UTF-8 无 BOM），并同步 `gradle.properties`、`HoptimizationMod.VERSION` 与语言文件版本号至 `0.9.0`。
+- **改动文件**：`docs/agent必看/02_美术规范.md`、`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/config/UiConfig.java`、`core/module/ModuleManager.java`、`modules/visual/Theme.java`（新增）、`ui/clickgui/ClickGuiScreen.java`、`ui/theme/{BuiltinThemes,ThemeManager}.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 11s`，零编译错误与零 Mixin 警告，生成 `build/libs/hoptimization-0.9.0.jar`，`2157628` 字节）；Java 8 集成校验 ✅（Zulu JDK `1.8.0_504`：`BuiltinThemes.ALL.size() == 10`、全部 10 套主题主/次文本 WCAG 对比度达标、`UiConfig.DEFAULT_THEME_ID` 与 `ThemeManager.current().getId()` 均为 `obsidian_gold`、`ModuleManager` 注册 26 模块、`Category.VISUAL` 首位 `theme` 且 `isToggleable() == false`、`Theme.getThemeSetting().getModeCount() == 10`）；`.\gradlew.bat launchClient --offline --console=plain` ✅（日志确认 `Pre-initializing Hoptimization 0.9.0`、`Hoptimization initialized (26 modules).`、`Hoptimization mixins active.`，无 `InvalidInjectionException`、`MixinApplyError` 或致命异常；ClickGUI 实机配色观感与热键切换待所有者手测）
+- **Git**：分支 `feat/theme-palettes` (`4ac8736`) + `feat/visual-theme-module` (`b84a7b5`) → `feat/visual-themes` (<待补记>) `--no-ff` 合入 `main` (<待补记合并提交短哈希>)，标签 `v0.9.0`（原本地未推送的旧 ESP 实验标签 `v0.9.0` 已归档为 `v0.9.0-esp`），推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert -m 1 <待补记合并提交短哈希>`（回退后需再 `git revert` 补记提交；或 `git checkout -b fix/rollback v0.8.0-rollback`）
+- **已知问题**：游戏内 ClickGUI 中 10 套主题配色观感、实时平滑过渡动画与绑键循环切换体验待所有者手测验收；ClickGUI 设置页 6 主题预览网格与主题编辑器按规划留待后续版本推进。
+- **下一步**：等待所有者进游戏手测 `Visual -> Theme` 切换效果并确认后执行远程推送；后续继续完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-18 · 按所有者要求将源码回退至 v0.8.0（移除 ESP 相关改动）
 
 - **做了什么**：按所有者反馈，通过非破坏性回退在保留完整 Git 历史与过往日志的前提下，将 `src/` 与 `gradle.properties` 精确恢复至 `v0.8.0`（`a5431e2`）状态，全部移除 `v0.9.0` 与 `v0.9.1` 引入的 `Esp` 模块、`EspRenderer`/`EspSketchShader`/`esp_sketch.{vsh,fsh}`、`MixinRenderItemVisual`、`MixinItemRendererVisual` 及其在 `MixinRendererLivingEntityVisual`、`MixinLayerArmorBaseVisual`、`ModuleManager`（恢复 **25 个模块**）与 `en_US.lang`/`zh_CN.lang`（恢复 **217 条** 对齐键）中的全部改动，版本号三处恢复为 `0.8.0`。
