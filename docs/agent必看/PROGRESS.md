@@ -13,8 +13,8 @@
 - **做了什么**：按所有者反馈，通过非破坏性回退在保留完整 Git 历史与过往日志的前提下，将 `src/` 与 `gradle.properties` 精确恢复至 `v0.8.0`（`a5431e2`）状态，全部移除 `v0.9.0` 与 `v0.9.1` 引入的 `Esp` 模块、`EspRenderer`/`EspSketchShader`/`esp_sketch.{vsh,fsh}`、`MixinRenderItemVisual`、`MixinItemRendererVisual` 及其在 `MixinRendererLivingEntityVisual`、`MixinLayerArmorBaseVisual`、`ModuleManager`（恢复 **25 个模块**）与 `en_US.lang`/`zh_CN.lang`（恢复 **217 条** 对齐键）中的全部改动，版本号三处恢复为 `0.8.0`。
 - **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/visual/Esp.java`（删）、`modules/visual/esp/*`（删）、`mixin/render/{MixinItemRendererVisual,MixinRenderItemVisual}.java`（删）、`mixin/render/{MixinRendererLivingEntityVisual,MixinLayerArmorBaseVisual}.java`、`src/main/resources/assets/hoptimization/shader/esp_sketch.{vsh,fsh}`（删）、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
 - **验证**：`git diff v0.8.0 -- ':!docs/agent必看/PROGRESS.md'` 零差异 ✅；`.\gradlew.bat clean build --offline --console=plain` ✅（生成 `hoptimization-0.8.0.jar`，`2152332` 字节）；`.\gradlew.bat launchClient --offline --console=plain` ✅（日志确认 `Pre-initializing Hoptimization 0.8.0`、`Hoptimization initialized (25 modules).`、`Hoptimization mixins active.`，零异常）
-- **Git**：分支 `fix/rollback-v0.8.0` (`1f5aecf`) `--no-ff` 合入 `main`，本地标签 `v0.8.0-rollback`（`v0.8.0` 标签保持不变），远程 `git push` ⏸ 未推送（待所有者确认）
-- **复原或回退**：如需再次回到 `v0.8.0` 之前保留的最后一次实验快照，可用 `git checkout -b feat/esp-experiment v0.9.1`；回退本次合入可执行 `git revert HEAD && git revert -m 1 <merge-short-hash>`。
+- **Git**：分支 `fix/rollback-v0.8.0` (`1f5aecf` → `404a4cb`) `--no-ff` 合入 `main` (`ea55673`)，本地标签 `v0.8.0-rollback`（`v0.8.0` 原标签保持不变），远程 `git push` ⏸ 未推送（待所有者确认）
+- **复原或回退**：如需再次回到 `v0.8.0` 之前保留的最后一次实验快照，可用 `git checkout -b feat/esp-experiment v0.9.1`；回退本次合入可执行 `git revert HEAD && git revert -m 1 ea55673`。
 - **已知问题**：`v0.8.0` 原功能基线完整保留；后续若需重新设计其它样式功能可基于当前 `main`（源码等同 `v0.8.0`）切新分支推进。
 - **下一步**：等待所有者确认后续方向或远程推送指令。
 
