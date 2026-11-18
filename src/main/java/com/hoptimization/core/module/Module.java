@@ -3,7 +3,7 @@ package com.hoptimization.core.module;
 import com.hoptimization.HoptimizationMod;
 import com.hoptimization.core.setting.KeybindSetting;
 import com.hoptimization.core.setting.Setting;
-import net.minecraft.client.resources.I18n;
+import com.hoptimization.modules.misc.LanguageModule;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Keyboard;
@@ -143,7 +143,7 @@ public abstract class Module {
      * @return localized display name
      */
     public String getDisplayName() {
-        return I18n.format(this.nameKey);
+        return LanguageModule.format(this.nameKey);
     }
 
     /**
@@ -152,7 +152,7 @@ public abstract class Module {
      * @return localized description
      */
     public String getDisplayDescription() {
-        return I18n.format(this.descKey);
+        return LanguageModule.format(this.descKey);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.hoptimization.ui.component;
 
 import com.hoptimization.core.setting.KeybindSetting;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.ColorAnimation;
@@ -10,7 +11,6 @@ import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.UiTokens;
-import net.minecraft.client.resources.I18n;
 import org.lwjgl.input.Keyboard;
 
 /**
@@ -213,8 +213,8 @@ public class KeybindComponent extends UiComponent {
 
     @Override
     public void refreshLabels() {
-        this.noneLabel = I18n.format(KEY_NONE_LANG);
-        this.listeningLabel = I18n.format(KEY_LISTENING_LANG);
+        this.noneLabel = LanguageModule.format(KEY_NONE_LANG);
+        this.listeningLabel = LanguageModule.format(KEY_LISTENING_LANG);
     }
 
     /**

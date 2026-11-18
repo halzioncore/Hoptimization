@@ -28,7 +28,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ChatAllowedCharacters;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -126,6 +125,7 @@ public class ClickGuiScreen extends GuiScreen {
     private float lastLogicalW = -1.0f;
     private float lastLogicalH = -1.0f;
     private int lastLanguageRevision = LanguageModule.getLanguageRevision();
+    private String lastEffectiveLanguageCode = LanguageModule.getEffectiveLanguageCode();
 
     /**
      * 构造 ClickGUI 屏幕并预分配分类容器与搜索监听器。
@@ -169,6 +169,7 @@ public class ClickGuiScreen extends GuiScreen {
         ensureCardsInitialized();
         refreshAllLabels();
         lastLanguageRevision = LanguageModule.getLanguageRevision();
+        lastEffectiveLanguageCode = LanguageModule.getEffectiveLanguageCode();
 
         float logicalW = UiScale.getLogicalWidth(uiScale);
         float logicalH = UiScale.getLogicalHeight(uiScale);
@@ -250,9 +251,14 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         int languageRevision = LanguageModule.getLanguageRevision();
+        String effectiveLanguageCode = LanguageModule.getEffectiveLanguageCode();
         boolean needsLabelRefresh = false;
         if (languageRevision != this.lastLanguageRevision) {
             this.lastLanguageRevision = languageRevision;
+            needsLabelRefresh = true;
+        }
+        if (!effectiveLanguageCode.equals(this.lastEffectiveLanguageCode)) {
+            this.lastEffectiveLanguageCode = effectiveLanguageCode;
             needsLabelRefresh = true;
         }
 
@@ -1040,9 +1046,9 @@ public class ClickGuiScreen extends GuiScreen {
     public void refreshAllLabels() {
         this.sidebar.refreshLabels();
         this.contentHeader.refreshLabels();
-        this.emptySearchLabel = I18n.format("ui.hoptimization.search.empty");
+        this.emptySearchLabel = LanguageModule.format("ui.hoptimization.search.empty");
         for (int c = 0; c < CATEGORIES.length; c++) {
-            this.groupSlots[c].label = I18n.format(CATEGORIES[c].getNameKey());
+            this.groupSlots[c].label = LanguageModule.format(CATEGORIES[c].getNameKey());
         }
         for (int i = 0; i < this.allCards.size(); i++) {
             this.allCards.get(i).refreshLabels();
@@ -1416,7 +1422,7 @@ public class ClickGuiScreen extends GuiScreen {
         if (listY + cardH > contentY + contentH) {
             return;
         }
-        String btnLabel = I18n.format("ui.hoptimization.settings.hud.edit_layout");
+        String btnLabel = LanguageModule.format("ui.hoptimization.settings.hud.edit_layout");
         float btnW = Math.max(96.0f, FontManager.caption().getWidth(btnLabel) + UiTokens.SPACE_16 * 2.0f);
         float btnH = 26.0f;
         float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
@@ -1448,13 +1454,15 @@ public class ClickGuiScreen extends GuiScreen {
             cardBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
         );
 
-        String title = I18n.format("ui.hoptimization.settings.hud");
-        String subtitle = I18n.format("ui.hoptimization.settings.about.version") + " " + HoptimizationMod.VERSION;
+        String title = LanguageModule.format("ui.hoptimization.settings.hud");
+        String subtitle = LanguageModule.format("ui.hoptimization.settings.about.version")
+            + " " + HoptimizationMod.VERSION;
         TtfFontRenderer titleFont = FontManager.body();
         TtfFontRenderer subFont = FontManager.caption();
 
+        String btnLabel = LanguageModule.format("ui.hoptimization.settings.hud.edit_layout");
         float textX = cardX + UiTokens.SPACE_12;
-        float btnLabelW = FontManager.caption().getWidth(I18n.format("ui.hoptimization.settings.hud.edit_layout"));
+        float btnLabelW = subFont.getWidth(btnLabel);
         float btnW = Math.max(96.0f, btnLabelW + UiTokens.SPACE_16 * 2.0f);
         float btnH = 26.0f;
         float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
@@ -1467,7 +1475,6 @@ public class ClickGuiScreen extends GuiScreen {
         titleFont.drawString(elidedTitle, textX, listY + 12.0f, RenderUtil.withAlpha(theme.textPrimary(), windowAlpha));
         subFont.drawString(elidedSub, textX, listY + 29.0f, RenderUtil.withAlpha(theme.textSecondary(), windowAlpha));
 
-        String btnLabel = I18n.format("ui.hoptimization.settings.hud.edit_layout");
         int btnBg = hovered
             ? RenderUtil.withAlpha(theme.accentMuted(), windowAlpha)
             : RenderUtil.withAlpha(theme.surface3(), windowAlpha);

@@ -1,6 +1,6 @@
 package com.hoptimization.core.setting;
 
-import net.minecraft.client.resources.I18n;
+import com.hoptimization.modules.misc.LanguageModule;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Locale;
@@ -78,7 +78,7 @@ public class KeybindSetting extends Setting<Integer> {
      */
     public String getDisplayKeyName() {
         if (!isBound()) {
-            return I18n.format(NONE_DISPLAY_KEY);
+            return LanguageModule.format(NONE_DISPLAY_KEY);
         }
         return this.cachedKeyName;
     }

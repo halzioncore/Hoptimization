@@ -5,6 +5,7 @@ import com.hoptimization.core.config.ConfigManager;
 import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.ModuleManager;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
@@ -17,7 +18,6 @@ import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.UiTokens;
-import net.minecraft.client.resources.I18n;
 
 /**
  * ClickGUI 左侧导航栏（宽 192）：品牌拖动区、搜索框外观、分类列表与平滑滑动指示条、
@@ -72,16 +72,16 @@ public final class ClickGuiSidebar {
     }
 
     /**
-     * 刷新本地化文本缓存，避免每帧调用 {@link I18n#format} 产生临时对象。
+     * 刷新本地化文本缓存，避免每帧调用 {@link LanguageModule#format} 产生临时对象。
      */
     public void refreshLabels() {
         for (int i = 0; i < CATEGORIES.length; i++) {
-            categoryLabels[i] = I18n.format(CATEGORIES[i].getNameKey());
+            categoryLabels[i] = LanguageModule.format(CATEGORIES[i].getNameKey());
         }
-        searchPlaceholder = I18n.format("ui.hoptimization.search.placeholder");
-        searchShortcut = I18n.format("ui.hoptimization.search.shortcut");
-        defaultProfileLabel = I18n.format("ui.hoptimization.profile.default");
-        settingsLabel = I18n.format("ui.hoptimization.sidebar.settings");
+        searchPlaceholder = LanguageModule.format("ui.hoptimization.search.placeholder");
+        searchShortcut = LanguageModule.format("ui.hoptimization.search.shortcut");
+        defaultProfileLabel = LanguageModule.format("ui.hoptimization.profile.default");
+        settingsLabel = LanguageModule.format("ui.hoptimization.sidebar.settings");
         searchField.setPlaceholder(searchPlaceholder);
         searchField.setTrailingHint(searchShortcut);
     }

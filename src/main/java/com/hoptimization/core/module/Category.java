@@ -1,6 +1,6 @@
 package com.hoptimization.core.module;
 
-import net.minecraft.client.resources.I18n;
+import com.hoptimization.modules.misc.LanguageModule;
 
 import java.util.Locale;
 
@@ -58,7 +58,7 @@ public enum Category {
      * @return localized category name
      */
     public String getDisplayName() {
-        return I18n.format(this.nameKey);
+        return LanguageModule.format(this.nameKey);
     }
 
     /**

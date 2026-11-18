@@ -7,6 +7,7 @@ import com.hoptimization.core.setting.KeybindSetting;
 import com.hoptimization.core.setting.ModeSetting;
 import com.hoptimization.core.setting.NumberSetting;
 import com.hoptimization.core.setting.Setting;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.ColorAnimation;
@@ -27,7 +28,6 @@ import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.resources.I18n;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.Display;
 
@@ -177,8 +177,8 @@ public final class ModuleCard {
         this.cachedName = safeString(this.module.getDisplayName());
         this.cachedDesc = safeString(this.module.getDisplayDescription());
         this.cachedIdSearch = this.module.getId().replace('_', ' ').toLowerCase(Locale.ROOT);
-        this.cachedListeningLabel = I18n.format("setting.hoptimization.common.keybind.listening");
-        this.cachedCheatLockedLabel = I18n.format("ui.hoptimization.cheat_locked");
+        this.cachedListeningLabel = LanguageModule.format("setting.hoptimization.common.keybind.listening");
+        this.cachedCheatLockedLabel = LanguageModule.format("ui.hoptimization.cheat_locked");
 
         for (int i = 0; i < this.settingRows.size(); i++) {
             SettingRow row = this.settingRows.get(i);
