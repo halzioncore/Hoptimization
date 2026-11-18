@@ -9,7 +9,7 @@ import org.lwjgl.opengl.GL11;
 
 /**
  * Zero-allocation primitive-backed particle pool (capacity 256) for Soul Sever wisps,
- * cleave sparks, and Annihilation dissolution motes.
+ * cleave/impale sparks, Annihilation dissolution motes, and Abyss Vortex suction particles.
  */
 public final class SoulParticlePool {
     public static final int CAPACITY = 256;
@@ -17,15 +17,20 @@ public final class SoulParticlePool {
     public static final int KIND_SOUL_WISP = 0;
     public static final int KIND_CLEAVE_SPARK = 1;
     public static final int KIND_ANNIHILATION_MOTE = 2;
+    public static final int KIND_ABYSS_VORTEX = 3;
 
     private static final float NANOS_TO_SECONDS = 1.0E-9F;
     private static final float MAX_DT_SECONDS = 0.05F;
+    private static final double VORTEX_ABSORB_DIST_SQ = 0.0081D;
 
     private final boolean[] active = new boolean[CAPACITY];
     private final byte[] kind = new byte[CAPACITY];
     private final double[] x = new double[CAPACITY];
     private final double[] y = new double[CAPACITY];
     private final double[] z = new double[CAPACITY];
+    private final double[] targetX = new double[CAPACITY];
+    private final double[] targetY = new double[CAPACITY];
+    private final double[] targetZ = new double[CAPACITY];
     private final float[] vx = new float[CAPACITY];
     private final float[] vy = new float[CAPACITY];
     private final float[] vz = new float[CAPACITY];
@@ -47,6 +52,9 @@ public final class SoulParticlePool {
     public void clear() {
         for (int i = 0; i < CAPACITY; i++) {
             this.active[i] = false;
+            this.targetX[i] = 0.0D;
+            this.targetY[i] = 0.0D;
+            this.targetZ[i] = 0.0D;
         }
         this.activeCount = 0;
         this.nextCursor = 0;
@@ -112,6 +120,67 @@ public final class SoulParticlePool {
                 float swirlAngle = (ageNanos * NANOS_TO_SECONDS) * 5.2F + (i * 0.73F);
                 vxVal += (float) Math.cos(swirlAngle) * (0.28F * dt);
                 vzVal += (float) Math.sin(swirlAngle) * (0.28F * dt);
+            } else if (this.kind[i] == KIND_ABYSS_VORTEX) {
+                double toX = this.targetX[i] - this.x[i];
+                double toY = this.targetY[i] - this.y[i];
+                double toZ = this.targetZ[i] - this.z[i];
+                double distSq = toX * toX + toY * toY + toZ * toZ;
+                if (distSq < VORTEX_ABSORB_DIST_SQ) {
+                    this.active[i] = false;
+                    alive--;
+                    continue;
+                }
+                double dist = Math.sqrt(distSq);
+                float invDist = (float) (1.0D / dist);
+                float dirX = (float) (toX * invDist);
+                float dirY = (float) (toY * invDist);
+                float dirZ = (float) (toZ * invDist);
+
+                float proximity = 1.0F + 1.5F / (0.40F + (float) dist);
+                float pullAccel = 4.6F * proximity;
+                vxVal += dirX * pullAccel * dt;
+                vyVal += dirY * pullAccel * dt;
+                vzVal += dirZ * pullAccel * dt;
+
+                double horizSq = toX * toX + toZ * toZ;
+                if (horizSq > 1.0E-6D) {
+                    double horizDist = Math.sqrt(horizSq);
+                    float invHoriz = (float) (1.0D / horizDist);
+                    float tangX = (float) (-toZ * invHoriz);
+                    float tangZ = (float) (toX * invHoriz);
+                    float swirlFactor = horizDist < 0.45D ? (float) (horizDist / 0.45D) : 1.0F;
+                    float swirlAccel = 6.8F * swirlFactor * (0.65F + 0.35F * proximity);
+                    vxVal += tangX * swirlAccel * dt;
+                    vzVal += tangZ * swirlAccel * dt;
+                }
+
+                if (this.y[i] > this.targetY[i] + 0.03D) {
+                    vyVal -= 2.1F * dt;
+                }
+
+                this.vx[i] = vxVal;
+                this.vy[i] = vyVal;
+                this.vz[i] = vzVal;
+                this.x[i] += vxVal * dt;
+                this.y[i] += vyVal * dt;
+                this.z[i] += vzVal * dt;
+                if (this.y[i] < this.targetY[i] - 0.02D) {
+                    this.y[i] = this.targetY[i] - 0.02D;
+                    if (this.vy[i] < 0.0F) {
+                        this.vy[i] = 0.0F;
+                    }
+                }
+
+                double postX = this.targetX[i] - this.x[i];
+                double postY = this.targetY[i] - this.y[i];
+                double postZ = this.targetZ[i] - this.z[i];
+                double postDistSq = postX * postX + postY * postY + postZ * postZ;
+                boolean crossedCenter = distSq < 0.09D && (toX * postX + toY * postY + toZ * postZ) <= 0.0D;
+                if (postDistSq < VORTEX_ABSORB_DIST_SQ || crossedCenter) {
+                    this.active[i] = false;
+                    alive--;
+                }
+                continue;
             }
 
             this.vx[i] = vxVal;
@@ -157,6 +226,34 @@ public final class SoulParticlePool {
         long nowNanos,
         long pLifeNanos
     ) {
+        spawnTargeted(
+            particleKind,
+            px, py, pz,
+            px, py, pz,
+            pvx, pvy, pvz,
+            pGravity, pDrag, pSize,
+            pArgb, nowNanos, pLifeNanos
+        );
+    }
+
+    private void spawnTargeted(
+        int particleKind,
+        double px,
+        double py,
+        double pz,
+        double tx,
+        double ty,
+        double tz,
+        float pvx,
+        float pvy,
+        float pvz,
+        float pGravity,
+        float pDrag,
+        float pSize,
+        int pArgb,
+        long nowNanos,
+        long pLifeNanos
+    ) {
         int slot = acquireSlot(nowNanos);
         if (!this.active[slot]) {
             this.activeCount++;
@@ -166,6 +263,9 @@ public final class SoulParticlePool {
         this.x[slot] = px;
         this.y[slot] = py;
         this.z[slot] = pz;
+        this.targetX[slot] = tx;
+        this.targetY[slot] = ty;
+        this.targetZ[slot] = tz;
         this.vx[slot] = pvx;
         this.vy[slot] = pvy;
         this.vz[slot] = pvz;
@@ -333,6 +433,135 @@ public final class SoulParticlePool {
     }
 
     /**
+     * Spawns a 6-way radial impale spark burst and rising soul wisps for Phantom Swords mode.
+     *
+     * @param cx       impale core world X
+     * @param cy       impale core world Y
+     * @param cz       impale core world Z
+     * @param radius   entity scale radius in blocks
+     * @param soulArgb soul color in ARGB format
+     * @param nowNanos current timestamp in nanoseconds
+     */
+    public void spawnPhantomImpaleBurst(
+        double cx,
+        double cy,
+        double cz,
+        float radius,
+        int soulArgb,
+        long nowNanos
+    ) {
+        float safeRadius = radius > 0.4F ? radius : 0.4F;
+        for (int arm = 0; arm < 6; arm++) {
+            double armAngle = arm * (Math.PI * 2.0D / 6.0D);
+            float dirX = (float) Math.cos(armAngle);
+            float dirZ = (float) Math.sin(armAngle);
+            for (int j = 0; j < 4; j++) {
+                float offset = (0.08F + nextRandomFloat() * 0.14F) * safeRadius;
+                double sx = cx + dirX * offset + (nextRandomFloat() - 0.5F) * 0.10F;
+                double sy = cy + (nextRandomFloat() - 0.5F) * 0.24F;
+                double sz = cz + dirZ * offset + (nextRandomFloat() - 0.5F) * 0.10F;
+
+                float speed = 2.4F + nextRandomFloat() * 2.8F;
+                float pvx = dirX * speed + (nextRandomFloat() - 0.5F) * 0.85F;
+                float pvy = (nextRandomFloat() - 0.35F) * 1.9F;
+                float pvz = dirZ * speed + (nextRandomFloat() - 0.5F) * 0.85F;
+
+                int color = (j == 0) ? brightenArgb(soulArgb, 0.55F) : soulArgb;
+                long life = (long) ((0.28F + nextRandomFloat() * 0.26F) * 1.0E9F);
+                float sparkSize = 0.055F + nextRandomFloat() * 0.040F;
+
+                spawn(
+                    KIND_CLEAVE_SPARK,
+                    sx, sy, sz,
+                    pvx, pvy, pvz,
+                    -1.4F, 2.6F, sparkSize,
+                    color, nowNanos, life
+                );
+            }
+        }
+
+        for (int i = 0; i < 10; i++) {
+            float angle = nextRandomFloat() * 6.2831855F;
+            float r = (0.18F + nextRandomFloat() * 0.65F) * safeRadius;
+            double wx = cx + Math.cos(angle) * r;
+            double wy = cy + (nextRandomFloat() - 0.45F) * safeRadius * 0.6F;
+            double wz = cz + Math.sin(angle) * r;
+            float outSpeed = 0.35F + nextRandomFloat() * 0.60F;
+            long life = (long) ((0.45F + nextRandomFloat() * 0.38F) * 1.0E9F);
+            spawn(
+                KIND_SOUL_WISP,
+                wx, wy, wz,
+                (float) Math.cos(angle) * outSpeed,
+                0.65F + nextRandomFloat() * 0.75F,
+                (float) Math.sin(angle) * outSpeed,
+                0.35F, 1.3F, 0.080F + nextRandomFloat() * 0.050F,
+                brightenArgb(soulArgb, 0.30F), nowNanos, life
+            );
+        }
+    }
+
+    /**
+     * Spawns a dark-purple or violet suction particle in a cylindrical volume around the entity,
+     * drawn inward toward the ground portal center {@code (cx, groundY + 0.02, cz)}.
+     *
+     * @param cx       portal center world X
+     * @param groundY  portal base world Y
+     * @param cz       portal center world Z
+     * @param radius   entity scale radius in blocks
+     * @param height   entity bounding height in blocks
+     * @param nowNanos current timestamp in nanoseconds
+     */
+    public void spawnAbyssSuctionParticle(
+        double cx,
+        double groundY,
+        double cz,
+        float radius,
+        float height,
+        long nowNanos
+    ) {
+        float safeR = radius > 0.35F ? radius : 0.35F;
+        float safeH = height > 0.40F ? height : 1.8F;
+
+        float angle = nextRandomFloat() * 6.2831855F;
+        float radialDist = safeR * (0.45F + nextRandomFloat() * 1.15F);
+        double cosA = Math.cos(angle);
+        double sinA = Math.sin(angle);
+
+        double px = cx + cosA * radialDist;
+        double py = groundY + 0.08D + nextRandomFloat() * (safeH * 0.92F);
+        double pz = cz + sinA * radialDist;
+
+        float tangX = (float) -sinA;
+        float tangZ = (float) cosA;
+        float tangSpeed = 1.1F + nextRandomFloat() * 1.1F;
+        float pvx = tangX * tangSpeed;
+        float pvy = -0.25F - nextRandomFloat() * 0.45F;
+        float pvz = tangZ * tangSpeed;
+
+        float colorRoll = nextRandomFloat();
+        int tint;
+        if (colorRoll < 0.33F) {
+            tint = 0xFF24063B;
+        } else if (colorRoll < 0.72F) {
+            tint = 0xFF6C22C8;
+        } else {
+            tint = 0xFFC45BFF;
+        }
+
+        long life = (long) ((0.44F + nextRandomFloat() * 0.34F) * 1.0E9F);
+        float pSize = 0.050F + nextRandomFloat() * 0.040F;
+
+        spawnTargeted(
+            KIND_ABYSS_VORTEX,
+            px, py, pz,
+            cx, groundY + 0.02D, cz,
+            pvx, pvy, pvz,
+            0.0F, 2.8F, pSize,
+            tint, nowNanos, life
+        );
+    }
+
+    /**
      * Renders all active particles in batched zero-allocation {@link Tessellator} passes.
      *
      * @param camX     camera world X
@@ -351,7 +580,7 @@ public final class SoulParticlePool {
             if (!this.active[i]) {
                 continue;
             }
-            if (this.kind[i] == KIND_ANNIHILATION_MOTE) {
+            if (isAlphaPassParticle(i)) {
                 hasAlphaPass = true;
             } else {
                 hasAdditivePass = true;
@@ -388,13 +617,20 @@ public final class SoulParticlePool {
             );
             wr.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
             for (int i = 0; i < CAPACITY; i++) {
-                if (!this.active[i] || this.kind[i] != KIND_ANNIHILATION_MOTE) {
+                if (!this.active[i] || !isAlphaPassParticle(i)) {
                     continue;
                 }
-                emitBillboardDiamond(
-                    wr, i, camX, camY, camZ, nowNanos,
-                    rightX, rightZ, upX, upY, upZ
-                );
+                if (this.kind[i] == KIND_ABYSS_VORTEX) {
+                    emitVelocitySpark(
+                        wr, i, camX, camY, camZ, nowNanos,
+                        rightX, rightZ, upX, upY, upZ
+                    );
+                } else {
+                    emitBillboardDiamond(
+                        wr, i, camX, camY, camZ, nowNanos,
+                        rightX, rightZ, upX, upY, upZ
+                    );
+                }
             }
             tessellator.draw();
         }
@@ -406,10 +642,10 @@ public final class SoulParticlePool {
             );
             wr.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
             for (int i = 0; i < CAPACITY; i++) {
-                if (!this.active[i] || this.kind[i] == KIND_ANNIHILATION_MOTE) {
+                if (!this.active[i] || isAlphaPassParticle(i)) {
                     continue;
                 }
-                if (this.kind[i] == KIND_CLEAVE_SPARK) {
+                if (this.kind[i] == KIND_CLEAVE_SPARK || this.kind[i] == KIND_ABYSS_VORTEX) {
                     emitVelocitySpark(
                         wr, i, camX, camY, camZ, nowNanos,
                         rightX, rightZ, upX, upY, upZ
@@ -444,10 +680,12 @@ public final class SoulParticlePool {
     ) {
         float progress = getProgress(slot, nowNanos);
         float alpha = computeAlphaCurve(progress) * 0.85F;
+        float distScale = getVortexProximityScale(slot);
+        alpha *= (0.25F + 0.75F * distScale);
         if (alpha <= 0.004F) {
             return;
         }
-        float radius = this.size[slot] * (0.65F + 0.55F * (1.0F - progress));
+        float radius = this.size[slot] * (0.65F + 0.55F * (1.0F - progress)) * (0.35F + 0.65F * distScale);
         float px = (float) (this.x[slot] - camX);
         float py = (float) (this.y[slot] - camY);
         float pz = (float) (this.z[slot] - camZ);
@@ -503,7 +741,8 @@ public final class SoulParticlePool {
         float upZ
     ) {
         float progress = getProgress(slot, nowNanos);
-        float alpha = computeAlphaCurve(progress);
+        float distScale = getVortexProximityScale(slot);
+        float alpha = computeAlphaCurve(progress) * (0.20F + 0.80F * distScale);
         if (alpha <= 0.004F) {
             return;
         }
@@ -542,7 +781,7 @@ public final class SoulParticlePool {
         sz *= invSide;
 
         float speed = speedSq * invSpeed;
-        float radius = this.size[slot] * (1.0F - 0.45F * progress);
+        float radius = this.size[slot] * (1.0F - 0.45F * progress) * (0.35F + 0.65F * distScale);
         float halfWidth = radius * 0.45F;
         float headLen = radius * 1.4F;
         float tailLen = radius * (2.2F + Math.min(speed * 0.45F, 2.4F));
@@ -551,9 +790,13 @@ public final class SoulParticlePool {
         float baseR = ((c >>> 16) & 0xFF) / 255.0F;
         float baseG = ((c >>> 8) & 0xFF) / 255.0F;
         float baseB = (c & 0xFF) / 255.0F;
-        float coreR = baseR + (1.0F - baseR) * 0.55F;
-        float coreG = baseG + (1.0F - baseG) * 0.55F;
-        float coreB = baseB + (1.0F - baseB) * 0.55F;
+        float coreLift = 0.55F;
+        if (this.kind[slot] == KIND_ABYSS_VORTEX) {
+            coreLift = isAlphaPassParticle(slot) ? 0.08F : 0.25F;
+        }
+        float coreR = baseR + (1.0F - baseR) * coreLift;
+        float coreG = baseG + (1.0F - baseG) * coreLift;
+        float coreB = baseB + (1.0F - baseB) * coreLift;
 
         float p1x = px + dirX * headLen;
         float p1y = py + dirY * headLen;
@@ -605,6 +848,28 @@ public final class SoulParticlePool {
         wr.pos(cx, cy, cz).color(r, g, b, alpha).endVertex();
         wr.pos(p4x, p4y, p4z).color(r, g, b, 0.0F).endVertex();
         wr.pos(p1x, p1y, p1z).color(r, g, b, 0.0F).endVertex();
+    }
+
+    private boolean isAlphaPassParticle(int slot) {
+        byte k = this.kind[slot];
+        if (k == KIND_ANNIHILATION_MOTE) {
+            return true;
+        }
+        return k == KIND_ABYSS_VORTEX && ((this.argb[slot] >>> 16) & 0xFF) < 0x50;
+    }
+
+    private float getVortexProximityScale(int slot) {
+        if (this.kind[slot] != KIND_ABYSS_VORTEX) {
+            return 1.0F;
+        }
+        double dx = this.targetX[slot] - this.x[slot];
+        double dy = this.targetY[slot] - this.y[slot];
+        double dz = this.targetZ[slot] - this.z[slot];
+        double distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq >= 0.1225D) {
+            return 1.0F;
+        }
+        return (float) Math.sqrt(distSq) / 0.35F;
     }
 
     private float getProgress(int slot, long nowNanos) {
