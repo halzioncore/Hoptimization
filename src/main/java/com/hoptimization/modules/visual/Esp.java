@@ -4,7 +4,6 @@ import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.core.setting.ColorSetting;
-import com.hoptimization.core.setting.ModeSetting;
 import com.hoptimization.core.setting.NumberSetting;
 import com.hoptimization.modules.visual.esp.EspRenderer;
 import com.hoptimization.modules.visual.esp.EspTargetPolicy;
@@ -13,66 +12,27 @@ import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.scoreboard.ScorePlayerTeam;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Keyboard;
 
 /**
- * Cheat-gated visual module rendering players as futuristic cockpit mecha silhouettes or outlines.
+ * Cheat-gated visual module rendering players as restrained monochrome tonal blocks and 1px sketch lines.
  */
 public class Esp extends Module implements EspTargetPolicy {
     public static final String ID = "esp";
 
-    public static final String STYLE_COCKPIT = "cockpit";
-    public static final String STYLE_OVERLAY = "overlay";
-    public static final String STYLE_WIREFRAME = "wireframe";
+    private static final int DEFAULT_COLOR_ARGB = 0xFF8B7CFF;
 
-    public static final String COLOR_CUSTOM = "custom";
-    public static final String COLOR_TEAM = "team";
-    public static final String COLOR_HEALTH = "health";
+    private static Esp instance;
 
-    private static final int DEFAULT_TEAM_COLOR = 0xFF38E8FF;
-    private static final int HEALTH_HIGH_COLOR = 0xFF3DF58C;
-    private static final int HEALTH_MID_COLOR = 0xFFFFC947;
-    private static final int HEALTH_LOW_COLOR = 0xFFFF4A60;
-    private static final int HEALTH_OCCLUDED_WARM_MIX = 0xFF8C6448;
-    private static final float HEALTH_OCCLUDED_BRIGHTNESS = 0.68F;
-    private static final float HEALTH_OCCLUDED_MIX_WEIGHT = 0.25F;
-    private static final float TEAM_OCCLUDED_BRIGHTNESS = 0.62F;
-
-    private static final int[] VANILLA_COLOR_PALETTE = {
-        0xFF000000,
-        0xFF0000AA,
-        0xFF00AA00,
-        0xFF00AAAA,
-        0xFFAA0000,
-        0xFFAA00AA,
-        0xFFFFAA00,
-        0xFFAAAAAA,
-        0xFF555555,
-        0xFF5555FF,
-        0xFF55FF55,
-        0xFF55FFFF,
-        0xFFFF5555,
-        0xFFFF55FF,
-        0xFFFFFF55,
-        0xFFFFFFFF
-    };
-
-    private final ModeSetting style;
+    private final ColorSetting color;
     private final BooleanSetting throughWalls;
-    private final ModeSetting colorMode;
-    private final ColorSetting visibleColor;
-    private final ColorSetting hiddenColor;
     private final NumberSetting fillOpacity;
+    private final BooleanSetting lineArt;
     private final NumberSetting lineWidth;
-    private final BooleanSetting scanlines;
-    private final BooleanSetting groundRing;
+    private final BooleanSetting posterize;
     private final BooleanSetting ignoreTeammates;
     private final BooleanSetting filterBots;
     private final BooleanSetting renderSelf;
@@ -82,64 +42,39 @@ public class Esp extends Module implements EspTargetPolicy {
      */
     public Esp() {
         super(ID, Category.VISUAL, Keyboard.KEY_NONE, true, true);
-        this.style = addSetting(
-            new ModeSetting(
-                "style",
-                "setting.hoptimization.esp.style.name",
-                STYLE_COCKPIT,
-                STYLE_COCKPIT,
-                STYLE_OVERLAY,
-                STYLE_WIREFRAME
-            )
+        this.color = addSetting(
+            new ColorSetting("color", "setting.hoptimization.esp.color.name", DEFAULT_COLOR_ARGB, false)
         );
         this.throughWalls = addSetting(
             new BooleanSetting("through_walls", "setting.hoptimization.esp.through_walls.name", true)
-        );
-        this.colorMode = addSetting(
-            new ModeSetting(
-                "color_mode",
-                "setting.hoptimization.esp.color_mode.name",
-                COLOR_CUSTOM,
-                COLOR_CUSTOM,
-                COLOR_TEAM,
-                COLOR_HEALTH
-            )
-        );
-        this.visibleColor = addSetting(
-            new ColorSetting("visible_color", "setting.hoptimization.esp.visible_color.name", 0xFF38E8FF, false)
-                .visibleWhen(() -> Boolean.valueOf(this.colorMode.is(COLOR_CUSTOM)))
-        );
-        this.hiddenColor = addSetting(
-            new ColorSetting("hidden_color", "setting.hoptimization.esp.hidden_color.name", 0xFFFF8A3D, false)
-                .visibleWhen(() -> Boolean.valueOf(this.throughWalls.isEnabled() && this.colorMode.is(COLOR_CUSTOM)))
         );
         this.fillOpacity = addSetting(
             new NumberSetting(
                 "fill_opacity",
                 "setting.hoptimization.esp.fill_opacity.name",
-                80.0D,
+                90.0D,
                 0.0D,
                 100.0D,
                 5.0D,
                 "%"
-            ).visibleWhen(() -> Boolean.valueOf(!this.style.is(STYLE_WIREFRAME)))
+            )
+        );
+        this.lineArt = addSetting(
+            new BooleanSetting("line_art", "setting.hoptimization.esp.line_art.name", true)
         );
         this.lineWidth = addSetting(
             new NumberSetting(
                 "line_width",
                 "setting.hoptimization.esp.line_width.name",
-                1.75D,
                 1.0D,
-                3.5D,
+                0.5D,
+                2.5D,
                 0.25D,
                 "px"
-            )
+            ).visibleWhen(() -> Boolean.valueOf(this.lineArt.isEnabled()))
         );
-        this.scanlines = addSetting(
-            new BooleanSetting("scanlines", "setting.hoptimization.esp.scanlines.name", true)
-        );
-        this.groundRing = addSetting(
-            new BooleanSetting("ground_ring", "setting.hoptimization.esp.ground_ring.name", true)
+        this.posterize = addSetting(
+            new BooleanSetting("posterize", "setting.hoptimization.esp.posterize.name", true)
         );
         this.ignoreTeammates = addSetting(
             new BooleanSetting("ignore_teammates", "setting.hoptimization.esp.ignore_teammates.name", false)
@@ -150,15 +85,53 @@ public class Esp extends Module implements EspTargetPolicy {
         this.renderSelf = addSetting(
             new BooleanSetting("render_self", "setting.hoptimization.esp.render_self.name", false)
         );
+        instance = this;
     }
 
     /**
-     * Returns the render style setting.
+     * Returns whether ESP is initialized, enabled, and unlocked under Cheat Mode.
      *
-     * @return style setting
+     * @return {@code true} if ESP is active
      */
-    public ModeSetting getStyleSetting() {
-        return this.style;
+    public static boolean isActive() {
+        Esp module = instance;
+        return module != null && module.isEnabled() && module.isAvailable();
+    }
+
+    /**
+     * Returns whether vanilla player model and layer rendering should be suppressed in the world pass,
+     * preserving overhead nametags, ground shadows, inventory paper-dolls, and Kill Effects corpses.
+     *
+     * @param entity candidate entity being rendered
+     * @return {@code true} if original model and layer rendering should be skipped
+     */
+    public static boolean shouldSuppressOriginalRender(Entity entity) {
+        Esp module = instance;
+        if (module == null || !module.isEnabled() || !module.isAvailable()) {
+            return false;
+        }
+        if (!(entity instanceof EntityPlayer) || KillEffects.shouldSuppressOriginalRender(entity)) {
+            return false;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null) {
+            return false;
+        }
+        RenderManager renderManager = mc.getRenderManager();
+        // Paper-doll inventory previews and internal effect passes disable renderShadow.
+        if (renderManager == null || !renderManager.isRenderShadow()) {
+            return false;
+        }
+        return module.isTargetEligible((EntityPlayer) entity, mc);
+    }
+
+    /**
+     * Returns the monochrome base tint color setting.
+     *
+     * @return color setting
+     */
+    public ColorSetting getColorSetting() {
+        return this.color;
     }
 
     /**
@@ -171,34 +144,7 @@ public class Esp extends Module implements EspTargetPolicy {
     }
 
     /**
-     * Returns the target color mode setting.
-     *
-     * @return color mode setting
-     */
-    public ModeSetting getColorModeSetting() {
-        return this.colorMode;
-    }
-
-    /**
-     * Returns the visible target color setting.
-     *
-     * @return visible color setting
-     */
-    public ColorSetting getVisibleColorSetting() {
-        return this.visibleColor;
-    }
-
-    /**
-     * Returns the occluded target color setting.
-     *
-     * @return hidden color setting
-     */
-    public ColorSetting getHiddenColorSetting() {
-        return this.hiddenColor;
-    }
-
-    /**
-     * Returns the facet fill opacity setting.
+     * Returns the monochrome fill opacity setting.
      *
      * @return fill opacity setting
      */
@@ -207,7 +153,16 @@ public class Esp extends Module implements EspTargetPolicy {
     }
 
     /**
-     * Returns the wireframe stroke width setting.
+     * Returns the 1px cuboid sketch line art toggle setting.
+     *
+     * @return line art setting
+     */
+    public BooleanSetting getLineArtSetting() {
+        return this.lineArt;
+    }
+
+    /**
+     * Returns the sketch line art stroke width setting.
      *
      * @return line width setting
      */
@@ -216,21 +171,12 @@ public class Esp extends Module implements EspTargetPolicy {
     }
 
     /**
-     * Returns the cockpit scanline effect setting.
+     * Returns the tonal posterization toggle setting.
      *
-     * @return scanlines setting
+     * @return posterize setting
      */
-    public BooleanSetting getScanlinesSetting() {
-        return this.scanlines;
-    }
-
-    /**
-     * Returns the ground indicator ring setting.
-     *
-     * @return ground ring setting
-     */
-    public BooleanSetting getGroundRingSetting() {
-        return this.groundRing;
+    public BooleanSetting getPosterizeSetting() {
+        return this.posterize;
     }
 
     /**
@@ -266,33 +212,6 @@ public class Esp extends Module implements EspTargetPolicy {
     }
 
     /**
-     * Suppresses vanilla player rendering in Cockpit mode while preserving paper-doll and internal passes.
-     *
-     * @param event Forge pre-render player event
-     */
-    @SubscribeEvent
-    public void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
-        if (!isEnabled() || !isAvailable() || !this.style.is(STYLE_COCKPIT)) {
-            return;
-        }
-        if (event == null || event.entityPlayer == null) {
-            return;
-        }
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null) {
-            return;
-        }
-        RenderManager renderManager = mc.getRenderManager();
-        // Paper-doll inventory previews and internal effect passes disable renderShadow.
-        if (renderManager == null || !renderManager.isRenderShadow()) {
-            return;
-        }
-        if (isTargetEligible(event.entityPlayer, mc)) {
-            event.setCanceled(true);
-        }
-    }
-
-    /**
      * Renders eligible players via {@link EspRenderer} after world geometry.
      *
      * @param event Forge render world last event
@@ -304,12 +223,12 @@ public class Esp extends Module implements EspTargetPolicy {
         }
         EspRenderer.render(
             this,
-            resolveStyleIndex(),
+            this.color.getArgb(),
             this.throughWalls.isEnabled(),
             this.fillOpacity.getFloatValue() * 0.01F,
+            this.lineArt.isEnabled(),
             this.lineWidth.getFloatValue(),
-            this.scanlines.isEnabled(),
-            this.groundRing.isEnabled(),
+            this.posterize.isEnabled(),
             event.partialTicks
         );
     }
@@ -332,6 +251,9 @@ public class Esp extends Module implements EspTargetPolicy {
             return false;
         }
         if (!target.isEntityAlive() || target.isDead || target.isSpectator()) {
+            return false;
+        }
+        if (KillEffects.shouldSuppressOriginalRender(target)) {
             return false;
         }
         if (target == mc.thePlayer) {
@@ -365,159 +287,5 @@ public class Esp extends Module implements EspTargetPolicy {
             viewEntity = mc.thePlayer;
         }
         return target.getDistanceSqToEntity(viewEntity) <= EspRenderer.MAX_RANGE_SQ;
-    }
-
-    @Override
-    public int resolveTargetColorArgb(EntityPlayer target, boolean occluded) {
-        if (this.colorMode.is(COLOR_HEALTH)) {
-            return resolveHealthColorArgb(target, occluded);
-        }
-        if (this.colorMode.is(COLOR_TEAM)) {
-            return resolveTeamColorArgb(target, occluded);
-        }
-        return (occluded && this.throughWalls.isEnabled())
-            ? this.hiddenColor.getArgb()
-            : this.visibleColor.getArgb();
-    }
-
-    private int resolveStyleIndex() {
-        if (this.style.is(STYLE_OVERLAY)) {
-            return EspRenderer.STYLE_OVERLAY;
-        }
-        if (this.style.is(STYLE_WIREFRAME)) {
-            return EspRenderer.STYLE_WIREFRAME;
-        }
-        return EspRenderer.STYLE_COCKPIT;
-    }
-
-    private static int resolveHealthColorArgb(EntityPlayer target, boolean occluded) {
-        if (target == null) {
-            return occluded
-                ? lerpArgb(scaleBrightness(HEALTH_HIGH_COLOR, HEALTH_OCCLUDED_BRIGHTNESS),
-                    HEALTH_OCCLUDED_WARM_MIX, HEALTH_OCCLUDED_MIX_WEIGHT)
-                : HEALTH_HIGH_COLOR;
-        }
-        float maxHealth = target.getMaxHealth();
-        if (maxHealth < 1.0F) {
-            maxHealth = 1.0F;
-        }
-        float ratio = clamp01(target.getHealth() / maxHealth);
-        int baseColor;
-        if (ratio >= 0.5F) {
-            baseColor = lerpArgb(HEALTH_MID_COLOR, HEALTH_HIGH_COLOR, (ratio - 0.5F) * 2.0F);
-        } else {
-            baseColor = lerpArgb(HEALTH_LOW_COLOR, HEALTH_MID_COLOR, ratio * 2.0F);
-        }
-        if (!occluded) {
-            return baseColor;
-        }
-        int dimmed = scaleBrightness(baseColor, HEALTH_OCCLUDED_BRIGHTNESS);
-        return lerpArgb(dimmed, HEALTH_OCCLUDED_WARM_MIX, HEALTH_OCCLUDED_MIX_WEIGHT);
-    }
-
-    private static int resolveTeamColorArgb(EntityPlayer target, boolean occluded) {
-        if (target == null) {
-            return occluded ? scaleBrightness(DEFAULT_TEAM_COLOR, TEAM_OCCLUDED_BRIGHTNESS) : DEFAULT_TEAM_COLOR;
-        }
-        int colorIndex = -1;
-        Team rawTeam = target.getTeam();
-        if (rawTeam instanceof ScorePlayerTeam) {
-            ScorePlayerTeam team = (ScorePlayerTeam) rawTeam;
-            colorIndex = findLastColorIndex(team.getColorPrefix());
-            if (colorIndex < 0) {
-                EnumChatFormatting chatFormat = team.getChatFormat();
-                if (chatFormat != null && chatFormat.isColor()) {
-                    colorIndex = chatFormat.getColorIndex();
-                }
-            }
-        }
-        if (colorIndex < 0) {
-            colorIndex = findLastColorIndex(target.getDisplayNameString());
-        }
-        int baseColor = (colorIndex >= 0 && colorIndex < VANILLA_COLOR_PALETTE.length)
-            ? VANILLA_COLOR_PALETTE[colorIndex]
-            : DEFAULT_TEAM_COLOR;
-        if (!occluded) {
-            return baseColor;
-        }
-        return scaleBrightness(baseColor, TEAM_OCCLUDED_BRIGHTNESS);
-    }
-
-    private static int findLastColorIndex(String text) {
-        if (text == null) {
-            return -1;
-        }
-        int len = text.length();
-        int lastColor = -1;
-        for (int i = 0; i < len - 1; i++) {
-            if (text.charAt(i) == '\u00a7') {
-                int colorIdx = colorCodeToIndex(text.charAt(i + 1));
-                if (colorIdx >= 0) {
-                    lastColor = colorIdx;
-                }
-                i++;
-            }
-        }
-        return lastColor;
-    }
-
-    private static int colorCodeToIndex(char code) {
-        if (code >= '0' && code <= '9') {
-            return code - '0';
-        }
-        if (code >= 'a' && code <= 'f') {
-            return 10 + (code - 'a');
-        }
-        if (code >= 'A' && code <= 'F') {
-            return 10 + (code - 'A');
-        }
-        return -1;
-    }
-
-    private static float clamp01(float value) {
-        if (value <= 0.0F || Float.isNaN(value)) {
-            return 0.0F;
-        }
-        if (value >= 1.0F) {
-            return 1.0F;
-        }
-        return value;
-    }
-
-    private static int lerpArgb(int startArgb, int endArgb, float t) {
-        float clamped = clamp01(t);
-        int sa = (startArgb >>> 24) & 0xFF;
-        int sr = (startArgb >>> 16) & 0xFF;
-        int sg = (startArgb >>> 8) & 0xFF;
-        int sb = startArgb & 0xFF;
-
-        int ea = (endArgb >>> 24) & 0xFF;
-        int er = (endArgb >>> 16) & 0xFF;
-        int eg = (endArgb >>> 8) & 0xFF;
-        int eb = endArgb & 0xFF;
-
-        int a = Math.round(sa + (ea - sa) * clamped);
-        int r = Math.round(sr + (er - sr) * clamped);
-        int g = Math.round(sg + (eg - sg) * clamped);
-        int b = Math.round(sb + (eb - sb) * clamped);
-        return (clampByte(a) << 24) | (clampByte(r) << 16) | (clampByte(g) << 8) | clampByte(b);
-    }
-
-    private static int scaleBrightness(int argb, float factor) {
-        int a = (argb >>> 24) & 0xFF;
-        int r = clampByte(Math.round(((argb >>> 16) & 0xFF) * factor));
-        int g = clampByte(Math.round(((argb >>> 8) & 0xFF) * factor));
-        int b = clampByte(Math.round((argb & 0xFF) * factor));
-        return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    private static int clampByte(int channel) {
-        if (channel < 0) {
-            return 0;
-        }
-        if (channel > 255) {
-            return 255;
-        }
-        return channel;
     }
 }

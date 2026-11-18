@@ -192,7 +192,7 @@ module.hoptimization.time_changer.desc=仅在客户端本地自定义天空时�
 module.hoptimization.kill_effects.name=击杀效果
 module.hoptimization.kill_effects.desc=击杀目标时呈现抽魂斩杀或湮灭的纯客户端视觉特效
 module.hoptimization.esp.name=玩家透视
-module.hoptimization.esp.desc=以未来机甲座舱抽象几何与线框形式透视渲染玩家
+module.hoptimization.esp.desc=以克制的亮度单色块与极简 1px 线稿风格透视渲染玩家
 
 # 模块 - 性能（新增）
 module.hoptimization.mouse_delay_fix.name=鼠标延迟修复
@@ -262,21 +262,12 @@ setting.hoptimization.kill_effects.particles.name=粒子效果
 setting.hoptimization.kill_effects.sound.name=音效
 
 # 设置 - 玩家透视
-setting.hoptimization.esp.style.name=样式
-setting.hoptimization.esp.style.option.cockpit=机甲座舱
-setting.hoptimization.esp.style.option.overlay=轮廓覆盖
-setting.hoptimization.esp.style.option.wireframe=线框
+setting.hoptimization.esp.color.name=颜色
 setting.hoptimization.esp.through_walls.name=穿墙透视
-setting.hoptimization.esp.color_mode.name=颜色模式
-setting.hoptimization.esp.color_mode.option.custom=自定义
-setting.hoptimization.esp.color_mode.option.team=队伍颜色
-setting.hoptimization.esp.color_mode.option.health=血量渐变
-setting.hoptimization.esp.visible_color.name=可见颜色
-setting.hoptimization.esp.hidden_color.name=遮挡颜色
 setting.hoptimization.esp.fill_opacity.name=填充不透明度
+setting.hoptimization.esp.line_art.name=线稿描边
 setting.hoptimization.esp.line_width.name=线条粗细
-setting.hoptimization.esp.scanlines.name=扫描线
-setting.hoptimization.esp.ground_ring.name=脚底光环
+setting.hoptimization.esp.posterize.name=色调分离
 setting.hoptimization.esp.ignore_teammates.name=忽略队友
 setting.hoptimization.esp.filter_bots.name=过滤假人
 setting.hoptimization.esp.render_self.name=渲染自身
