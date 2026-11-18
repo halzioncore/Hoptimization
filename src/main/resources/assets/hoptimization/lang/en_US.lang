@@ -181,6 +181,8 @@ module.hoptimization.zoom.name=Zoom
 module.hoptimization.zoom.desc=Smoothly zooms camera FOV with optional cinematic camera
 module.hoptimization.time_changer.name=Time Changer
 module.hoptimization.time_changer.desc=Overrides client-side world time visually without server impact
+module.hoptimization.kill_effects.name=Kill Effects
+module.hoptimization.kill_effects.desc=Renders Soul Sever or Annihilation visual effects on entity kills
 
 # Modules - Performance (Feature Pack)
 module.hoptimization.mouse_delay_fix.name=Mouse Delay Fix
@@ -233,6 +235,21 @@ setting.hoptimization.time_changer.mode.option.night=Night
 setting.hoptimization.time_changer.mode.option.midnight=Midnight
 setting.hoptimization.time_changer.mode.option.custom=Custom
 setting.hoptimization.time_changer.time.name=Time
+
+# Settings - Kill Effects
+setting.hoptimization.kill_effects.mode.name=Effect Mode
+setting.hoptimization.kill_effects.mode.option.soul_sever=Soul Sever
+setting.hoptimization.kill_effects.mode.option.annihilation=Annihilation
+setting.hoptimization.kill_effects.targets.name=Targets
+setting.hoptimization.kill_effects.targets.option.all=All
+setting.hoptimization.kill_effects.targets.option.players=Players
+setting.hoptimization.kill_effects.targets.option.mobs=Mobs
+setting.hoptimization.kill_effects.only_own_kills.name=Only Own Kills
+setting.hoptimization.kill_effects.duration.name=Duration
+setting.hoptimization.kill_effects.soul_color.name=Soul Color
+setting.hoptimization.kill_effects.weapon_scale.name=Weapon Scale
+setting.hoptimization.kill_effects.particles.name=Particles
+setting.hoptimization.kill_effects.sound.name=Sound
 
 # Settings - UI HUD Modules
 setting.hoptimization.target_hud.style.name=Style
