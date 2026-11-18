@@ -16,7 +16,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.IChatComponent;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.world.WorldEvent;
@@ -434,12 +433,6 @@ public class Esp extends Module implements EspTargetPolicy {
         }
         if (colorIndex < 0) {
             colorIndex = findLastColorIndex(target.getDisplayNameString());
-        }
-        if (colorIndex < 0) {
-            IChatComponent displayName = target.getDisplayName();
-            if (displayName != null) {
-                colorIndex = findLastColorIndex(displayName.getFormattedText());
-            }
         }
         int baseColor = (colorIndex >= 0 && colorIndex < VANILLA_COLOR_PALETTE.length)
             ? VANILLA_COLOR_PALETTE[colorIndex]
