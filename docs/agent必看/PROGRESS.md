@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-18 · 最终击杀触发修复、界面分类中文化与杂项语言切换（v0.8.0）
+
+- **做了什么**：通过 `/swarm` 2 名并行工程师（`final-kill-fix`、`misc-language`）完成修复与新模块开发并集成验证，全仓共注册 **25 个模块**：
+  1. **终结击杀检测与多通道兜底 (`feat/final-kill-fix`)**：完善 `KillEffects` 与 `KillEffectsTracker`（`ATTACK_WINDOW_NANOS` 延至 `8s`、32 槽 `recentGlobalHurt` `3s` 全局受击窗口、32 槽 `12s` 玩家快照缓存、16 槽 `1.5s` `PreTeleportCache` 传送前坐标缓存、`EntityFireball`/`EntityTNTPrimed` 归属与近距离追踪、`>= 2s` 重生再击杀去重过期与零热路径分配）；在 `MixinNetHandlerPlayClientVisual` 保留 `handleTimeUpdate` 与 `handleDestroyEntities`（移除 `hurtTime > 0` 限制并新增隐身且不在 TabList 的反作弊假人过滤），同时新增主线程保护且 `require = 0` 的 `handleEntityMetadata`（血量归零）、`handleEntityTeleport`（`deltaSq >= 64.0` 传送前坐标快照）与 `handlePlayerListItem`（转旁观/移除玩家）钩子；接入 `ClientChatReceivedEvent` 中英文终结/普通击杀聊天兜底（词边界、主动/被动方向校验与存活已重生实体保护）。
+  2. **杂项语言切换与界面中文化 (`feat/misc-language`)**：新增不可开关配置模块 `LanguageModule`（`id = "language"`，`Category.MISC`，`ModeSetting` 支持 `auto`/`zh_cn`/`en_us`），`preInit` 配置加载期延后至 `HoptimizationMod.init()` 应用、记录并按 `auto` 恢复 `vanillaLanguageCode`、通过 `LanguageManager.onResourceManagerReload` 快速重载语言避免纹理重载卡顿、交互切换时更新字体 unicode/bidi 标志并 `saveOptions()`、递增 `languageRevision`；在 `ModuleManager` 注册至 **25 个模块**；在 `ClickGuiScreen.drawScreen` 检测修订号变化并自动调用 `refreshAllLabels()`；将 `zh_CN.lang` 的 `category.hoptimization.ui` 设为 `界面`，对齐 `en_US.lang` / `zh_CN.lang`（各 217 条，UTF-8 无 BOM），并同步三处版本号至 `0.8.0`。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/misc/LanguageModule.java`、`modules/visual/KillEffects.java`、`modules/visual/killeffects/KillEffectsTracker.java`、`mixin/client/MixinNetHandlerPlayClientVisual.java`、`ui/clickgui/ClickGuiScreen.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline` ✅（零错误零警告，生成 `hoptimization-0.8.0.jar` 与 `mixins.hoptimization.refmap.json` 全部 5 项 `MixinNetHandlerPlayClientVisual` 映射）；`.\gradlew.bat launchClient --offline` 启动与模块/Mixin 初始化 ✅（日志确认 `Pre-initializing Hoptimization 0.8.0`、`Hoptimization initialized (25 modules).`、`Hoptimization mixins active.` 且无 `InvalidInjectionException` / `MixinApplyError` / GL 错误）；Hypixel 与落花星雨实战最终击杀与 ClickGUI 语言切换待所有者手测
+- **Git**：分支 `feat/final-kill-fix` (`015aceb`) + `feat/misc-language` (`f3d9a77`) → `feat/final-kill-and-lang` `--no-ff` 合入 `main`（`<待补记合并提交短哈希>`），本地标签 `v0.8.0`，远程推送 ⏸ 未推送（待所有者确认）
+- **回退到上一版本**：`git checkout -b fix/rollback v0.7.0`（或从 `v0.8.0` 依次执行 `git revert HEAD && git revert -m 1 <待补记合并提交短哈希>`）
+- **已知问题**：Hypixel 与落花星雨等多人实战环境下的终结击杀特效触发表现与 ClickGUI 实时切换语言体验待所有者手测验收；ClickGUI 设置页的 6 主题预览网格、强调色面板、配置档切换弹窗及主题编辑器仍留待后续版本推进。
+- **下一步**：所有者进服手测终结击杀特效与 `Misc -> Language` 切换效果并确认后执行远程推送；后续继续按 `03 §11` 第 5–6 步完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-18 · 击杀效果模块：抽魂斩杀与湮灭（v0.7.0）
 
 - **做了什么**：通过 `/swarm` 3 名并行工程师（`effects-core`、`render-engine`、`mixins-wiring`）及集成/验证完成 Visual 分类新模块 `KillEffects`（`kill_effects`，默认关闭），全仓共注册 **24 个模块**：
