@@ -5,6 +5,7 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.core.setting.NumberSetting;
 import com.hoptimization.mixin.combat.AccessorMinecraftCombat;
+import com.hoptimization.ui.hud.ClickCpsTracker;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -237,6 +238,9 @@ public class AutoClicker extends Module {
         AccessorMinecraftCombat accessor = (AccessorMinecraftCombat) (Object) mc;
         accessor.hoptimization$setLeftClickCounter(0);
         accessor.hoptimization$clickMouse();
+        if (ClickCpsTracker.getInstance().hasActiveConsumers()) {
+            ClickCpsTracker.getInstance().recordClickAt(0, now);
+        }
     }
 
     private void handleRightClick(Minecraft mc, long now) {
@@ -261,6 +265,9 @@ public class AutoClicker extends Module {
 
         AccessorMinecraftCombat accessor = (AccessorMinecraftCombat) (Object) mc;
         accessor.hoptimization$rightClickMouse();
+        if (ClickCpsTracker.getInstance().hasActiveConsumers()) {
+            ClickCpsTracker.getInstance().recordClickAt(1, now);
+        }
     }
 
     private long computeLeftIntervalNanos() {
