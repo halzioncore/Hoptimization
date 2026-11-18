@@ -315,3 +315,63 @@ ui.hoptimization.hud.facing.south=South (+Z)
 ui.hoptimization.hud.facing.west=West (-X)
 ui.hoptimization.hud.facing.east=East (+X)
 ui.hoptimization.hud.biome.unknown=Plains
+
+# Modules - v0.11.0 Additions
+module.hoptimization.target_ring.name=Target Ring
+module.hoptimization.target_ring.desc=Renders a single-target lock ring with damped hit feedback
+module.hoptimization.nametags.name=Nametags
+module.hoptimization.nametags.desc=Renders clean through-wall nametag cards with health and equipment
+module.hoptimization.esp.name=ESP
+module.hoptimization.esp.desc=Renders clean structural outlines for players, mobs, chests, and beds
+module.hoptimization.chinese_input.name=Chinese Input
+module.hoptimization.chinese_input.desc=Enables system IME input in chat, text screens, and ClickGUI search
+
+# Settings - Target Ring
+setting.hoptimization.target_ring.style.name=Style
+setting.hoptimization.target_ring.style.option.pulse_ring=Pulse Ring
+setting.hoptimization.target_ring.style.option.blade_orbit=Blade Orbit
+setting.hoptimization.target_ring.style.option.scan_pillar=Scan Pillar
+setting.hoptimization.target_ring.players_only.name=Players Only
+setting.hoptimization.target_ring.filter_bots.name=Filter Bots
+setting.hoptimization.target_ring.keep_time.name=Keep Time
+setting.hoptimization.target_ring.radius_scale.name=Radius Scale
+setting.hoptimization.target_ring.line_width.name=Line Width
+setting.hoptimization.target_ring.hit_feedback.name=Hit Feedback
+setting.hoptimization.target_ring.hit_ripple.name=Hit Ripple
+setting.hoptimization.target_ring.follow_theme.name=Follow Theme
+setting.hoptimization.target_ring.ring_color.name=Ring Color
+setting.hoptimization.target_ring.hit_color.name=Hit Color
+
+# Settings - Nametags
+setting.hoptimization.nametags.players.name=Players
+setting.hoptimization.nametags.mobs.name=Mobs
+setting.hoptimization.nametags.scale.name=Scale
+setting.hoptimization.nametags.show_health.name=Show Health
+setting.hoptimization.nametags.show_distance.name=Show Distance
+setting.hoptimization.nametags.show_armor.name=Show Armor
+setting.hoptimization.nametags.show_invisibles.name=Show Invisibles
+setting.hoptimization.nametags.filter_bots.name=Filter Bots
+setting.hoptimization.nametags.background_opacity.name=Background Opacity
+setting.hoptimization.nametags.follow_theme.name=Follow Theme
+
+# Settings - ESP
+setting.hoptimization.esp.players.name=Players
+setting.hoptimization.esp.mobs.name=Mobs
+setting.hoptimization.esp.beds.name=Beds
+setting.hoptimization.esp.chests.name=Chests
+setting.hoptimization.esp.entity_style.name=Entity Style
+setting.hoptimization.esp.entity_style.option.corner_bracket=Corner Bracket
+setting.hoptimization.esp.entity_style.option.clean_box=Clean Box
+setting.hoptimization.esp.line_width.name=Line Width
+setting.hoptimization.esp.fill_opacity.name=Fill Opacity
+setting.hoptimization.esp.through_walls.name=Through Walls
+setting.hoptimization.esp.show_health_bar.name=Show Health Bar
+setting.hoptimization.esp.ignore_teammates.name=Ignore Teammates
+setting.hoptimization.esp.filter_bots.name=Filter Bots
+setting.hoptimization.esp.block_range.name=Block Range
+setting.hoptimization.esp.follow_theme.name=Follow Theme
+
+# Settings - Chinese Input
+setting.hoptimization.chinese_input.show_composition_bar.name=Show Composition Bar
+setting.hoptimization.chinese_input.enable_in_chat.name=Enable in Chat
+setting.hoptimization.chinese_input.enable_in_clickgui.name=Enable in ClickGUI
