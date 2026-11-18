@@ -40,7 +40,7 @@ module.hoptimization.particle_limit.desc=限制同屏粒子数量以维持高帧
 module.hoptimization.fullbright.name=夜视亮度
 module.hoptimization.fullbright.desc=提升黑暗环境下的场景可见亮度
 module.hoptimization.language.name=语言
-module.hoptimization.language.desc=在客户端内快速切换游戏与模组语言（中文 / 英文）
+module.hoptimization.language.desc=仅切换模组界面与 HUD 的显示语言（不影响原版游戏语言）
 
 # 设置 - 通用
 setting.hoptimization.common.keybind.name=快捷键
@@ -215,7 +215,7 @@ module.hoptimization.zoom.desc=按住或切换按键平滑放大视角以观察�
 module.hoptimization.time_changer.name=时间修改
 module.hoptimization.time_changer.desc=仅在客户端本地自定义天空时间预设或具体时刻
 module.hoptimization.kill_effects.name=击杀效果
-module.hoptimization.kill_effects.desc=击杀目标时呈现抽魂斩杀或湮灭的纯客户端视觉特效
+module.hoptimization.kill_effects.desc=击杀目标时呈现抽魂、湮灭、幻影剑或深渊噬魂视觉特效
 
 # 模块 - 性能（新增）
 module.hoptimization.mouse_delay_fix.name=鼠标延迟修复
@@ -273,6 +273,8 @@ setting.hoptimization.time_changer.time.name=时间
 setting.hoptimization.kill_effects.mode.name=特效模式
 setting.hoptimization.kill_effects.mode.option.soul_sever=抽魂斩杀
 setting.hoptimization.kill_effects.mode.option.annihilation=湮灭
+setting.hoptimization.kill_effects.mode.option.phantom_swords=幻影剑
+setting.hoptimization.kill_effects.mode.option.abyss_vortex=深渊噬魂
 setting.hoptimization.kill_effects.targets.name=生效目标
 setting.hoptimization.kill_effects.targets.option.all=全部
 setting.hoptimization.kill_effects.targets.option.players=仅玩家

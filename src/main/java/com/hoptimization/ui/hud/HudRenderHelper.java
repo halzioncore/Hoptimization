@@ -1,5 +1,6 @@
 package com.hoptimization.ui.hud;
 
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
@@ -13,9 +14,6 @@ import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.client.resources.I18n;
-import net.minecraft.client.resources.Language;
-import net.minecraft.client.resources.LanguageManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.BufferUtils;
@@ -340,7 +338,7 @@ public final class HudRenderHelper {
     }
 
     /**
-     * Resolves a localized string via {@link I18n#format(String, Object...)} with a clean fallback
+     * Resolves a localized string via {@link LanguageModule#format(String)} with a clean fallback
      * if the key has not been registered yet.
      *
      * @param key      localization key
@@ -352,32 +350,23 @@ public final class HudRenderHelper {
             return fallback;
         }
         try {
-            String formatted = I18n.format(key);
+            String formatted = LanguageModule.format(key);
             if (formatted != null && !formatted.isEmpty() && !formatted.equals(key)) {
                 return formatted;
             }
         } catch (RuntimeException ignored) {
-            // Fall back cleanly when called outside initialized MC resource context (e.g. unit checks).
+            // Fall back cleanly when called outside initialized context (e.g. unit checks).
         }
         return fallback;
     }
 
     /**
-     * Returns the current Minecraft language code without allocating when unchanged.
+     * Returns the effective mod display language code without heap allocation.
      *
-     * @return active language code, or {@code "en_US"} if unavailable
+     * @return {@code "zh_CN"} or {@code "en_US"}
      */
     public static String getCurrentLanguageCode() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null) {
-            return "en_US";
-        }
-        LanguageManager langManager = mc.getLanguageManager();
-        if (langManager == null) {
-            return "en_US";
-        }
-        Language current = langManager.getCurrentLanguage();
-        return current != null && current.getLanguageCode() != null ? current.getLanguageCode() : "en_US";
+        return LanguageModule.getEffectiveLanguageCode();
     }
 
     private static void drawTexturedRegion(

@@ -1,7 +1,7 @@
 package com.hoptimization.core.setting;
 
 import com.hoptimization.HoptimizationMod;
-import net.minecraft.client.resources.I18n;
+import com.hoptimization.modules.misc.LanguageModule;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -148,7 +148,7 @@ public class ModeSetting extends Setting<String> {
      * @return localized option label
      */
     public String getOptionDisplayName(int index) {
-        return I18n.format(this.optionKeys[index]);
+        return LanguageModule.format(this.optionKeys[index]);
     }
 
     /**
@@ -157,7 +157,7 @@ public class ModeSetting extends Setting<String> {
      * @return localized active option label
      */
     public String getCurrentDisplayName() {
-        return I18n.format(this.optionKeys[this.cachedIndex]);
+        return LanguageModule.format(this.optionKeys[this.cachedIndex]);
     }
 
     @Override

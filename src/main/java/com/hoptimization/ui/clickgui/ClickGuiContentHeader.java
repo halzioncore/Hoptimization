@@ -1,6 +1,7 @@
 package com.hoptimization.ui.clickgui;
 
 import com.hoptimization.core.module.Category;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.anim.AnimDuration;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.Easing;
@@ -9,7 +10,6 @@ import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.UiTokens;
-import net.minecraft.client.resources.I18n;
 
 /**
  * ClickGUI 右侧内容面板头部（高 56，内边距 20）：
@@ -41,11 +41,11 @@ public final class ClickGuiContentHeader {
      * 刷新本地化静态文案与分段控件宽度，避免在渲染热路径产生分配。
      */
     public void refreshLabels() {
-        filterAllLabel = I18n.format("ui.hoptimization.filter.all");
-        filterEnabledLabel = I18n.format("ui.hoptimization.filter.enabled");
-        settingsTitle = I18n.format("ui.hoptimization.settings.title");
-        settingsSubtitle = I18n.format("ui.hoptimization.settings.subtitle");
-        searchResultsTitle = I18n.format("ui.hoptimization.search.results");
+        filterAllLabel = LanguageModule.format("ui.hoptimization.filter.all");
+        filterEnabledLabel = LanguageModule.format("ui.hoptimization.filter.enabled");
+        settingsTitle = LanguageModule.format("ui.hoptimization.settings.title");
+        settingsSubtitle = LanguageModule.format("ui.hoptimization.settings.subtitle");
+        searchResultsTitle = LanguageModule.format("ui.hoptimization.search.results");
 
         TtfFontRenderer bodyFont = FontManager.body();
         float maxLabelW = Math.max(bodyFont.getWidth(filterAllLabel), bodyFont.getWidth(filterEnabledLabel));
@@ -245,7 +245,7 @@ public final class ClickGuiContentHeader {
                 lastCategory = null;
                 lastModuleCount = moduleCount;
                 cachedTitle = searchResultsTitle;
-                cachedSubtitle = I18n.format("ui.hoptimization.search.matches", Integer.valueOf(moduleCount));
+                cachedSubtitle = LanguageModule.format("ui.hoptimization.search.matches", Integer.valueOf(moduleCount));
             }
             return;
         }
@@ -266,8 +266,8 @@ public final class ClickGuiContentHeader {
             lastSettingsActive = false;
             lastCategory = resolved;
             lastModuleCount = moduleCount;
-            cachedTitle = I18n.format(resolved.getNameKey());
-            cachedSubtitle = I18n.format("ui.hoptimization.module.count", Integer.valueOf(moduleCount));
+            cachedTitle = LanguageModule.format(resolved.getNameKey());
+            cachedSubtitle = LanguageModule.format("ui.hoptimization.module.count", Integer.valueOf(moduleCount));
         }
     }
 }

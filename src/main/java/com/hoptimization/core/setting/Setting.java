@@ -1,6 +1,6 @@
 package com.hoptimization.core.setting;
 
-import net.minecraft.client.resources.I18n;
+import com.hoptimization.modules.misc.LanguageModule;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +96,7 @@ public abstract class Setting<T> {
      * @return localized setting label
      */
     public String getDisplayName() {
-        return I18n.format(this.nameKey);
+        return LanguageModule.format(this.nameKey);
     }
 
     /**
@@ -108,7 +108,7 @@ public abstract class Setting<T> {
         if (this.descKey.isEmpty()) {
             return "";
         }
-        return I18n.format(this.descKey);
+        return LanguageModule.format(this.descKey);
     }
 
     /**
