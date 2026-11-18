@@ -3,6 +3,7 @@ package com.hoptimization;
 import com.hoptimization.core.config.ConfigManager;
 import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.ModuleManager;
+import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.clickgui.ClickGuiScreen;
 import com.hoptimization.ui.font.FontManager;
@@ -32,7 +33,7 @@ import java.io.File;
 public class HoptimizationMod {
     public static final String MODID = "hoptimization";
     public static final String NAME = "Hoptimization";
-    public static final String VERSION = "0.7.0";
+    public static final String VERSION = "0.8.0";
     public static final Logger LOGGER = LogManager.getLogger(NAME);
 
     private static ModuleManager moduleManager;
@@ -94,6 +95,7 @@ public class HoptimizationMod {
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(this);
+        LanguageModule.applyConfiguredLanguageOnInit();
         LOGGER.info("{} initialized ({} modules).", NAME, Integer.valueOf(moduleManager.getModules().size()));
     }
 

@@ -37,6 +37,8 @@ module.hoptimization.particle_limit.desc=Caps active particle count to keep fram
 # Modules - Misc
 module.hoptimization.fullbright.name=Fullbright
 module.hoptimization.fullbright.desc=Increases scene brightness in dark areas
+module.hoptimization.language.name=Language
+module.hoptimization.language.desc=Switch game and mod language between Chinese and English
 
 # Settings - Common
 setting.hoptimization.common.keybind.name=Keybind
@@ -92,6 +94,12 @@ setting.hoptimization.particle_limit.mode.option.smart=Smart
 
 # Settings - Fullbright
 setting.hoptimization.fullbright.brightness.name=Brightness
+
+# Settings - Language
+setting.hoptimization.language.language.name=Language
+setting.hoptimization.language.language.option.auto=Auto
+setting.hoptimization.language.language.option.zh_cn=中文
+setting.hoptimization.language.language.option.en_us=English
 
 # Common UI
 ui.hoptimization.search.placeholder=Search modules
