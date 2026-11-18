@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-18 · 击杀效果模块：抽魂斩杀与湮灭（v0.7.0）
+
+- **做了什么**：通过 `/swarm` 3 名并行工程师（`effects-core`、`render-engine`、`mixins-wiring`）及集成/验证完成 Visual 分类新模块 `KillEffects`（`kill_effects`，默认关闭），全仓共注册 **24 个模块**：
+  1. **核心模块与击杀追踪 (`feat/kill-effects-core`)**：实现 `KillEffects`、`KillEffectInstance` 与 `KillEffectsTracker`（16 槽位预分配实例池、32 槽近战与投射物归因数组、64 项环形死亡去重缓冲）；支持 `soul_sever`（抽魂斩杀）与 `annihilation`（湮灭）双模式、`targets`（`all`/`players`/`mobs`）、`only_own_kills`、`duration`、`soul_color`、`weapon_scale`、`particles` 与 `sound` 8 项设置，以及击杀瞬间快照姿态/手持武器并抑制原版倒地尸体。
+  2. **3D 灵魂着色器与粒子渲染 (`feat/kill-effects-render`)**：新增 GLSL 120 着色器 `kill_soul.vsh` / `kill_soul.fsh`、`KillSoulShader`（支持固定管线多纹理组合器自动回退与 OptiFine `GL_CURRENT_PROGRAM != 0` 旁路保护）、`SoulParticlePool`（256 槽零分配原始数组粒子池）与 `KillEffectsRenderer`（双 Pass 半透明实体渲染、实体背后 3D 武器斩杀动效、3D 弧光与空手几何月牙刃回退、全量 GL 状态还原）。
+  3. **Mixin 钩子、注册与本地化 (`feat/kill-effects-mixins`)**：新增 `MixinEntityLivingBaseVisual`、`MixinRenderManagerVisual`、`MixinRendererLivingEntityVisual`、`MixinLayerArmorBaseVisual`（内部通道取消附魔护甲闪烁以防重置混合状态），并在 `MixinNetHandlerPlayClientVisual` 保留 `handleTimeUpdate` 同时接入 `handleDestroyEntities`；全部 Mixin 遵循 zero `@Overwrite`、`require = 0` 与 `hoptimization$` 前缀；在 `ModuleManager` 注册 `KillEffects`（总计 24 模块），对齐中英文语言键（各 211 条，UTF-8 无 BOM），同步版本号至 `0.7.0`。
+- **改动文件**：`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/visual/KillEffects.java`、`modules/visual/killeffects/{KillEffectInstance,KillEffectsTracker,KillEffectsRenderer,KillSoulShader,SoulParticlePool}.java`、`mixin/client/MixinNetHandlerPlayClientVisual.java`、`mixin/render/{MixinEntityLivingBaseVisual,MixinRenderManagerVisual,MixinRendererLivingEntityVisual,MixinLayerArmorBaseVisual}.java`、`src/main/resources/assets/hoptimization/shader/{kill_soul.vsh,kill_soul.fsh}`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`、`docs/agent必看/PROGRESS.md`
+- **验证**：`.\gradlew.bat clean build --offline` ✅（零错误零警告，生成 `hoptimization-0.7.0.jar` 与完整 `mixins.hoptimization.refmap.json`）；`.\gradlew.bat launchClient --offline` 启动与 Mixin 实测加载 ✅（日志确认 `Hoptimization 0.7.0` 初始化 24 模块、`Hoptimization mixins active.` 及 Visual Mixin 加载无 `InvalidInjectionException` / GL 错误；单人世界击杀特效实机画面待所有者手动游玩验收）
+- **Git**：分支 `feat/kill-effects-core` (`e6a30e3`) + `feat/kill-effects-render` (`7dddfb4`) + `feat/kill-effects-mixins` (`81bcdf3` → `b5198a5`) → `feat/kill-effects` `--no-ff` 合入 `main`（`<待补记合并提交短哈希>`），本地标签 `v0.7.0`，远程推送 ⏸ 未推送（待所有者确认）
+- **回退到上一版本**：`git checkout -b fix/rollback v0.6.0`（或从 `v0.7.0` 依次执行 `git revert HEAD && git revert -m 1 <待补记合并提交短哈希>`）
+- **已知问题**：单人/多人实战下击杀特效的动画节奏、粒子密度及与其它客户端 Mod 兼容性待所有者手测验收；ClickGUI 设置页的 6 主题预览网格、强调色面板、配置档切换弹窗及主题编辑器仍留待后续版本推进。
+- **下一步**：所有者进游戏手测 `Visual -> Kill Effects` 两种模式效果并确认后执行远程推送；后续按 `03 §11` 第 5–6 步继续完善 ClickGUI 设置页。
+
+---
+
 ## 2026-11-17 · 首批战斗 / 移动 / 视觉 / 性能 / 杂项与 HUD 功能模块（v0.6.0）
 
 - **做了什么**：通过 `/swarm` 3 名并行工程师（`combat-modules`、`move-visual-perf`、`ui-hud-modules`）在各自独立工作副本完成 12 个新增功能模块与 11 个既有模块实装并合入集成，全仓共注册 **23 个模块**（按所有者筛选排除 `KeepSprint`、`SafeWalk`、`FreeLook`、`FastPlace`、`AutoRespawn`）：

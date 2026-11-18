@@ -181,6 +181,8 @@ module.hoptimization.zoom.name=视角缩放
 module.hoptimization.zoom.desc=按住或切换按键平滑放大视角以观察远处目标
 module.hoptimization.time_changer.name=时间修改
 module.hoptimization.time_changer.desc=仅在客户端本地自定义天空时间预设或具体时刻
+module.hoptimization.kill_effects.name=击杀效果
+module.hoptimization.kill_effects.desc=击杀目标时呈现抽魂斩杀或湮灭的纯客户端视觉特效
 
 # 模块 - 性能（新增）
 module.hoptimization.mouse_delay_fix.name=鼠标延迟修复
@@ -233,6 +235,21 @@ setting.hoptimization.time_changer.mode.option.night=夜晚
 setting.hoptimization.time_changer.mode.option.midnight=午夜
 setting.hoptimization.time_changer.mode.option.custom=自定义
 setting.hoptimization.time_changer.time.name=时间
+
+# 设置 - 击杀效果
+setting.hoptimization.kill_effects.mode.name=特效模式
+setting.hoptimization.kill_effects.mode.option.soul_sever=抽魂斩杀
+setting.hoptimization.kill_effects.mode.option.annihilation=湮灭
+setting.hoptimization.kill_effects.targets.name=生效目标
+setting.hoptimization.kill_effects.targets.option.all=全部
+setting.hoptimization.kill_effects.targets.option.players=仅玩家
+setting.hoptimization.kill_effects.targets.option.mobs=仅生物
+setting.hoptimization.kill_effects.only_own_kills.name=仅限自己击杀
+setting.hoptimization.kill_effects.duration.name=持续时间
+setting.hoptimization.kill_effects.soul_color.name=灵魂色调
+setting.hoptimization.kill_effects.weapon_scale.name=武器模型缩放
+setting.hoptimization.kill_effects.particles.name=粒子效果
+setting.hoptimization.kill_effects.sound.name=音效
 
 # 设置 - UI HUD 模块
 setting.hoptimization.target_hud.style.name=样式
