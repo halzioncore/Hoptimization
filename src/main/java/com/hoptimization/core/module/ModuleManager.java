@@ -24,6 +24,7 @@ import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.BlockOutline;
 import com.hoptimization.modules.visual.Esp;
 import com.hoptimization.modules.visual.HurtCam;
+import com.hoptimization.modules.visual.Jarvis;
 import com.hoptimization.modules.visual.KillEffects;
 import com.hoptimization.modules.visual.LowFire;
 import com.hoptimization.modules.visual.Nametags;
@@ -89,6 +90,7 @@ public class ModuleManager {
         register(new KillEffects());
         register(new Nametags());
         register(new Esp());
+        register(new Jarvis());
 
         register(new ClickGuiModule());
         register(new CheatMode());
