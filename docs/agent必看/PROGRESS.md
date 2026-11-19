@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-11-19 · 起床战争智能化战术助手「贾维斯 Jarvis」（v0.12.0）
+
+- **做了什么**：通过 `/swarm` 两阶段并行研发（`bedwars-intel`、`tactical-engines`、`fireball-render` 并行产出，`verifier` 双轮审查验证，`integrator` 集成于 `feat/bedwars-jarvis`）新增作弊门禁 Visual 模块 `Jarvis`（`jarvis`，默认关闭，`requiresCheatMode = true`，零新增 Mixin），全仓共注册 **31 个模块**（Combat 7 · Movement 2 · Visual 10 · UI 7 · Performance 2 · Misc 3）：
+  1. **对局上下文与基地入侵提醒 (`feat/jarvis-intel`, `88be444`)**：实现 `BedWarsContext`（侧边栏记分板中英文对局识别 + `work_mode = always` 单人测试模式、团队色解析、每 tick 最多 6 区块时间片环形增量扫描 `ExtendedBlockStorage` 并支持最多 16 个床位跨区块持久化缓存与开局/重锚基地绑定、`isValidEnemyPlayer` 过滤商店 NPC `uuid.version() == 2`、假人、队友与旁观者）与 `BaseIntrusionMonitor`（水平 `base_range` + 垂直 `[-10, +40]` 柱状警戒覆盖高空搭路威胁、提取隐身/高空与手持 TNT/火焰弹/镐/斧/剪刀威胁、滞回冷却与客户端提示音/本地聊天提醒）。
+  2. **挖掘物理、3D 挖床路径与防线评估 (`feat/jarvis-engines`, `3cb5eeb`)**：实现 `BedMiningMath`（精确 1.8.9 挖掘耗时公式与木/铁/金镐/剪刀/效率/急迫/挖掘疲劳支持，破除黑曜石不假定/不强制钻石镐且无 `+200` 惩罚）、`BedMiningPathfinder`（`12×7×12` 局部网格先执行外部可达空气 BFS 屏蔽蝴蝶防封闭空腔，再以索引二叉最小堆 Dijkstra 结合挖掘耗时与移动接近速度求解最优隧道并输出实时有序步骤）与 `BedDefenseAnalyzer`（4 层壳 BFS 提取黑曜石/末地石/木板/粘土/防爆玻璃/羊毛/水防护并计算 `easeScore` 排序推荐最易突袭队伍）。
+  3. **火焰弹爆破预测与 3D 渲染 (`feat/jarvis-fireball-render`, `adea1d7`)**：实现 `FireballBlastPredictor`（`EntityLargeFireball`/`EntitySmallFireball` 弹道碰撞预测 + 预计算 728 射线确定性双置信层核心/边缘爆破模拟，`bedwars` 预设下 `Blocks.glass`/`Blocks.stained_glass` 视为防爆玻璃免疫并阻挡射线，支持 `vanilla` 预设）与 `JarvisWorldRenderer`（零分配 `Tessellator` 批渲染，红/琥珀分级高亮必炸/边缘方块与弹道引导线，主题色高亮挖床 Step 0 与隧道连线并严格 `try/finally` 还原 OpenGL 状态）。
+  4. **主题化双 HUD、主模块编排与 v0.12.0 集成 (`feat/bedwars-jarvis`, `0b73d83`)**：实现 `JarvisHudRenderer`（严格遵循 `02_美术规范.md` 读取 `ThemeManager.current()` token，支持 `card`/`text` 样式、`HudEditScreen` 拖拽缩放预览，提供「战术床防雷达 `jarvis_radar`」展示最易突袭目标/防护方块图标/预计破防耗时/入侵路径摘要，以及「基地入侵警报条 `jarvis_alert`」平滑淡入展示入侵威胁）与 `Jarvis`（18 项 `visibleWhen` 分组设置，纯 Forge 事件调度，`onDisable()` 与切世界清空全部缓存）；在 `ModuleManager` 注册为第 **31 个模块**，对齐 `en_US.lang` 与 `zh_CN.lang`（各 **351 条**唯一键，UTF-8 无 BOM），同步 `gradle.properties` 与 `HoptimizationMod.VERSION` 至 `0.12.0`。
+- **改动文件**：`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`core/module/ModuleManager.java`、`modules/visual/Jarvis.java`、`modules/visual/jarvis/{BedWarsContext,BaseIntrusionMonitor,BedMiningMath,BedMiningPathfinder,BedDefenseAnalyzer,FireballBlastPredictor,JarvisWorldRenderer,JarvisHudRenderer}.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 13s`，零编译错误与 Mixin 告警，生成 `build/libs/hoptimization-0.12.0.jar`，`2366105` 字节）；Java 8 集成与字节码校验 ✅（Zulu JDK 8：`222` 个 `.class` 全部为 Java 8 major=52、`HoptimizationMod.VERSION == "0.12.0"`、`ModuleManager` 注册 31 模块与 `CheatMode` 门禁、`en_US.lang` 与 `zh_CN.lang` 各 351 条键 100% 对齐、`1033` 项断言全通过覆盖无钻石镐黑曜石计算/蝴蝶防外部空气 BFS/防爆玻璃阻挡/易突袭排序）；`.\gradlew.bat launchClient --offline --console=plain` ✅（实测确认 `Pre-initializing Hoptimization 0.12.0`、`Hoptimization initialized (31 modules).`、`Hoptimization mixins active.`，零 Mixin/OpenGL 异常且客户端进程已干净停止）
+- **Git**：分支 `feat/jarvis-intel` (`88be444`) + `feat/jarvis-engines` (`3cb5eeb`) + `feat/jarvis-fireball-render` (`adea1d7`) → `feat/bedwars-jarvis` (`0b73d83`) `--no-ff` 合入 `main`（`ddeb89f`），标签 `v0.12.0`，推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert HEAD && git revert -m 1 ddeb89f`（或 `git checkout -b fix/rollback v0.11.0`）
+- **已知问题**：Hypixel 实战环境下多地图记分板/防爆玻璃/蝴蝶防挖床路径体验、基地入侵警报条与战术雷达 HUD 观感待所有者进游戏手测验收。
+- **下一步**：所有者进游戏开启 `UI -> 作弊模式` 与 `视觉 -> 贾维斯` 手测（单人测试可将 `work_mode` 设为 `always`），确认后执行远程推送。
+
+---
+
 ## 2026-11-18 · 锁敌光环、透视名牌、结构化 ESP、CPS 统计修复与中文输入支持（v0.11.0）
 
 - **做了什么**：通过 `/swarm` 3 条特性分支（`feat/input-and-cps`、`feat/target-ring-nametags`、`feat/structural-esp`）由 `integrator-3` 合入集成分支 `feat/v0.11.0-integration`，全仓共注册 **30 个模块**（Combat 7 · Movement 2 · Visual 9 · UI 7 · Performance 2 · Misc 3）：
