@@ -191,11 +191,15 @@ public final class BaseIntrusionMonitor {
         int candidateCount = 0;
         boolean playedSoundThisTick = false;
 
+        BedWarsContext.TeamColor localTeamColor = ctx.getLocalTeamColor();
+        int presentTeamsMask = ctx.getPresentTeamsMask();
+
         List<EntityPlayer> players = world.playerEntities;
         if (players != null) {
             for (int i = 0, size = players.size(); i < size; i++) {
                 EntityPlayer target = players.get(i);
-                if (!BedWarsContext.isValidEnemyPlayer(target, mc.thePlayer, mc)) {
+                if (!BedWarsContext.isValidEnemyPlayer(
+                    target, mc.thePlayer, mc, localTeamColor, presentTeamsMask)) {
                     continue;
                 }
                 boolean invisible = target.isInvisible();
@@ -222,7 +226,7 @@ public final class BaseIntrusionMonitor {
                 }
 
                 byte threatKind = detectHeldThreat(target);
-                BedWarsContext.TeamColor teamColor = BedWarsContext.resolvePlayerTeamColor(target);
+                BedWarsContext.TeamColor teamColor = BedWarsContext.resolvePlayerTeamColor(target, mc);
                 String playerName = target.getName();
 
                 if (candidateCount < MAX_TRACKED) {

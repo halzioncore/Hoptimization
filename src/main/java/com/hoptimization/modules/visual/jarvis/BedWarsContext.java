@@ -5,6 +5,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetHandlerPlayClient;
+import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemArmor;
@@ -19,6 +20,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldSettings;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
@@ -46,16 +48,19 @@ public final class BedWarsContext {
     public static final double HOME_SPAWN_ANCHOR_RANGE = 28.0D;
     public static final double ENEMY_PLAYER_ASSOC_RANGE = 14.0D;
     public static final int TEAM_BLOCK_VOTE_RADIUS = 10;
+    public static final int MATCH_START_ANCHOR_GRACE_TICKS = 60;
+
+    public static final int SCOREBOARD_FLAG_VALID = 1 << 8;
+    public static final int SCOREBOARD_FLAG_BED_ALIVE = 1 << 4;
+    public static final int SCOREBOARD_FLAG_LOCAL_TEAM = 1 << 5;
+    public static final int SCOREBOARD_COLOR_MASK = 0x0F;
 
     private static final int SWEEP_COOLDOWN_TICKS = 20;
     private static final double RESCAN_TELEPORT_DIST_SQ = 32.0D * 32.0D;
     private static final int DEFAULT_LEATHER_RGB = 0xA06540;
     private static final int MAX_UNLOADED_SKIPS_PER_TICK = 24;
-
-    private static final String[] TEAM_KEYWORDS = {
-        "red", "blue", "green", "yellow", "aqua", "white", "pink", "gray", "grey",
-        "\u7ea2", "\u84dd", "\u7eff", "\u9ec4", "\u9752", "\u767d", "\u7c89", "\u7070"
-    };
+    private static final int MIN_BLOCK_VOTE_SCORE = 12;
+    private static final int MIN_PLAYER_ASSOC_VOTES = 2;
 
     /**
      * Canonical BedWars team colors with ARGB display tint, formatting code, and dye metadata.
@@ -279,6 +284,7 @@ public final class BedWarsContext {
         private TeamColor teamColor = TeamColor.UNKNOWN;
         private TeamColor votedColor = TeamColor.UNKNOWN;
         private TeamColor playerColor = TeamColor.UNKNOWN;
+        private final int[] playerVotes = new int[TeamColor.values().length];
         private boolean ownBed;
         private byte status = STATUS_LIVE;
         private int lastSeenTick;
@@ -297,6 +303,7 @@ public final class BedWarsContext {
             this.teamColor = TeamColor.UNKNOWN;
             this.votedColor = TeamColor.UNKNOWN;
             this.playerColor = TeamColor.UNKNOWN;
+            Arrays.fill(this.playerVotes, 0);
             this.ownBed = false;
             this.status = STATUS_LIVE;
             this.lastSeenTick = 0;
@@ -383,6 +390,7 @@ public final class BedWarsContext {
     private final StringBuilder lineScratch = new StringBuilder(64);
     private final StringBuilder cleanLineScratch = new StringBuilder(64);
     private final int[] teamVoteCounts = new int[TeamColor.values().length];
+    private final int[] rosterAccum = new int[4];
 
     private int bedCount;
     private int tickCounter;
@@ -392,6 +400,10 @@ public final class BedWarsContext {
     private boolean inBedWarsMatch;
     private boolean lastEffectiveActive;
     private TeamColor localTeamColor = TeamColor.UNKNOWN;
+    private int presentTeamsMask;
+    private int bedAliveMask;
+    private TeamColor scoreboardLocalTeam = TeamColor.UNKNOWN;
+    private int matchStartTick = -1;
 
     private boolean homeAnchored;
     private double homeX;
@@ -463,6 +475,7 @@ public final class BedWarsContext {
         updateMatchDetection(world);
         if (!wasMatch && this.inBedWarsMatch) {
             // Entering a BedWars match should anchor on spawn near our home bed.
+            this.matchStartTick = this.tickCounter;
             this.anchorPending = true;
             this.homeAnchored = false;
             this.ownBedIndex = -1;
@@ -481,21 +494,26 @@ public final class BedWarsContext {
         }
         this.lastEffectiveActive = true;
 
-        updateLocalTeamColor(player);
+        updateLocalTeamColor(player, mc);
 
         this.bedAddedThisTick = false;
         int clampedRange = clampScanRange(scanRange);
         stepIncrementalChunkScan(world, player, clampedRange);
 
+        boolean runDedupe = this.bedAddedThisTick;
         if (this.tickCounter % REVERIFY_INTERVAL_TICKS == 0) {
             reverifyTrackedBeds(world);
             refreshOneBedBlockVotes(world);
             updateEnemyBedPlayerAssociations(world, player, mc);
+            runDedupe = true;
         } else if (this.bedAddedThisTick) {
             updateEnemyBedPlayerAssociations(world, player, mc);
         }
 
         tryAnchorHomeBase(player, alwaysActive);
+        if (runDedupe) {
+            deduplicateEnemyBedColors();
+        }
 
         this.tickCounter++;
     }
@@ -517,6 +535,7 @@ public final class BedWarsContext {
         if (containsIgnoreCase(this.lineScratch, "Protect your bed")
             || containsSequence(this.lineScratch, "\u4fdd\u62a4\u4f60\u7684\u5e8a")
             || containsSequence(this.lineScratch, "\u6e38\u620f\u5f00\u59cb")) {
+            this.matchStartTick = this.tickCounter;
             this.anchorPending = true;
             this.homeAnchored = false;
             this.ownBedIndex = -1;
@@ -570,6 +589,22 @@ public final class BedWarsContext {
      * @return {@code true} if the target is a valid enemy player
      */
     public static boolean isValidEnemyPlayer(EntityPlayer target, EntityPlayer local, Minecraft mc) {
+        return isValidEnemyPlayer(target, local, mc, TeamColor.UNKNOWN, 0);
+    }
+
+    /**
+     * Checks whether a player entity is a valid living enemy player with optional authoritative
+     * match context (local team color and active scoreboard team bitmask).
+     *
+     * @param target           candidate player entity
+     * @param local            local client player
+     * @param mc               Minecraft client instance
+     * @param contextLocalTeam local team color from match context, or {@link TeamColor#UNKNOWN}
+     * @param presentTeamsMask bitmask of teams present on scoreboard ({@code 0} when unavailable)
+     * @return {@code true} if the target is a valid enemy player
+     */
+    public static boolean isValidEnemyPlayer(EntityPlayer target, EntityPlayer local, Minecraft mc,
+                                             TeamColor contextLocalTeam, int presentTeamsMask) {
         if (target == null || target == local) {
             return false;
         }
@@ -595,23 +630,73 @@ public final class BedWarsContext {
             return false;
         }
 
+        NetworkPlayerInfo targetInfo = null;
+        NetworkPlayerInfo localInfo = null;
         if (mc != null) {
             NetHandlerPlayClient netHandler = mc.getNetHandler();
-            if (netHandler != null && netHandler.getPlayerInfo(uuid) == null) {
-                return false;
+            if (netHandler != null) {
+                targetInfo = netHandler.getPlayerInfo(uuid);
+                if (targetInfo == null) {
+                    return false;
+                }
+                if (targetInfo.getGameType() == WorldSettings.GameType.SPECTATOR) {
+                    return false;
+                }
+                if (local != null && local.getUniqueID() != null) {
+                    localInfo = netHandler.getPlayerInfo(local.getUniqueID());
+                }
             }
+        }
+
+        TeamColor targetColor = resolvePlayerTeamColor(target, mc);
+        if (presentTeamsMask != 0 && targetColor != TeamColor.UNKNOWN
+            && (presentTeamsMask & (1 << targetColor.ordinal())) == 0) {
+            return false;
         }
 
         if (local != null) {
             if (local.isOnSameTeam(target)) {
                 return false;
             }
-            TeamColor localColor = resolvePlayerTeamColor(local);
-            if (localColor != TeamColor.UNKNOWN) {
-                TeamColor targetColor = resolvePlayerTeamColor(target);
-                if (targetColor == localColor) {
+            Team localTeam = local.getTeam();
+            Team targetTeam = target.getTeam();
+            if (localTeam != null && targetTeam != null) {
+                if (localTeam == targetTeam || localTeam.isSameTeam(targetTeam)) {
                     return false;
                 }
+                if (localTeam instanceof ScorePlayerTeam && targetTeam instanceof ScorePlayerTeam
+                    && haveEqualNonEmptyTeamPrefix((ScorePlayerTeam) localTeam, (ScorePlayerTeam) targetTeam)) {
+                    return false;
+                }
+            }
+            if (localInfo != null && targetInfo != null) {
+                ScorePlayerTeam localTabTeam = localInfo.getPlayerTeam();
+                ScorePlayerTeam targetTabTeam = targetInfo.getPlayerTeam();
+                if (localTabTeam != null && targetTabTeam != null) {
+                    if (localTabTeam == targetTabTeam
+                        || localTabTeam.isSameTeam(targetTabTeam)
+                        || haveEqualNonEmptyTeamPrefix(localTabTeam, targetTabTeam)) {
+                        return false;
+                    }
+                }
+            }
+
+            int localHelmRgb = getDyedLeatherArmorRgb(local, 3);
+            int targetHelmRgb = getDyedLeatherArmorRgb(target, 3);
+            if (localHelmRgb != -1 && localHelmRgb == targetHelmRgb) {
+                return false;
+            }
+            int localChestRgb = getDyedLeatherArmorRgb(local, 2);
+            int targetChestRgb = getDyedLeatherArmorRgb(target, 2);
+            if (localChestRgb != -1 && localChestRgb == targetChestRgb) {
+                return false;
+            }
+
+            TeamColor localColor = (contextLocalTeam != null && contextLocalTeam != TeamColor.UNKNOWN)
+                ? contextLocalTeam
+                : resolvePlayerTeamColor(local, mc);
+            if (localColor != TeamColor.UNKNOWN && targetColor == localColor) {
+                return false;
             }
         }
         return true;
@@ -625,14 +710,40 @@ public final class BedWarsContext {
      * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
      */
     public static TeamColor resolvePlayerTeamColor(EntityPlayer player) {
+        return resolvePlayerTeamColor(player, null);
+    }
+
+    /**
+     * Resolves a player's BedWars team color using scoreboard team metadata, optional client tab
+     * info ({@link NetworkPlayerInfo}), formatted display name before player name, and dyed armor.
+     *
+     * @param player target player
+     * @param mc     optional Minecraft client instance for tab-list lookup
+     * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor resolvePlayerTeamColor(EntityPlayer player, Minecraft mc) {
         if (player == null) {
             return TeamColor.UNKNOWN;
         }
 
+        String profileName = null;
+        GameProfile profile = player.getGameProfile();
+        if (profile != null) {
+            profileName = profile.getName();
+        }
+
         Team team = player.getTeam();
-        if (team instanceof ScorePlayerTeam) {
-            ScorePlayerTeam scoreTeam = (ScorePlayerTeam) team;
-            TeamColor fromPrefix = extractColorFromFormattedText(scoreTeam.getColorPrefix());
+        ScorePlayerTeam scoreTeam = (team instanceof ScorePlayerTeam) ? (ScorePlayerTeam) team : null;
+        NetworkPlayerInfo tabInfo = null;
+        if (mc != null && mc.getNetHandler() != null && player.getUniqueID() != null) {
+            tabInfo = mc.getNetHandler().getPlayerInfo(player.getUniqueID());
+            if (scoreTeam == null && tabInfo != null) {
+                scoreTeam = tabInfo.getPlayerTeam();
+            }
+        }
+
+        if (scoreTeam != null) {
+            TeamColor fromPrefix = extractLastColorFromFormattedText(scoreTeam.getColorPrefix());
             if (fromPrefix != TeamColor.UNKNOWN) {
                 return fromPrefix;
             }
@@ -640,11 +751,33 @@ public final class BedWarsContext {
             if (fromFormat != TeamColor.UNKNOWN) {
                 return fromFormat;
             }
+            TeamColor fromRegName = resolveTeamFromRegisteredName(scoreTeam.getRegisteredName());
+            if (fromRegName != TeamColor.UNKNOWN) {
+                return fromRegName;
+            }
+        }
+
+        if (tabInfo != null) {
+            IChatComponent tabDisplay = tabInfo.getDisplayName();
+            if (tabDisplay != null) {
+                String formatted = tabDisplay.getFormattedText();
+                TeamColor fromTab = extractColorBeforeName(formatted, profileName);
+                if (fromTab == TeamColor.UNKNOWN) {
+                    fromTab = extractLastColorFromFormattedText(formatted);
+                }
+                if (fromTab != TeamColor.UNKNOWN) {
+                    return fromTab;
+                }
+            }
         }
 
         IChatComponent displayName = player.getDisplayName();
         if (displayName != null) {
-            TeamColor fromDisplay = extractColorFromFormattedText(displayName.getFormattedText());
+            String formatted = displayName.getFormattedText();
+            TeamColor fromDisplay = extractColorBeforeName(formatted, profileName);
+            if (fromDisplay == TeamColor.UNKNOWN) {
+                fromDisplay = extractLastColorFromFormattedText(formatted);
+            }
             if (fromDisplay != TeamColor.UNKNOWN) {
                 return fromDisplay;
             }
@@ -652,10 +785,9 @@ public final class BedWarsContext {
 
         if (player.inventory != null) {
             for (int slot = 3; slot >= 0; slot--) {
-                ItemStack armorStack = player.getCurrentArmor(slot);
-                if (armorStack != null && armorStack.getItem() instanceof ItemArmor) {
-                    ItemArmor armor = (ItemArmor) armorStack.getItem();
-                    TeamColor fromArmor = TeamColor.fromArmorColor(armor.getColor(armorStack));
+                int rgb = getDyedLeatherArmorRgb(player, slot);
+                if (rgb != -1) {
+                    TeamColor fromArmor = TeamColor.fromArmorColor(rgb);
                     if (fromArmor != TeamColor.UNKNOWN) {
                         return fromArmor;
                     }
@@ -664,6 +796,42 @@ public final class BedWarsContext {
         }
 
         return TeamColor.UNKNOWN;
+    }
+
+    private static boolean haveEqualNonEmptyTeamPrefix(ScorePlayerTeam a, ScorePlayerTeam b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        String prefixA = a.getColorPrefix();
+        String prefixB = b.getColorPrefix();
+        return prefixA != null
+            && !prefixA.isEmpty()
+            && !"\u00a7r".equals(prefixA)
+            && !"\u00a7f".equals(prefixA)
+            && prefixA.equals(prefixB);
+    }
+
+    private static int getDyedLeatherArmorRgb(EntityPlayer player, int slot) {
+        if (player == null || player.inventory == null) {
+            return -1;
+        }
+        ItemStack armorStack = player.getCurrentArmor(slot);
+        if (armorStack == null || !(armorStack.getItem() instanceof ItemArmor)) {
+            return -1;
+        }
+        ItemArmor armor = (ItemArmor) armorStack.getItem();
+        if (armor.getArmorMaterial() != ItemArmor.ArmorMaterial.LEATHER) {
+            return -1;
+        }
+        int rgb = armor.getColor(armorStack);
+        if (rgb == -1) {
+            return -1;
+        }
+        int stripped = rgb & 0x00FFFFFF;
+        if (stripped == DEFAULT_LEATHER_RGB || stripped == 0) {
+            return -1;
+        }
+        return stripped;
     }
 
     public boolean isInBedWarsMatch() {
@@ -676,6 +844,42 @@ public final class BedWarsContext {
 
     public TeamColor getLocalTeamColor() {
         return this.localTeamColor;
+    }
+
+    public int getPresentTeamsMask() {
+        return this.presentTeamsMask;
+    }
+
+    public int getBedAliveMask() {
+        return this.bedAliveMask;
+    }
+
+    public boolean hasScoreboardRoster() {
+        return this.presentTeamsMask != 0;
+    }
+
+    public boolean isTeamPresent(TeamColor color) {
+        if (color == null || color == TeamColor.UNKNOWN) {
+            return false;
+        }
+        return this.presentTeamsMask == 0 || (this.presentTeamsMask & (1 << color.ordinal())) != 0;
+    }
+
+    public boolean isTeamBedAliveOnScoreboard(TeamColor color) {
+        if (color == null || color == TeamColor.UNKNOWN) {
+            return false;
+        }
+        return (this.bedAliveMask & (1 << color.ordinal())) != 0;
+    }
+
+    public boolean isEligibleEnemyColor(TeamColor color) {
+        if (color == null || color == TeamColor.UNKNOWN) {
+            return false;
+        }
+        if (this.localTeamColor != TeamColor.UNKNOWN && color == this.localTeamColor) {
+            return false;
+        }
+        return this.presentTeamsMask == 0 || (this.presentTeamsMask & (1 << color.ordinal())) != 0;
     }
 
     public boolean hasHomeAnchor() {
@@ -733,6 +937,10 @@ public final class BedWarsContext {
     public void clear() {
         clearMatchStatePreserveMatchFlag();
         this.inBedWarsMatch = false;
+        this.presentTeamsMask = 0;
+        this.bedAliveMask = 0;
+        this.scoreboardLocalTeam = TeamColor.UNKNOWN;
+        this.matchStartTick = -1;
         this.lastEffectiveActive = false;
         this.lastSidebarObjective = null;
     }
@@ -784,6 +992,7 @@ public final class BedWarsContext {
         }
         this.bedCount = 0;
         this.localTeamColor = TeamColor.UNKNOWN;
+        this.matchStartTick = -1;
         this.homeAnchored = false;
         this.homeX = 0.0D;
         this.homeY = 0.0D;
@@ -807,63 +1016,104 @@ public final class BedWarsContext {
         Scoreboard scoreboard = world.getScoreboard();
         if (scoreboard == null) {
             this.inBedWarsMatch = false;
+            this.presentTeamsMask = 0;
+            this.bedAliveMask = 0;
+            this.scoreboardLocalTeam = TeamColor.UNKNOWN;
             this.lastSidebarObjective = null;
             return;
         }
         ScoreObjective sidebar = scoreboard.getObjectiveInDisplaySlot(1);
         if (sidebar == null) {
             this.inBedWarsMatch = false;
+            this.presentTeamsMask = 0;
+            this.bedAliveMask = 0;
+            this.scoreboardLocalTeam = TeamColor.UNKNOWN;
             this.lastSidebarObjective = null;
             return;
         }
 
         stripFormattingInto(sidebar.getDisplayName(), this.scoreboardScratch);
-        if (containsIgnoreCase(this.scoreboardScratch, "BED WARS")
+        boolean bedWarsTitle = containsIgnoreCase(this.scoreboardScratch, "BED WARS")
             || containsIgnoreCase(this.scoreboardScratch, "BEDWARS")
             || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a\u6218\u4e89")
-            || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a")) {
-            this.inBedWarsMatch = true;
+            || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a");
+
+        // Refresh sidebar team roster more often when the title indicates BedWars, while keeping
+        // Scoreboard#getSortedScores off every single tick to avoid per-tick allocations.
+        int refreshInterval = bedWarsTitle ? 10 : 20;
+        if (this.tickCounter % refreshInterval == 0 || sidebar != this.lastSidebarObjective) {
             this.lastSidebarObjective = sidebar;
+            scanSidebarRoster(scoreboard, sidebar);
+        }
+    }
+
+    private void scanSidebarRoster(Scoreboard scoreboard, ScoreObjective sidebar) {
+        Collection<Score> scores = scoreboard.getSortedScores(sidebar);
+        if (scores == null || scores.isEmpty()) {
+            this.inBedWarsMatch = false;
+            this.presentTeamsMask = 0;
+            this.bedAliveMask = 0;
+            this.scoreboardLocalTeam = TeamColor.UNKNOWN;
             return;
         }
 
-        // Only inspect individual scoreboard rows periodically (or on objective switch) because
-        // Scoreboard#getSortedScores allocates a temporary list inside MC 1.8.9.
-        if (this.tickCounter % 20 == 0 || sidebar != this.lastSidebarObjective) {
-            this.lastSidebarObjective = sidebar;
-            this.inBedWarsMatch = hasBedWarsTeamStatusLine(scoreboard, sidebar);
-        }
-    }
+        Arrays.fill(this.rosterAccum, 0);
+        this.rosterAccum[3] = -1;
 
-    private boolean hasBedWarsTeamStatusLine(Scoreboard scoreboard, ScoreObjective sidebar) {
-        Collection<Score> scores = scoreboard.getSortedScores(sidebar);
-        if (scores == null || scores.isEmpty()) {
-            return false;
-        }
         if (scores instanceof List<?>) {
             List<Score> list = (List<Score>) scores;
             for (int i = 0, size = list.size(); i < size; i++) {
-                if (isTeamStatusScore(scoreboard, list.get(i))) {
-                    return true;
-                }
+                accumulateSidebarRow(inspectScoreboardRow(scoreboard, list.get(i)));
             }
-            return false;
-        }
-        for (Score score : scores) {
-            if (isTeamStatusScore(scoreboard, score)) {
-                return true;
+        } else {
+            for (Score score : scores) {
+                accumulateSidebarRow(inspectScoreboardRow(scoreboard, score));
             }
         }
-        return false;
+
+        int parsedRows = this.rosterAccum[0];
+        if (parsedRows >= 2) {
+            TeamColor[] values = TeamColor.values();
+            int localOrd = this.rosterAccum[3];
+            this.presentTeamsMask = this.rosterAccum[1];
+            this.bedAliveMask = this.rosterAccum[2];
+            this.scoreboardLocalTeam = (localOrd >= 0 && localOrd < values.length)
+                ? values[localOrd]
+                : TeamColor.UNKNOWN;
+            this.inBedWarsMatch = true;
+        } else {
+            this.presentTeamsMask = 0;
+            this.bedAliveMask = 0;
+            this.scoreboardLocalTeam = TeamColor.UNKNOWN;
+            this.inBedWarsMatch = false;
+        }
     }
 
-    private boolean isTeamStatusScore(Scoreboard scoreboard, Score score) {
+    private void accumulateSidebarRow(int parsed) {
+        if ((parsed & SCOREBOARD_FLAG_VALID) == 0) {
+            return;
+        }
+        int ordinal = parsed & SCOREBOARD_COLOR_MASK;
+        int bit = 1 << ordinal;
+        if ((this.rosterAccum[1] & bit) == 0) {
+            this.rosterAccum[0]++;
+        }
+        this.rosterAccum[1] |= bit;
+        if ((parsed & SCOREBOARD_FLAG_BED_ALIVE) != 0) {
+            this.rosterAccum[2] |= bit;
+        }
+        if ((parsed & SCOREBOARD_FLAG_LOCAL_TEAM) != 0) {
+            this.rosterAccum[3] = ordinal;
+        }
+    }
+
+    private int inspectScoreboardRow(Scoreboard scoreboard, Score score) {
         if (score == null) {
-            return false;
+            return 0;
         }
         String entryName = score.getPlayerName();
         if (entryName == null) {
-            return false;
+            return 0;
         }
         this.lineScratch.setLength(0);
         ScorePlayerTeam team = scoreboard.getPlayersTeam(entryName);
@@ -882,15 +1132,80 @@ public final class BedWarsContext {
         }
 
         stripFormattingInto(this.lineScratch, this.cleanLineScratch);
-        return hasTeamStatusMarker(this.cleanLineScratch) && hasTeamKeyword(this.cleanLineScratch);
+        return parseScoreboardTeamLine(this.lineScratch, this.cleanLineScratch);
     }
 
-    private void updateLocalTeamColor(EntityPlayer player) {
+    /**
+     * Parses a single formatted + unformatted BedWars sidebar row into packed status bits.
+     *
+     * @param rawFormatted raw formatting-retained scoreboard text (nullable)
+     * @param cleanText    unformatted stripped scoreboard text
+     * @return {@code 0} if the line is not a BedWars team status row, otherwise a bitmask using
+     * {@link #SCOREBOARD_FLAG_VALID}, {@link #SCOREBOARD_FLAG_BED_ALIVE},
+     * {@link #SCOREBOARD_FLAG_LOCAL_TEAM}, and ordinal bits {@link #SCOREBOARD_COLOR_MASK}
+     */
+    public static int parseScoreboardTeamLine(CharSequence rawFormatted, CharSequence cleanText) {
+        if (cleanText == null || cleanText.length() < 3) {
+            return 0;
+        }
+        boolean hasCheckmark = false;
+        boolean hasCross = false;
+        int len = cleanText.length();
+        for (int i = 0; i < len; i++) {
+            char c = cleanText.charAt(i);
+            if (c == '\u2714' || c == '\u2713') {
+                hasCheckmark = true;
+            } else if (c == '\u2717' || c == '\u2718') {
+                hasCross = true;
+            }
+        }
+
+        int colonIdx = findColonIndex(cleanText);
+        boolean hasNumericAliveCount = false;
+        if (!hasCheckmark && !hasCross && colonIdx >= 0) {
+            hasNumericAliveCount = isAliveCountAfterColon(cleanText, colonIdx);
+        }
+        if (!hasCheckmark && !hasCross && !hasNumericAliveCount) {
+            return 0;
+        }
+
+        int searchEnd = colonIdx > 0 ? colonIdx : len;
+        TeamColor color = detectTeamRowColor(cleanText, searchEnd);
+        if (color == TeamColor.UNKNOWN && colonIdx <= 0) {
+            color = detectTeamRowColor(cleanText, len);
+        }
+        if (color == TeamColor.UNKNOWN && (hasCheckmark || hasCross) && rawFormatted != null) {
+            color = extractFirstColorFromFormattedText(rawFormatted);
+        }
+        if (color == TeamColor.UNKNOWN || color.ordinal() >= TeamColor.UNKNOWN.ordinal()) {
+            return 0;
+        }
+
+        boolean bedAlive = hasCheckmark && !hasCross && !hasNumericAliveCount;
+        boolean isLocal = containsAsciiWordIgnoreCase(cleanText, 0, len, "you")
+            || containsSequence(cleanText, "\u4f60");
+
+        int packed = SCOREBOARD_FLAG_VALID | (color.ordinal() & SCOREBOARD_COLOR_MASK);
+        if (bedAlive) {
+            packed |= SCOREBOARD_FLAG_BED_ALIVE;
+        }
+        if (isLocal) {
+            packed |= SCOREBOARD_FLAG_LOCAL_TEAM;
+        }
+        return packed;
+    }
+
+    private void updateLocalTeamColor(EntityPlayer player, Minecraft mc) {
+        if (this.scoreboardLocalTeam != TeamColor.UNKNOWN) {
+            this.localTeamColor = this.scoreboardLocalTeam;
+            return;
+        }
+
         // Fast zero-alloc check against ScorePlayerTeam prefix first on every tick.
         Team team = player.getTeam();
         if (team instanceof ScorePlayerTeam) {
             ScorePlayerTeam scoreTeam = (ScorePlayerTeam) team;
-            TeamColor fromPrefix = extractColorFromFormattedText(scoreTeam.getColorPrefix());
+            TeamColor fromPrefix = extractLastColorFromFormattedText(scoreTeam.getColorPrefix());
             if (fromPrefix != TeamColor.UNKNOWN) {
                 this.localTeamColor = fromPrefix;
                 return;
@@ -900,11 +1215,16 @@ public final class BedWarsContext {
                 this.localTeamColor = fromFormat;
                 return;
             }
+            TeamColor fromReg = resolveTeamFromRegisteredName(scoreTeam.getRegisteredName());
+            if (fromReg != TeamColor.UNKNOWN) {
+                this.localTeamColor = fromReg;
+                return;
+            }
         }
 
-        // Fall back to displayName + leather armor on initial/periodic ticks to avoid allocating every tick.
+        // Fall back to TabList + displayName + leather armor on initial/periodic ticks.
         if (this.localTeamColor == TeamColor.UNKNOWN || this.tickCounter % 10 == 0) {
-            TeamColor resolved = resolvePlayerTeamColor(player);
+            TeamColor resolved = resolvePlayerTeamColor(player, mc);
             if (resolved != TeamColor.UNKNOWN) {
                 this.localTeamColor = resolved;
             }
@@ -1219,6 +1539,7 @@ public final class BedWarsContext {
 
     private void reverifyTrackedBeds(World world) {
         Block bedBlock = Blocks.bed;
+        boolean rosterKnown = hasScoreboardRoster();
         for (int i = 0; i < this.bedCount; i++) {
             TrackedBed bed = this.beds[i];
             if (!bed.active) {
@@ -1229,6 +1550,12 @@ public final class BedWarsContext {
                 if (bed.status == TrackedBed.STATUS_LIVE) {
                     bed.status = TrackedBed.STATUS_CACHED;
                 }
+                if (rosterKnown && bed.teamColor != TeamColor.UNKNOWN
+                    && (this.presentTeamsMask & (1 << bed.teamColor.ordinal())) != 0
+                    && !isTeamBedAliveOnScoreboard(bed.teamColor)) {
+                    bed.status = TrackedBed.STATUS_DESTROYED;
+                }
+                recomputeBedTeamColor(bed);
                 continue;
             }
             IBlockState state = world.getBlockState(this.scanPos);
@@ -1246,6 +1573,7 @@ public final class BedWarsContext {
                     bed.pairedFoot = isLoadedBedPart(world, bedBlock, footX, bed.headY, footZ, false);
                 }
             }
+            recomputeBedTeamColor(bed);
         }
     }
 
@@ -1263,8 +1591,10 @@ public final class BedWarsContext {
         TeamColor voted = voteBedTeamColorFromBlocks(world, bed.headX, bed.headY, bed.headZ);
         if (voted != TeamColor.UNKNOWN) {
             bed.votedColor = voted;
-            recomputeBedTeamColor(bed);
+        } else if (!isEligibleEnemyColor(bed.votedColor)) {
+            bed.votedColor = TeamColor.UNKNOWN;
         }
+        recomputeBedTeamColor(bed);
     }
 
     private TeamColor voteBedTeamColorFromBlocks(World world, int hx, int hy, int hz) {
@@ -1283,6 +1613,7 @@ public final class BedWarsContext {
         for (int x = minX; x <= maxX; x++) {
             int cx = x >> 4;
             int localX = x & 15;
+            int dxAbs = Math.abs(x - hx);
             for (int z = minZ; z <= maxZ; z++) {
                 Chunk chunk = world.getChunkFromChunkCoords(cx, z >> 4);
                 if (chunk == null || chunk.isEmpty()) {
@@ -1293,6 +1624,7 @@ public final class BedWarsContext {
                     continue;
                 }
                 int localZ = z & 15;
+                int dzAbs = Math.abs(z - hz);
                 int clampedMaxSec = Math.min(sections.length - 1, maxSec);
                 for (int sec = minSec; sec <= clampedMaxSec; sec++) {
                     ExtendedBlockStorage storage = sections[sec];
@@ -1309,7 +1641,10 @@ public final class BedWarsContext {
                             || block == Blocks.stained_glass) {
                             TeamColor color = TeamColor.fromDyeMeta(block.getMetaFromState(state));
                             if (color != TeamColor.UNKNOWN) {
-                                this.teamVoteCounts[color.ordinal()]++;
+                                int weight = computeBlockVoteWeight(block, color, dxAbs, Math.abs(y - hy), dzAbs);
+                                if (weight > 0) {
+                                    this.teamVoteCounts[color.ordinal()] += weight;
+                                }
                             }
                         }
                     }
@@ -1317,21 +1652,65 @@ public final class BedWarsContext {
             }
         }
 
+        return selectVotedColorFromCounts(this.teamVoteCounts);
+    }
+
+    /**
+     * Computes distance- and material-weighted team vote score for a dyed block near a bed.
+     *
+     * @param block dyed block instance
+     * @param color dye team color
+     * @param dxAbs X distance from bed head
+     * @param dyAbs Y distance from bed head
+     * @param dzAbs Z distance from bed head
+     * @return non-negative vote weight
+     */
+    public static int computeBlockVoteWeight(Block block, TeamColor color, int dxAbs, int dyAbs, int dzAbs) {
+        if (block == null || color == null || color == TeamColor.UNKNOWN) {
+            return 0;
+        }
+        boolean nearBed = dxAbs <= 5 && dyAbs <= 4 && dzAbs <= 5;
+        if (block == Blocks.wool) {
+            return nearBed ? 6 : 3;
+        }
+        if (block == Blocks.stained_hardened_clay) {
+            if (color == TeamColor.GRAY || color == TeamColor.WHITE) {
+                return 1;
+            }
+            return nearBed ? 2 : 1;
+        }
+        if (block == Blocks.stained_glass) {
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Selects the highest-scoring eligible enemy team color meeting {@link #MIN_BLOCK_VOTE_SCORE}.
+     *
+     * @param counts per-{@link TeamColor} ordinal score array
+     * @return winning eligible enemy team color, or {@link TeamColor#UNKNOWN}
+     */
+    public TeamColor selectVotedColorFromCounts(int[] counts) {
+        if (counts == null) {
+            return TeamColor.UNKNOWN;
+        }
         TeamColor bestColor = TeamColor.UNKNOWN;
         int bestCount = 0;
         TeamColor[] values = TeamColor.values();
-        for (int i = 0; i < values.length; i++) {
+        int limit = Math.min(counts.length, values.length);
+        for (int i = 0; i < limit; i++) {
             TeamColor candidate = values[i];
-            if (candidate == TeamColor.UNKNOWN) {
+            if (!isEligibleEnemyColor(candidate)) {
                 continue;
             }
-            int count = this.teamVoteCounts[i];
+            int count = counts[i];
             if (count > bestCount) {
                 bestCount = count;
                 bestColor = candidate;
             }
         }
-        return bestColor;
+        return bestCount >= MIN_BLOCK_VOTE_SCORE ? bestColor : TeamColor.UNKNOWN;
     }
 
     private void updateEnemyBedPlayerAssociations(World world, EntityPlayer localPlayer, Minecraft mc) {
@@ -1340,29 +1719,30 @@ public final class BedWarsContext {
             return;
         }
         double maxDistSq = ENEMY_PLAYER_ASSOC_RANGE * ENEMY_PLAYER_ASSOC_RANGE;
+        double closeSpawnDistSq = 7.0D * 7.0D;
+        TeamColor[] values = TeamColor.values();
 
         for (int b = 0; b < this.bedCount; b++) {
             TrackedBed bed = this.beds[b];
             if (!bed.active || bed.ownBed || bed.status == TrackedBed.STATUS_DESTROYED) {
                 continue;
             }
-            // Keep player association sticky once confirmed against surrounding island blocks.
-            if (bed.votedColor != TeamColor.UNKNOWN && bed.playerColor == bed.votedColor) {
-                recomputeBedTeamColor(bed);
-                continue;
+            if (bed.playerColor != TeamColor.UNKNOWN && !isEligibleEnemyColor(bed.playerColor)) {
+                bed.playerVotes[bed.playerColor.ordinal()] = 0;
+                bed.playerColor = TeamColor.UNKNOWN;
             }
 
-            TeamColor bestEnemyColor = TeamColor.UNKNOWN;
+            TeamColor nearestColor = TeamColor.UNKNOWN;
             double bestDistSq = maxDistSq;
             boolean foundVoteMatch = false;
 
             for (int p = 0, pCount = players.size(); p < pCount; p++) {
                 EntityPlayer candidate = players.get(p);
-                if (!isValidEnemyPlayer(candidate, localPlayer, mc)) {
+                if (!isValidEnemyPlayer(candidate, localPlayer, mc, this.localTeamColor, this.presentTeamsMask)) {
                     continue;
                 }
-                TeamColor enemyColor = resolvePlayerTeamColor(candidate);
-                if (enemyColor == TeamColor.UNKNOWN || enemyColor == this.localTeamColor) {
+                TeamColor enemyColor = resolvePlayerTeamColor(candidate, mc);
+                if (!isEligibleEnemyColor(enemyColor)) {
                     continue;
                 }
                 double dSq = bed.distSqTo(candidate.posX, candidate.posY, candidate.posZ);
@@ -1373,15 +1753,47 @@ public final class BedWarsContext {
                 if (matchesVote && !foundVoteMatch) {
                     foundVoteMatch = true;
                     bestDistSq = dSq;
-                    bestEnemyColor = enemyColor;
+                    nearestColor = enemyColor;
                 } else if (matchesVote == foundVoteMatch && dSq <= bestDistSq) {
                     bestDistSq = dSq;
-                    bestEnemyColor = enemyColor;
+                    nearestColor = enemyColor;
                 }
             }
 
-            if (bestEnemyColor != TeamColor.UNKNOWN) {
-                bed.playerColor = bestEnemyColor;
+            if (nearestColor != TeamColor.UNKNOWN) {
+                int ord = nearestColor.ordinal();
+                int weight = (nearestColor == bed.votedColor || bestDistSq <= closeSpawnDistSq) ? 2 : 1;
+                int updated = bed.playerVotes[ord] + weight;
+                bed.playerVotes[ord] = updated > 100 ? 100 : updated;
+            }
+
+            TeamColor topColor = TeamColor.UNKNOWN;
+            int topVotes = 0;
+            int secondVotes = 0;
+            for (int c = 0; c < values.length; c++) {
+                TeamColor candidate = values[c];
+                int v = bed.playerVotes[c];
+                if (v <= 0) {
+                    continue;
+                }
+                if (!isEligibleEnemyColor(candidate)) {
+                    bed.playerVotes[c] = 0;
+                    continue;
+                }
+                if (v > topVotes) {
+                    secondVotes = topVotes;
+                    topVotes = v;
+                    topColor = candidate;
+                } else if (v > secondVotes) {
+                    secondVotes = v;
+                }
+            }
+
+            if (topColor != TeamColor.UNKNOWN && topVotes >= MIN_PLAYER_ASSOC_VOTES) {
+                boolean eligibleVote = isEligibleEnemyColor(bed.votedColor);
+                if (!eligibleVote || topColor == bed.votedColor || topVotes >= secondVotes + 3) {
+                    bed.playerColor = topColor;
+                }
             }
             recomputeBedTeamColor(bed);
         }
@@ -1389,34 +1801,97 @@ public final class BedWarsContext {
 
     private void recomputeBedTeamColor(TrackedBed bed) {
         if (bed.ownBed) {
-            if (this.localTeamColor != TeamColor.UNKNOWN) {
-                bed.teamColor = this.localTeamColor;
-            }
+            bed.teamColor = this.localTeamColor;
             return;
         }
-        if (bed.playerColor != TeamColor.UNKNOWN) {
+        if (isEligibleEnemyColor(bed.playerColor)) {
             bed.teamColor = bed.playerColor;
-        } else {
+        } else if (isEligibleEnemyColor(bed.votedColor)) {
             bed.teamColor = bed.votedColor;
+        } else {
+            bed.teamColor = TeamColor.UNKNOWN;
         }
+    }
+
+    private void deduplicateEnemyBedColors() {
+        for (int i = 0; i < this.bedCount; i++) {
+            TrackedBed a = this.beds[i];
+            if (!a.active || a.ownBed || a.status == TrackedBed.STATUS_DESTROYED
+                || a.teamColor == TeamColor.UNKNOWN) {
+                continue;
+            }
+            for (int j = i + 1; j < this.bedCount; j++) {
+                TrackedBed b = this.beds[j];
+                if (!b.active || b.ownBed || b.status == TrackedBed.STATUS_DESTROYED
+                    || b.teamColor != a.teamColor) {
+                    continue;
+                }
+                TeamColor shared = a.teamColor;
+                int scoreA = scoreBedColorConfidence(a, shared);
+                int scoreB = scoreBedColorConfidence(b, shared);
+                TrackedBed loser = scoreA >= scoreB ? b : a;
+                int ord = shared.ordinal();
+                loser.playerVotes[ord] = 0;
+                if (loser.playerColor == shared) {
+                    loser.playerColor = TeamColor.UNKNOWN;
+                }
+                if (loser.votedColor == shared) {
+                    loser.votedColor = TeamColor.UNKNOWN;
+                }
+                recomputeBedTeamColor(loser);
+                if (loser == a) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private static int scoreBedColorConfidence(TrackedBed bed, TeamColor color) {
+        int score = 0;
+        if (bed.pairedFoot) {
+            score += 8;
+        }
+        if (bed.status == TrackedBed.STATUS_LIVE) {
+            score += 4;
+        }
+        if (bed.votedColor == color) {
+            score += 4;
+        }
+        if (bed.playerColor == color) {
+            score += 6;
+        }
+        int votes = bed.playerVotes[color.ordinal()];
+        return score + (votes > 20 ? 20 : votes);
     }
 
     private void tryAnchorHomeBase(EntityPlayer player, boolean alwaysActive) {
         if (this.homeAnchored && !this.anchorPending) {
             TrackedBed own = findOwnBed();
-            if (own != null && this.localTeamColor != TeamColor.UNKNOWN && own.teamColor != this.localTeamColor) {
-                own.teamColor = this.localTeamColor;
+            if (own != null && own.active) {
+                if (this.localTeamColor != TeamColor.UNKNOWN && own.teamColor != this.localTeamColor) {
+                    own.teamColor = this.localTeamColor;
+                }
+                return;
             }
-            return;
+            this.homeAnchored = false;
+            this.anchorPending = true;
         }
+        anchorHomeAt(player.posX, player.posY, player.posZ, alwaysActive);
+    }
+
+    void anchorHomeAt(double playerX, double playerY, double playerZ, boolean alwaysActive) {
         if (this.bedCount == 0) {
             return;
         }
 
         double maxSpawnDistSq = HOME_SPAWN_ANCHOR_RANGE * HOME_SPAWN_ANCHOR_RANGE;
-        TrackedBed bestSpawnBed = null;
-        double bestSpawnDistSq = maxSpawnDistSq;
-        boolean spawnMatchedLocalColor = false;
+        boolean inAnchorGrace = this.matchStartTick >= 0
+            && (this.tickCounter - this.matchStartTick) <= MATCH_START_ANCHOR_GRACE_TICKS;
+        TrackedBed matchingSpawnBed = null;
+        double matchingSpawnDistSq = maxSpawnDistSq;
+
+        TrackedBed unconfirmedSpawnBed = null;
+        double unconfirmedSpawnDistSq = maxSpawnDistSq;
 
         TrackedBed teamFallbackBed = null;
         double teamFallbackDistSq = Double.MAX_VALUE;
@@ -1429,31 +1904,32 @@ public final class BedWarsContext {
             if (!bed.active || bed.status == TrackedBed.STATUS_DESTROYED) {
                 continue;
             }
-            double dSq = bed.distSqTo(player.posX, player.posY, player.posZ);
+            double dSq = bed.distSqTo(playerX, playerY, playerZ);
+            boolean matchesLocal = this.localTeamColor != TeamColor.UNKNOWN
+                && bed.teamColor == this.localTeamColor;
 
             if (dSq <= maxSpawnDistSq) {
-                boolean matchesLocal = this.localTeamColor != TeamColor.UNKNOWN
-                    && bed.teamColor == this.localTeamColor;
-                boolean conflictsLocal = this.localTeamColor != TeamColor.UNKNOWN
-                    && bed.teamColor != TeamColor.UNKNOWN
-                    && bed.teamColor != this.localTeamColor;
-                if (!conflictsLocal) {
-                    if (matchesLocal && !spawnMatchedLocalColor) {
-                        spawnMatchedLocalColor = true;
-                        bestSpawnDistSq = dSq;
-                        bestSpawnBed = bed;
-                    } else if (matchesLocal == spawnMatchedLocalColor && dSq <= bestSpawnDistSq) {
-                        bestSpawnDistSq = dSq;
-                        bestSpawnBed = bed;
+                boolean noisyOrUnknownVote = bed.votedColor == TeamColor.UNKNOWN
+                    || bed.votedColor == TeamColor.GRAY
+                    || bed.votedColor == TeamColor.WHITE
+                    || bed.votedColor == this.localTeamColor;
+                if (matchesLocal && dSq <= matchingSpawnDistSq) {
+                    matchingSpawnDistSq = dSq;
+                    matchingSpawnBed = bed;
+                } else if ((inAnchorGrace || noisyOrUnknownVote)
+                    && (bed.playerColor == TeamColor.UNKNOWN || bed.playerColor == this.localTeamColor)) {
+                    // Decorative clay/glass near spawn (e.g. gray island trim) must never block anchoring
+                    // the home bed inside HOME_SPAWN_ANCHOR_RANGE when player color matches or is unconfirmed.
+                    if (dSq <= unconfirmedSpawnDistSq) {
+                        unconfirmedSpawnDistSq = dSq;
+                        unconfirmedSpawnBed = bed;
                     }
                 }
             }
 
-            if (this.localTeamColor != TeamColor.UNKNOWN && bed.teamColor == this.localTeamColor) {
-                if (dSq < teamFallbackDistSq) {
-                    teamFallbackDistSq = dSq;
-                    teamFallbackBed = bed;
-                }
+            if (matchesLocal && dSq < teamFallbackDistSq) {
+                teamFallbackDistSq = dSq;
+                teamFallbackBed = bed;
             }
 
             if (dSq < nearestDistSq) {
@@ -1462,7 +1938,10 @@ public final class BedWarsContext {
             }
         }
 
-        TrackedBed chosen = bestSpawnBed;
+        TrackedBed chosen = matchingSpawnBed;
+        if (chosen == null && unconfirmedSpawnBed != null && (teamFallbackBed == null || inAnchorGrace)) {
+            chosen = unconfirmedSpawnBed;
+        }
         if (chosen == null) {
             chosen = teamFallbackBed;
         }
@@ -1475,15 +1954,44 @@ public final class BedWarsContext {
 
         clearOwnBedFlags();
         chosen.ownBed = true;
-        if (this.localTeamColor != TeamColor.UNKNOWN) {
-            chosen.teamColor = this.localTeamColor;
-        }
+        chosen.votedColor = TeamColor.UNKNOWN;
+        chosen.playerColor = TeamColor.UNKNOWN;
+        Arrays.fill(chosen.playerVotes, 0);
+        chosen.teamColor = this.localTeamColor;
         this.ownBedIndex = chosen.index;
         this.homeX = chosen.getCenterX();
         this.homeY = chosen.getCenterY();
         this.homeZ = chosen.getCenterZ();
         this.homeAnchored = true;
         this.anchorPending = false;
+    }
+
+    void setTestRosterState(int presentMask, int aliveMask, TeamColor localTeam, boolean inMatch) {
+        this.presentTeamsMask = presentMask;
+        this.bedAliveMask = aliveMask;
+        this.scoreboardLocalTeam = localTeam != null ? localTeam : TeamColor.UNKNOWN;
+        if (this.scoreboardLocalTeam != TeamColor.UNKNOWN) {
+            this.localTeamColor = this.scoreboardLocalTeam;
+        }
+        this.inBedWarsMatch = inMatch;
+    }
+
+    int registerTestBed(int hx, int hy, int hz, TeamColor votedColor, TeamColor playerColor, byte status) {
+        TrackedBed slot = allocateBedSlot();
+        if (slot == null) {
+            return -1;
+        }
+        slot.resetSlot();
+        slot.active = true;
+        slot.headX = hx;
+        slot.headY = hy;
+        slot.headZ = hz;
+        slot.pairedFoot = true;
+        slot.status = status;
+        slot.votedColor = votedColor != null ? votedColor : TeamColor.UNKNOWN;
+        slot.playerColor = playerColor != null ? playerColor : TeamColor.UNKNOWN;
+        recomputeBedTeamColor(slot);
+        return slot.index;
     }
 
     private static int clampScanRange(int scanRange) {
@@ -1496,8 +2004,33 @@ public final class BedWarsContext {
         return scanRange;
     }
 
-    private static TeamColor extractColorFromFormattedText(String text) {
+    /**
+     * Extracts the last BedWars {@link TeamColor} code in a formatted prefix string (handling
+     * Hypixel prefixes such as {@code "§7[123✫] §c§lR §c"}).
+     *
+     * @param text formatted prefix text
+     * @return last matched color, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor extractLastColorFromFormattedText(String text) {
         if (text == null || text.isEmpty()) {
+            return TeamColor.UNKNOWN;
+        }
+        TeamColor last = TeamColor.UNKNOWN;
+        int len = text.length();
+        for (int i = 0; i < len - 1; i++) {
+            if (text.charAt(i) == '\u00a7') {
+                TeamColor color = TeamColor.fromChatColorChar(text.charAt(i + 1));
+                if (color != TeamColor.UNKNOWN) {
+                    last = color;
+                }
+                i++;
+            }
+        }
+        return last;
+    }
+
+    private static TeamColor extractFirstColorFromFormattedText(CharSequence text) {
+        if (text == null || text.length() < 2) {
             return TeamColor.UNKNOWN;
         }
         int len = text.length();
@@ -1511,6 +2044,149 @@ public final class BedWarsContext {
             }
         }
         return TeamColor.UNKNOWN;
+    }
+
+    /**
+     * Extracts the active formatting {@link TeamColor} directly preceding {@code playerName},
+     * ignoring leading rank brackets and trailing guild tags.
+     *
+     * @param formattedText formatted display name
+     * @param playerName    plain player name to locate
+     * @return active team color before {@code playerName}, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor extractColorBeforeName(String formattedText, String playerName) {
+        if (formattedText == null || formattedText.isEmpty() || playerName == null || playerName.isEmpty()) {
+            return TeamColor.UNKNOWN;
+        }
+        int len = formattedText.length();
+        int nameLen = playerName.length();
+        TeamColor activeColor = TeamColor.UNKNOWN;
+        char prevVisible = 0;
+
+        for (int i = 0; i < len; i++) {
+            char c = formattedText.charAt(i);
+            if (c == '\u00a7') {
+                if (i + 1 < len) {
+                    char code = formattedText.charAt(i + 1);
+                    char lower = toAsciiLower(code);
+                    if (lower == 'r') {
+                        activeColor = TeamColor.UNKNOWN;
+                    } else {
+                        TeamColor parsed = TeamColor.fromChatColorChar(lower);
+                        if (parsed != TeamColor.UNKNOWN) {
+                            activeColor = parsed;
+                        }
+                    }
+                    i++;
+                }
+                continue;
+            }
+
+            if (c == playerName.charAt(0) && !isIdentifierChar(prevVisible)) {
+                int matchIdx = matchNameIgnoringFormatting(formattedText, i, playerName, nameLen);
+                if (matchIdx >= 0) {
+                    return activeColor;
+                }
+            }
+            prevVisible = c;
+        }
+        return TeamColor.UNKNOWN;
+    }
+
+    private static int matchNameIgnoringFormatting(String formatted, int start, String name, int nameLen) {
+        int len = formatted.length();
+        int fi = start;
+        int ni = 0;
+        while (fi < len && ni < nameLen) {
+            char c = formatted.charAt(fi);
+            if (c == '\u00a7') {
+                if (fi + 1 >= len) {
+                    return -1;
+                }
+                fi += 2;
+                continue;
+            }
+            if (c != name.charAt(ni)) {
+                return -1;
+            }
+            fi++;
+            ni++;
+        }
+        if (ni < nameLen) {
+            return -1;
+        }
+        while (fi < len && formatted.charAt(fi) == '\u00a7' && fi + 1 < len) {
+            fi += 2;
+        }
+        if (fi < len && isIdentifierChar(formatted.charAt(fi))) {
+            return -1;
+        }
+        return fi;
+    }
+
+    private static boolean isIdentifierChar(char c) {
+        return (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c == '_';
+    }
+
+    private static TeamColor resolveTeamFromRegisteredName(String regName) {
+        if (regName == null || regName.isEmpty()) {
+            return TeamColor.UNKNOWN;
+        }
+        int len = regName.length();
+        if (containsCamelOrDelimitedWord(regName, len, "red")) {
+            return TeamColor.RED;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "blue")) {
+            return TeamColor.BLUE;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "green")) {
+            return TeamColor.GREEN;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "yellow")) {
+            return TeamColor.YELLOW;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "aqua")
+            || containsCamelOrDelimitedWord(regName, len, "cyan")) {
+            return TeamColor.AQUA;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "white")) {
+            return TeamColor.WHITE;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "pink")) {
+            return TeamColor.PINK;
+        }
+        if (containsCamelOrDelimitedWord(regName, len, "gray")
+            || containsCamelOrDelimitedWord(regName, len, "grey")) {
+            return TeamColor.GRAY;
+        }
+        return TeamColor.UNKNOWN;
+    }
+
+    private static boolean containsCamelOrDelimitedWord(String text, int hLen, String needle) {
+        int nLen = needle.length();
+        if (hLen < nLen) {
+            return false;
+        }
+        int limit = hLen - nLen;
+        for (int i = 0; i <= limit; i++) {
+            if (!regionMatchesIgnoreCase(text, i, needle, nLen)) {
+                continue;
+            }
+            boolean leftOk = i == 0
+                || !isAsciiLetter(text.charAt(i - 1))
+                || (isAsciiLower(text.charAt(i - 1)) && isAsciiUpper(text.charAt(i)));
+            int end = i + nLen;
+            boolean rightOk = end == hLen
+                || !isAsciiLetter(text.charAt(end))
+                || isAsciiUpper(text.charAt(end));
+            if (leftOk && rightOk) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static TeamColor fromChatFormatting(EnumChatFormatting formatting) {
@@ -1562,24 +2238,156 @@ public final class BedWarsContext {
         }
     }
 
-    private static boolean hasTeamStatusMarker(CharSequence text) {
+    private static int findColonIndex(CharSequence text) {
         int len = text.length();
         for (int i = 0; i < len; i++) {
             char c = text.charAt(i);
-            if (c == '\u2714' || c == '\u2713' || c == '\u2717' || c == '\u2718') {
+            if (c == ':' || c == '\uff1a') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isAliveCountAfterColon(CharSequence text, int colonIdx) {
+        int len = text.length();
+        int i = colonIdx + 1;
+        while (i < len && text.charAt(i) == ' ') {
+            i++;
+        }
+        if (i >= len) {
+            return false;
+        }
+        char first = text.charAt(i);
+        if (first < '0' || first > '9') {
+            return false;
+        }
+        while (i < len && text.charAt(i) >= '0' && text.charAt(i) <= '9') {
+            i++;
+        }
+        while (i < len && text.charAt(i) == ' ') {
+            i++;
+        }
+        if (i == len) {
+            return true;
+        }
+        // Only treat trailing YOU/你 markers after digits as an eliminated-bed alive count;
+        // lobby stat rows such as "Kills: 15 Today" or "Coins: 5,000" return false.
+        int remLen = len - i;
+        return containsAsciiWordIgnoreCase(text, i, len, "you")
+            || (remLen >= 1 && containsSequence(text, "\u4f60") && i <= findCharIndex(text, '\u4f60'));
+    }
+
+    private static int findCharIndex(CharSequence text, char target) {
+        int len = text.length();
+        for (int i = 0; i < len; i++) {
+            if (text.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static TeamColor detectTeamRowColor(CharSequence text, int endIdx) {
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "red")
+            || containsSequence(text, 0, endIdx, "\u7ea2\u961f")
+            || containsSequence(text, 0, endIdx, "\u7ea2")) {
+            return TeamColor.RED;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "blue")
+            || containsSequence(text, 0, endIdx, "\u84dd\u961f")
+            || containsSequence(text, 0, endIdx, "\u84dd")) {
+            return TeamColor.BLUE;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "green")
+            || containsSequence(text, 0, endIdx, "\u7eff\u961f")
+            || containsSequence(text, 0, endIdx, "\u7eff")) {
+            return TeamColor.GREEN;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "yellow")
+            || containsSequence(text, 0, endIdx, "\u9ec4\u961f")
+            || containsSequence(text, 0, endIdx, "\u9ec4")) {
+            return TeamColor.YELLOW;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "aqua")
+            || containsAsciiWordIgnoreCase(text, 0, endIdx, "cyan")
+            || containsSequence(text, 0, endIdx, "\u9752\u961f")
+            || containsSequence(text, 0, endIdx, "\u9752")) {
+            return TeamColor.AQUA;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "white")
+            || containsSequence(text, 0, endIdx, "\u767d\u961f")
+            || containsSequence(text, 0, endIdx, "\u767d")) {
+            return TeamColor.WHITE;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "pink")
+            || containsSequence(text, 0, endIdx, "\u7c89\u961f")
+            || containsSequence(text, 0, endIdx, "\u7c89")) {
+            return TeamColor.PINK;
+        }
+        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "gray")
+            || containsAsciiWordIgnoreCase(text, 0, endIdx, "grey")
+            || containsSequence(text, 0, endIdx, "\u7070\u961f")
+            || containsSequence(text, 0, endIdx, "\u7070")) {
+            return TeamColor.GRAY;
+        }
+        return TeamColor.UNKNOWN;
+    }
+
+    private static boolean containsAsciiWordIgnoreCase(CharSequence haystack, int start, int end, String needle) {
+        int nLen = needle.length();
+        if (end - start < nLen) {
+            return false;
+        }
+        int limit = end - nLen;
+        for (int i = start; i <= limit; i++) {
+            if (!regionMatchesIgnoreCase(haystack, i, needle, nLen)) {
+                continue;
+            }
+            boolean leftOk = i == start || !isAsciiLetter(haystack.charAt(i - 1));
+            int after = i + nLen;
+            boolean rightOk = after == end || !isAsciiLetter(haystack.charAt(after));
+            if (leftOk && rightOk) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean hasTeamKeyword(CharSequence text) {
-        for (int i = 0; i < TEAM_KEYWORDS.length; i++) {
-            if (containsIgnoreCase(text, TEAM_KEYWORDS[i])) {
+    private static boolean containsSequence(CharSequence haystack, int start, int end, String needle) {
+        int nLen = needle.length();
+        if (nLen == 0) {
+            return true;
+        }
+        if (end - start < nLen) {
+            return false;
+        }
+        int limit = end - nLen;
+        for (int i = start; i <= limit; i++) {
+            boolean match = true;
+            for (int j = 0; j < nLen; j++) {
+                if (haystack.charAt(i + j) != needle.charAt(j)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+
+    private static boolean isAsciiLower(char c) {
+        return c >= 'a' && c <= 'z';
+    }
+
+    private static boolean isAsciiUpper(char c) {
+        return c >= 'A' && c <= 'Z';
     }
 
     private static TeamColor detectTeamMention(CharSequence text) {
@@ -1648,28 +2456,7 @@ public final class BedWarsContext {
     }
 
     private static boolean containsSequence(CharSequence haystack, String needle) {
-        int nLen = needle.length();
-        int hLen = haystack.length();
-        if (nLen == 0) {
-            return true;
-        }
-        if (hLen < nLen) {
-            return false;
-        }
-        int limit = hLen - nLen;
-        for (int i = 0; i <= limit; i++) {
-            boolean match = true;
-            for (int j = 0; j < nLen; j++) {
-                if (haystack.charAt(i + j) != needle.charAt(j)) {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) {
-                return true;
-            }
-        }
-        return false;
+        return haystack != null && containsSequence(haystack, 0, haystack.length(), needle);
     }
 
     private static int indexOfColonSpace(CharSequence text) {

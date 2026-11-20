@@ -376,9 +376,9 @@ setting.hoptimization.chinese_input.show_composition_bar.name=Show Composition B
 setting.hoptimization.chinese_input.enable_in_chat.name=Enable in Chat
 setting.hoptimization.chinese_input.enable_in_clickgui.name=Enable in ClickGUI
 
-# Module - Jarvis (v0.12.0)
+# Module - Jarvis (v0.13.0)
 module.hoptimization.jarvis.name=Jarvis
-module.hoptimization.jarvis.desc=BedWars tactical radar, intrusion alerts, fireball blast & mining path predictor
+module.hoptimization.jarvis.desc=BedWars tactical radar, intrusion alerts, fireball blast, mining path & void pit indicator
 
 # Settings - Jarvis
 setting.hoptimization.jarvis.work_mode.name=Work Mode
@@ -405,6 +405,8 @@ setting.hoptimization.jarvis.fireball_trajectory.name=Show Trajectory
 setting.hoptimization.jarvis.mining_path.name=Mining Path
 setting.hoptimization.jarvis.invade_range.name=Invade Range
 setting.hoptimization.jarvis.path_through_walls.name=Through Walls
+setting.hoptimization.jarvis.void_pits.name=Void Pit Indicator
+setting.hoptimization.jarvis.pit_range.name=Pit Detect Range
 
 # UI - Jarvis
 ui.hoptimization.jarvis.team.red=Red
