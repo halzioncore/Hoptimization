@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-20 · 贾维斯阵营/队友识别修复与道路虚空坑洞提示（v0.13.0）
+
+- **做了什么**：针对 Hypixel 起床战争实战反馈完成 2 项阵营识别 Bug 修复与 1 项道路虚空坑洞防坠落提示功能，零新增 Mixin，版本号同步至 `0.13.0`：
+  1. **修复队友误报为入侵者（Bug 1）**：改进 `BedWarsContext.extractLastColorFromFormattedText` 与新增 `extractColorBeforeName`（在 `[123✫]` 等等级前缀之后、玩家名之前提取最终颜色，并忽略玩家名后的 `[GUILD]` 后缀）、新增 `resolvePlayerTeamColor(EntityPlayer, Minecraft)` 串联 `ScorePlayerTeam` / TabList `NetworkPlayerInfo` / `registeredName` / `Slot 2-3` 染色皮革盔甲，并在 `isValidEnemyPlayer(target, local, mc, localTeam, presentTeamsMask)` 中补充 TabList `GameType.SPECTATOR` 重生幽灵过滤、同前缀比对、胸甲/头盔同 RGB 皮革比对与在场队伍掩码过滤；同步更新 `BaseIntrusionMonitor` 传入上下文队伍与在场队伍掩码。
+  2. **修复己方队伍/灰队/莫名其妙虚构队伍上榜（Bug 2）**：重构 `BedWarsContext.updateMatchDetection` / `scanSidebarRoster` / `parseScoreboardTeamLine`（要求至少 2 条有效队伍状态行才判定 `inBedWarsMatch = true`，过滤仅含 `"BED WARS"` 标题的大厅与等待区，并提取 `presentTeamsMask`、`bedAliveMask` 与 `YOU`/`你` 标记的 `scoreboardLocalTeam`）；放宽 `anchorHomeAt` 对出生点 28m 内被灰/白装饰黏土误投票床位的己方基地锚定；重加权 `voteBedTeamColorFromBlocks`（近床羊毛 `+6`、中性灰/白粘土降为 `+1`、`MIN_BLOCK_VOTE_SCORE = 12` 且仅计入 `isEligibleEnemyColor`）；为 `updateEnemyBedPlayerAssociations` 增加 `playerVotes[]` 投票累积防路过误覆盖，在 `reverifyTrackedBeds` 中按记分板 `bedAliveMask` 同步未加载区块已破床状态并新增 `deduplicateEnemyBedColors()`；在 `Jarvis.isTrackedBedHostile` 中显式排除己方同色或不在当前记分板队伍名单内的床位。
+  3. **新增道路虚空坑洞提示（Feature 3）**：新建零分配检测器 `VoidPitDetector`（检测以玩家为中心的 `6..24m` 范围内直接贯通至 `y = 0` 的 1–3 格道路/桥梁断口及 1 格对角桥断口，忽略桥侧大片开阔虚空与下方有方块托底的非虚空浅坑，输出紧贴洞口边缘的 4 向 `pitEdgeMask`）；在 `JarvisWorldRenderer.renderVoidPits` 中使用克制低饱和 `warning`/`danger` 主题 token 与 `throughWalls = false` 深度测试渲染轻度洞口微光+向下渐隐光幕、`1.6F` 轮廓边线与 `1.0F` 警示交叉线，并严格 `try/finally` 恢复 OpenGL 状态；在 `Jarvis` 新增 `void_pits`（`坑洞提示`，默认开启）与 `pit_range`（`坑洞检测范围`，默认 `14.0m`，`6..24m`）。
+- **改动文件**：`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`modules/visual/Jarvis.java`、`modules/visual/jarvis/{BedWarsContext,BaseIntrusionMonitor,VoidPitDetector,JarvisWorldRenderer}.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 13s`，零错误，生成 `build/libs/hoptimization-0.13.0.jar`，`2384162` 字节）；Zulu JDK 8 集成与字节码校验 ✅（`223` 个 `.class` 全部为 Java 8 major=52、`HoptimizationMod.VERSION == "0.13.0"`、`ModuleManager` 31 模块与 `void_pits`/`pit_range`、`en_US.lang` 与 `zh_CN.lang` 各 `353` 条唯一键无 BOM 100% 对齐、`1921` 项断言全通过覆盖 Hypixel 前缀/Tab 旁观者/同皮甲过滤、大厅记分板隔离、出生点灰粘土锚定、黄羊毛压制灰粘土投票及 1–3 格/对角/浅坑网格识别）；`.\gradlew.bat launchClient --offline --console=plain` ✅（实测确认 `Pre-initializing Hoptimization 0.13.0`、`Hoptimization initialized (31 modules).`、`Hoptimization mixins active.`，零 Mixin/OpenGL 错误，客户端进程已干净终止）
+- **Git**：分支 `fix/jarvis-detection-and-void-pits` (`db23148`) `--no-ff` 合入 `main`（`bbc3014`），标签 `v0.13.0`，推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert HEAD && git revert -m 1 bbc3014`（或 `git checkout -b fix/rollback v0.12.0`）
+- **下一步**：所有者进游戏在 ClickGUI `视觉 -> 贾维斯` 实测队友/阵营识别与 `坑洞提示`（`坑洞检测范围`）体验；确认无误后决定是否推送远程仓库。
+
+---
+
 ## 2026-11-19 · 起床战争智能化战术助手「贾维斯 Jarvis」（v0.12.0）
 
 - **做了什么**：通过 `/swarm` 两阶段并行研发（`bedwars-intel`、`tactical-engines`、`fireball-render` 并行产出，`verifier` 双轮审查验证，`integrator` 集成于 `feat/bedwars-jarvis`）新增作弊门禁 Visual 模块 `Jarvis`（`jarvis`，默认关闭，`requiresCheatMode = true`，零新增 Mixin），全仓共注册 **31 个模块**（Combat 7 · Movement 2 · Visual 10 · UI 7 · Performance 2 · Misc 3）：
