@@ -503,6 +503,239 @@ public final class JarvisWorldRenderer {
         }
     }
 
+    /**
+     * Renders restrained depth-tested perimeter rim lines and subtle downward void-pit veils
+     * around detected 1- to 3-block road gaps.
+     *
+     * @param detector     active void pit detector
+     * @param maxRange     configured detection radius for distance fade
+     * @param glowArgb     theme warning color tint for subtle surface/veil glow
+     * @param rimArgb      theme danger color tint for crisp outer rim lines
+     * @param partialTicks partial render tick
+     */
+    public static void renderVoidPits(
+        VoidPitDetector detector,
+        double maxRange,
+        int glowArgb,
+        int rimArgb,
+        float partialTicks
+    ) {
+        if (detector == null || !detector.hasPits()) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.getRenderManager() == null) {
+            return;
+        }
+        Entity viewEntity = mc.getRenderViewEntity();
+        if (viewEntity == null) {
+            viewEntity = mc.thePlayer;
+        }
+        double camX = viewEntity.lastTickPosX + (viewEntity.posX - viewEntity.lastTickPosX) * (double) partialTicks;
+        double camY = viewEntity.lastTickPosY + (viewEntity.posY - viewEntity.lastTickPosY) * (double) partialTicks;
+        double camZ = viewEntity.lastTickPosZ + (viewEntity.posZ - viewEntity.lastTickPosZ) * (double) partialTicks;
+
+        int pitCount = detector.getPitCount();
+        int[] pitX = detector.getPitXArray();
+        int[] pitY = detector.getPitYArray();
+        int[] pitZ = detector.getPitZArray();
+        byte[] pitEdgeMask = detector.getPitEdgeMaskArray();
+        double[] pitDistSq = detector.getPitDistSqArray();
+
+        double effectiveMax = maxRange > 1.0D ? maxRange : 6.0D;
+        double fadeStart = effectiveMax * 0.60D;
+        double fadeSpan = Math.max(0.5D, effectiveMax - fadeStart);
+
+        ContextCapabilities caps = GLContext.getCapabilities();
+        int prevActiveTex = (caps != null && caps.OpenGL13)
+            ? GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE)
+            : OpenGlHelper.defaultTexUnit;
+        boolean wasDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+        boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        boolean wasCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        boolean wasLighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+        boolean wasAlpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
+        boolean wasLineSmooth = GL11.glIsEnabled(GL11.GL_LINE_SMOOTH);
+        boolean prevDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        int prevDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
+        float prevLineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
+        int prevBlendSrc = GL11.glGetInteger(GL11.GL_BLEND_SRC);
+        int prevBlendDst = GL11.glGetInteger(GL11.GL_BLEND_DST);
+        int prevBlendSrcAlpha = (caps != null && caps.OpenGL14)
+            ? GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA)
+            : prevBlendSrc;
+        int prevBlendDstAlpha = (caps != null && caps.OpenGL14)
+            ? GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA)
+            : prevBlendDst;
+
+        try {
+            applyOverlayRenderState(false);
+            syncCullFace(false);
+
+            Tessellator tessellator = Tessellator.getInstance();
+            WorldRenderer wr = tessellator.getWorldRenderer();
+
+            // Pass 1: subtle horizontal surface sheen + downward gradient edge veil.
+            wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+            for (int i = 0; i < pitCount; i++) {
+                double dist = Math.sqrt(pitDistSq[i]);
+                float fade = computePitDistanceFade(dist, fadeStart, fadeSpan);
+                if (fade <= 0.02F) {
+                    continue;
+                }
+
+                double topY = (double) pitY[i] + 1.005D - camY;
+                double veilBottomY = topY - 0.55D;
+                double minX = (double) pitX[i] + 0.02D - camX;
+                double maxX = (double) pitX[i] + 0.98D - camX;
+                double minZ = (double) pitZ[i] + 0.02D - camZ;
+                double maxZ = (double) pitZ[i] + 0.98D - camZ;
+
+                int planeAlpha = Math.round(28.0F * fade);
+                if (planeAlpha > 0) {
+                    emitHorizontalPlane(wr, minX, topY, minZ, maxX, maxZ, glowArgb, planeAlpha);
+                }
+
+                byte mask = pitEdgeMask[i];
+                int skirtColor = dist < 5.0D ? rimArgb : glowArgb;
+                int skirtAlpha = Math.round(58.0F * fade);
+                if (skirtAlpha > 0 && mask != 0) {
+                    if ((mask & VoidPitDetector.EDGE_NORTH) != 0) {
+                        emitVerticalFadeQuad(wr, minX, minZ, maxX, minZ, topY, veilBottomY, skirtColor, skirtAlpha);
+                    }
+                    if ((mask & VoidPitDetector.EDGE_SOUTH) != 0) {
+                        emitVerticalFadeQuad(wr, minX, maxZ, maxX, maxZ, topY, veilBottomY, skirtColor, skirtAlpha);
+                    }
+                    if ((mask & VoidPitDetector.EDGE_WEST) != 0) {
+                        emitVerticalFadeQuad(wr, minX, minZ, minX, maxZ, topY, veilBottomY, skirtColor, skirtAlpha);
+                    }
+                    if ((mask & VoidPitDetector.EDGE_EAST) != 0) {
+                        emitVerticalFadeQuad(wr, maxX, minZ, maxX, maxZ, topY, veilBottomY, skirtColor, skirtAlpha);
+                    }
+                }
+                flushQuadsIfNeeded(tessellator, wr);
+            }
+            tessellator.draw();
+
+            // Pass 2: crisp outer perimeter rim lines.
+            GL11.glLineWidth(1.6F);
+            wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+            for (int i = 0; i < pitCount; i++) {
+                byte mask = pitEdgeMask[i];
+                if (mask == 0) {
+                    continue;
+                }
+                double dist = Math.sqrt(pitDistSq[i]);
+                float fade = computePitDistanceFade(dist, fadeStart, fadeSpan);
+                if (fade <= 0.02F) {
+                    continue;
+                }
+
+                double rimY = (double) pitY[i] + 1.007D - camY;
+                double minX = (double) pitX[i] + 0.02D - camX;
+                double maxX = (double) pitX[i] + 0.98D - camX;
+                double minZ = (double) pitZ[i] + 0.02D - camZ;
+                double maxZ = (double) pitZ[i] + 0.98D - camZ;
+
+                int rimAlpha = Math.round(190.0F * fade);
+                if ((mask & VoidPitDetector.EDGE_NORTH) != 0) {
+                    emitLine(wr, minX, rimY, minZ, maxX, rimY, minZ, rimArgb, rimAlpha);
+                }
+                if ((mask & VoidPitDetector.EDGE_SOUTH) != 0) {
+                    emitLine(wr, minX, rimY, maxZ, maxX, rimY, maxZ, rimArgb, rimAlpha);
+                }
+                if ((mask & VoidPitDetector.EDGE_WEST) != 0) {
+                    emitLine(wr, minX, rimY, minZ, minX, rimY, maxZ, rimArgb, rimAlpha);
+                }
+                if ((mask & VoidPitDetector.EDGE_EAST) != 0) {
+                    emitLine(wr, maxX, rimY, minZ, maxX, rimY, maxZ, rimArgb, rimAlpha);
+                }
+                flushLinesIfNeeded(tessellator, wr);
+            }
+            tessellator.draw();
+
+            // Pass 3: subtle inset diagonal caution X inside each void pit cell.
+            GL11.glLineWidth(1.0F);
+            wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+            for (int i = 0; i < pitCount; i++) {
+                double dist = Math.sqrt(pitDistSq[i]);
+                float fade = computePitDistanceFade(dist, fadeStart, fadeSpan);
+                if (fade <= 0.02F) {
+                    continue;
+                }
+
+                double rimY = (double) pitY[i] + 1.007D - camY;
+                double x0 = (double) pitX[i] + 0.18D - camX;
+                double x1 = (double) pitX[i] + 0.82D - camX;
+                double z0 = (double) pitZ[i] + 0.18D - camZ;
+                double z1 = (double) pitZ[i] + 0.82D - camZ;
+
+                int crossAlpha = Math.round(70.0F * fade);
+                emitLine(wr, x0, rimY, z0, x1, rimY, z1, glowArgb, crossAlpha);
+                emitLine(wr, x1, rimY, z0, x0, rimY, z1, glowArgb, crossAlpha);
+                flushLinesIfNeeded(tessellator, wr);
+            }
+            tessellator.draw();
+        } finally {
+            restoreOverlayRenderState(
+                prevActiveTex, wasDepth, wasBlend, wasTexture2D, wasCull,
+                wasLighting, wasAlpha, wasLineSmooth, prevDepthMask, prevDepthFunc,
+                prevLineWidth, prevBlendSrc, prevBlendDst, prevBlendSrcAlpha, prevBlendDstAlpha
+            );
+        }
+    }
+
+    private static float computePitDistanceFade(double dist, double fadeStart, double fadeSpan) {
+        if (dist <= fadeStart) {
+            return 1.0F;
+        }
+        double t = 1.0D - (dist - fadeStart) / fadeSpan;
+        if (t <= 0.0D) {
+            return 0.0F;
+        }
+        return t >= 1.0D ? 1.0F : (float) t;
+    }
+
+    private static void emitHorizontalPlane(
+        WorldRenderer wr,
+        double minX,
+        double y,
+        double minZ,
+        double maxX,
+        double maxZ,
+        int argb,
+        int alpha
+    ) {
+        int r = (argb >>> 16) & 0xFF;
+        int g = (argb >>> 8) & 0xFF;
+        int b = argb & 0xFF;
+        wr.pos(minX, y, maxZ).color(r, g, b, alpha).endVertex();
+        wr.pos(maxX, y, maxZ).color(r, g, b, alpha).endVertex();
+        wr.pos(maxX, y, minZ).color(r, g, b, alpha).endVertex();
+        wr.pos(minX, y, minZ).color(r, g, b, alpha).endVertex();
+    }
+
+    private static void emitVerticalFadeQuad(
+        WorldRenderer wr,
+        double x1,
+        double z1,
+        double x2,
+        double z2,
+        double topY,
+        double bottomY,
+        int argb,
+        int topAlpha
+    ) {
+        int r = (argb >>> 16) & 0xFF;
+        int g = (argb >>> 8) & 0xFF;
+        int b = argb & 0xFF;
+        wr.pos(x1, topY, z1).color(r, g, b, topAlpha).endVertex();
+        wr.pos(x2, topY, z2).color(r, g, b, topAlpha).endVertex();
+        wr.pos(x2, bottomY, z2).color(r, g, b, 0).endVertex();
+        wr.pos(x1, bottomY, z1).color(r, g, b, 0).endVertex();
+    }
+
     private static void applyOverlayRenderState(boolean throughWalls) {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         syncTexture2D(false);

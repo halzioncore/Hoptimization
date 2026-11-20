@@ -14,6 +14,7 @@ import com.hoptimization.modules.visual.jarvis.BedWarsContext.TrackedBed;
 import com.hoptimization.modules.visual.jarvis.FireballBlastPredictor;
 import com.hoptimization.modules.visual.jarvis.JarvisHudRenderer;
 import com.hoptimization.modules.visual.jarvis.JarvisWorldRenderer;
+import com.hoptimization.modules.visual.jarvis.VoidPitDetector;
 import com.hoptimization.ui.hud.HudEditScreen;
 import com.hoptimization.ui.hud.HudElement;
 import com.hoptimization.ui.hud.HudOverlayRenderer;
@@ -79,12 +80,16 @@ public class Jarvis extends Module implements HudElement {
     private final NumberSetting invadeRange;
     private final BooleanSetting pathThroughWalls;
 
+    private final BooleanSetting voidPits;
+    private final NumberSetting pitRange;
+
     private final BedWarsContext context = new BedWarsContext();
     private final BaseIntrusionMonitor intrusionMonitor = new BaseIntrusionMonitor();
     private final BedDefenseAnalyzer defenseAnalyzer = new BedDefenseAnalyzer();
     private final BedMiningPathfinder quickAnalyzerSolver = new BedMiningPathfinder();
     private final BedMiningPathfinder miningPathfinder = new BedMiningPathfinder();
     private final FireballBlastPredictor fireballPredictor = new FireballBlastPredictor();
+    private final VoidPitDetector voidPitDetector = new VoidPitDetector();
     private final JarvisHudRenderer hudRenderer = new JarvisHudRenderer();
     private final AlertHudElement alertHudElement = new AlertHudElement();
 
@@ -227,6 +232,21 @@ public class Jarvis extends Module implements HudElement {
                 .visibleWhen(() -> Boolean.valueOf(this.miningPath.isEnabled()))
         );
 
+        this.voidPits = addSetting(
+            new BooleanSetting("void_pits", "setting.hoptimization.jarvis.void_pits.name", true)
+        );
+        this.pitRange = addSetting(
+            new NumberSetting(
+                "pit_range",
+                "setting.hoptimization.jarvis.pit_range.name",
+                14.0D,
+                6.0D,
+                24.0D,
+                2.0D,
+                "m"
+            ).visibleWhen(() -> Boolean.valueOf(this.voidPits.isEnabled()))
+        );
+
         HudOverlayRenderer.registerElement(this);
         HudOverlayRenderer.registerElement(this.alertHudElement);
         HudOverlayRenderer.ensureRegistered();
@@ -304,6 +324,14 @@ public class Jarvis extends Module implements HudElement {
         return this.pathThroughWalls;
     }
 
+    public BooleanSetting getVoidPitsSetting() {
+        return this.voidPits;
+    }
+
+    public NumberSetting getPitRangeSetting() {
+        return this.pitRange;
+    }
+
     public BedWarsContext getContext() {
         return this.context;
     }
@@ -322,6 +350,10 @@ public class Jarvis extends Module implements HudElement {
 
     public FireballBlastPredictor getFireballPredictor() {
         return this.fireballPredictor;
+    }
+
+    public VoidPitDetector getVoidPitDetector() {
+        return this.voidPitDetector;
     }
 
     public JarvisHudRenderer getHudRenderer() {
@@ -393,12 +425,18 @@ public class Jarvis extends Module implements HudElement {
         int toolPotionHash = computePlayerToolPotionHash(player);
         updateDefenseAnalyzer(world, player, toolPotionHash);
         updateMiningPathfinder(world, player, toolPotionHash);
+        this.voidPitDetector.update(
+            world,
+            player,
+            this.voidPits.isEnabled() && this.context.isEffectiveActive(),
+            this.pitRange.getIntValue()
+        );
 
         this.tickCounter++;
     }
 
     /**
-     * Renders predicted fireball blast footprints and active mining path overlays in 3D world space.
+     * Renders predicted fireball blast footprints, active mining path overlays, and void pit markers in 3D world space.
      *
      * @param event Forge render world last event
      */
@@ -421,12 +459,13 @@ public class Jarvis extends Module implements HudElement {
             );
         }
 
+        ThemeData activeTheme = this.followTheme.isEnabled()
+            ? ThemeManager.current()
+            : BuiltinThemes.OBSIDIAN_GOLD;
+
         if (this.miningPath.isEnabled()
             && this.context.isEffectiveActive()
             && this.miningPathfinder.hasValidPath()) {
-            int accentArgb = this.followTheme.isEnabled()
-                ? ThemeManager.current().accent()
-                : BuiltinThemes.OBSIDIAN_GOLD.accent();
             JarvisWorldRenderer.renderMiningPath(
                 this.miningPathfinder.getStepCount(),
                 this.miningPathfinder.getStepXArray(),
@@ -440,7 +479,19 @@ public class Jarvis extends Module implements HudElement {
                 this.miningPathfinder.getEntryY(),
                 this.miningPathfinder.getEntryZ(),
                 this.pathThroughWalls.isEnabled(),
-                accentArgb,
+                activeTheme.accent(),
+                event.partialTicks
+            );
+        }
+
+        if (this.voidPits.isEnabled()
+            && this.context.isEffectiveActive()
+            && this.voidPitDetector.hasPits()) {
+            JarvisWorldRenderer.renderVoidPits(
+                this.voidPitDetector,
+                this.pitRange.getDoubleValue(),
+                activeTheme.warning(),
+                activeTheme.danger(),
                 event.partialTicks
             );
         }
@@ -550,6 +601,8 @@ public class Jarvis extends Module implements HudElement {
         }
 
         int bedCount = this.context.getBedCount();
+        BedWarsContext.TeamColor localTeam = this.context.getLocalTeamColor();
+        boolean hasRoster = this.context.hasScoreboardRoster();
         boolean periodicRefresh = (this.tickCounter % ANALYZE_INTERVAL_TICKS) == 0;
         boolean toolStateChanged = !this.hasAnalyzerToolHash || toolPotionHash != this.lastAnalyzerToolHash;
         this.lastAnalyzerToolHash = toolPotionHash;
@@ -557,10 +610,7 @@ public class Jarvis extends Module implements HudElement {
 
         for (int i = 0; i < bedCount; i++) {
             TrackedBed bed = this.context.getBed(i);
-            if (bed == null
-                || !bed.isActive()
-                || bed.isOwnBed()
-                || bed.getStatus() == TrackedBed.STATUS_DESTROYED) {
+            if (!isTrackedBedHostile(bed, localTeam, hasRoster)) {
                 this.analyzerEligibleFlags[i] = false;
                 continue;
             }
@@ -602,12 +652,11 @@ public class Jarvis extends Module implements HudElement {
         TrackedBed closestEnemyBed = null;
 
         int bedCount = this.context.getBedCount();
+        BedWarsContext.TeamColor localTeam = this.context.getLocalTeamColor();
+        boolean hasRoster = this.context.hasScoreboardRoster();
         for (int i = 0; i < bedCount; i++) {
             TrackedBed bed = this.context.getBed(i);
-            if (bed == null
-                || !bed.isActive()
-                || bed.isOwnBed()
-                || bed.getStatus() == TrackedBed.STATUS_DESTROYED) {
+            if (!isTrackedBedHostile(bed, localTeam, hasRoster)) {
                 continue;
             }
             double distSq = bed.distSqTo(player.posX, player.posY, player.posZ);
@@ -665,6 +714,20 @@ public class Jarvis extends Module implements HudElement {
         }
     }
 
+    private boolean isTrackedBedHostile(TrackedBed bed, BedWarsContext.TeamColor localTeam, boolean hasRoster) {
+        if (bed == null
+            || !bed.isActive()
+            || bed.isOwnBed()
+            || bed.getStatus() == TrackedBed.STATUS_DESTROYED) {
+            return false;
+        }
+        BedWarsContext.TeamColor bedColor = bed.getTeamColor();
+        if (localTeam != BedWarsContext.TeamColor.UNKNOWN && bedColor == localTeam) {
+            return false;
+        }
+        return !(hasRoster && bedColor != BedWarsContext.TeamColor.UNKNOWN && !this.context.isTeamPresent(bedColor));
+    }
+
     private void resetMiningPathState() {
         this.miningPathfinder.clear();
         this.lastPathBedIndex = -1;
@@ -687,6 +750,7 @@ public class Jarvis extends Module implements HudElement {
         this.quickAnalyzerSolver.clear();
         this.miningPathfinder.clear();
         this.fireballPredictor.clear();
+        this.voidPitDetector.clear();
         this.hudRenderer.resetAnimations();
         this.lastWorld = null;
         resetSubsystemTracking();
