@@ -226,7 +226,8 @@ public final class BaseIntrusionMonitor {
                 }
 
                 byte threatKind = detectHeldThreat(target);
-                BedWarsContext.TeamColor teamColor = BedWarsContext.resolvePlayerTeamColor(target, mc);
+                BedWarsContext.TeamColor teamColor = BedWarsContext.resolvePlayerTeamColor(
+                    target, mc, presentTeamsMask);
                 String playerName = target.getName();
 
                 if (candidateCount < MAX_TRACKED) {
