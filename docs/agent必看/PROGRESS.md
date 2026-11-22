@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-22 · 落花星雨（超级床の战争）Jarvis 对局与队伍识别修复（v0.13.1）
+
+- **做了什么**：修复落花星雨（`wdsj.net` · `超级床の战争`）对局中 Jarvis 始终停留 `待命中 / 等待进入起床战争对局` 的问题，零新增 Mixin、保持热路径零分配，版本号同步至 `0.13.1`：
+  1. **扩展标题识别与独立己方队伍行解析 (`BedWarsContext`)**：在 `updateMatchDetection` 补充 `床の战争`、`床的战争`、`超级床`、`床战` 标题词以按 10 tick 间隔快速刷新（仍坚持 `parsedRows >= 2` 门槛防等待大厅误触发）；新增 `parseScoreboardLocalTeamLine` 并在 `inspectAndAccumulateScoreboardRow` 优先拦截 `队伍: ❤ 灵梦红  人数: 4` 类独立己方队伍声明行（截断至 `人数`/`存活`/`杀敌`/`击杀`/`players`/下一冒号前，跳过 `❤` 等图标后取色，且不计入 `parsedRows`）。
+  2. **重构单行多队与多图标记分板解析 (`parseScoreboardLine` / 兼容保留 `parseScoreboardTeamLine`)**：使用预分配 `parsedLineScratch[8]` 进行单遍状态锚点扫描，支持一行并排多队（如 `灵梦红 ❤ | 4  雾雨黄 ❤ | 4`、`咲夜蓝 ❤ | 4  早苗绿 ❤ | 3`）、活床心形（`❤`/`♥`/`❥`/`❣`）、破床灰心/黑心/删除线心（`§7❤`/`§8❤`/`§0❤`/`§m❤`）、空心 `♡`、叉号（`✗`/`✘`/`✖`/`✕`/`☒`）、`X | N`、去心 `队名 | N` 及人数归 `0`（`| 0`），显式排除乘号 `×`（防 `全域事件: 资源×2 | 无` 误判），并先按文本匹配队名再按条件启用格式色兜底（含对非起床 RPG 血条关键字屏蔽与 Hypixel `队名: 数字` 回退）。
+  3. **适配国服玩家队伍色与自定义队名破床聊天 (`BedWarsContext` / `BaseIntrusionMonitor`)**：新增 `extractPrefixTeamColor` 修复 `§e[雾雨黄] §f` 类末尾重置白色前缀、`resolveTeamFromRegisteredName` 补充中文队名识别、新增 `resolvePlayerTeamColor(player, mc, presentTeamsMask)` 使纯白前缀在有在场队伍色皮革甲时正确穿透解析同时保留无甲灰名假人/旁观者过滤；在 `onChatMessage` 与 `detectTeamMention` 补充 `床已被破坏`/`床被摧毁`/`你们的床...` 及紧邻 `的床`/`床被`/`床已` 前的队名颜色提取（兼容 `灵梦红的床被...破坏`）。
+- **改动文件**：`docs/agent必看/PROGRESS.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`modules/visual/jarvis/{BedWarsContext,BaseIntrusionMonitor}.java`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 12s`，零编译错误与 Mixin 告警，生成 `build/libs/hoptimization-0.13.1.jar`，`2391441` 字节）；Zulu JDK 8 字节码与单元测试 ✅（`223` 个 `.class` 全部为 Java 8 `major=52`，改动文件零超 120 字符行；`BedWarsContextVerify` `129` 项断言全通过，覆盖落花星雨 13 行完整记分板回放、灰/黑/删除线/空心/叉号/`X | N`/去心/归零/全队破床变体、8 队自定义名、等待大厅/RPG 血条/资源`×2`防误判、Hypixel 回归、`§e[雾雨黄] §f` 与白名皮革甲解析及自定义队名破床聊天）；`.\gradlew.bat launchClient --offline --console=plain` ✅（`run/logs/latest.log` 实测确认 `Pre-initializing Hoptimization 0.13.1`、`Hoptimization initialized (31 modules).`、`Hoptimization mixins active.`，零 Mixin/OpenGL 错误，客户端进程已干净终止）
+- **Git**：分支 `fix/jarvis-luohuaxingyu-detection` (`79fec89`) `--no-ff` 合入 `main`（`25ec371`），标签 `v0.13.1`，推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert HEAD && git revert -m 1 25ec371`（或 `git checkout -b fix/rollback v0.13.0`）
+- **已知问题**：落花星雨（`wdsj.net`）实机对局中 Jarvis HUD 状态切换、己方基地锚定、队友过滤、破床同步与敌方入侵预警体验待所有者进服实测；如地图邻岛间距超 `112m`（如阿耳忒弥斯约 `121m`），建议在设置中将 `床位扫描范围` 调至 `128m`–`160m`。
+- **下一步**：所有者进落花星雨对局实测修复效果，确认无误后决定是否推送远程仓库。
+
+---
+
 ## 2026-11-20 · 贾维斯阵营/队友识别修复与道路虚空坑洞提示（v0.13.0）
 
 - **做了什么**：针对 Hypixel 起床战争实战反馈完成 2 项阵营识别 Bug 修复与 1 项道路虚空坑洞防坠落提示功能，零新增 Mixin，版本号同步至 `0.13.0`：
