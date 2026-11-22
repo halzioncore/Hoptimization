@@ -61,6 +61,11 @@ public final class BedWarsContext {
     private static final int MAX_UNLOADED_SKIPS_PER_TICK = 24;
     private static final int MIN_BLOCK_VOTE_SCORE = 12;
     private static final int MIN_PLAYER_ASSOC_VOTES = 2;
+    private static final int ANCHOR_NONE = 0;
+    private static final int ANCHOR_CHECK = 1;
+    private static final int ANCHOR_HEART = 2;
+    private static final int ANCHOR_CROSS = 3;
+    private static final int ANCHOR_PIPE_COUNT = 4;
 
     /**
      * Canonical BedWars team colors with ARGB display tint, formatting code, and dye metadata.
@@ -391,6 +396,7 @@ public final class BedWarsContext {
     private final StringBuilder cleanLineScratch = new StringBuilder(64);
     private final int[] teamVoteCounts = new int[TeamColor.values().length];
     private final int[] rosterAccum = new int[4];
+    private final int[] parsedLineScratch = new int[8];
 
     private int bedCount;
     private int tickCounter;
@@ -548,10 +554,20 @@ public final class BedWarsContext {
         // Ignore player-typed chat messages containing ": " before system destruction keywords.
         boolean isBedDestruction = containsIgnoreCase(this.lineScratch, "BED DESTRUCTION")
             || containsSequence(this.lineScratch, "\u5e8a\u88ab\u7834\u574f")
-            || containsSequence(this.lineScratch, "\u5e8a\u5df2\u88ab\u6467\u6bc1");
+            || containsSequence(this.lineScratch, "\u5e8a\u5df2\u88ab\u7834\u574f")
+            || containsSequence(this.lineScratch, "\u5e8a\u88ab\u6467\u6bc1")
+            || containsSequence(this.lineScratch, "\u5e8a\u5df2\u88ab\u6467\u6bc1")
+            || containsSequence(this.lineScratch, "\u7684\u5e8a\u88ab")
+            || containsSequence(this.lineScratch, "\u7684\u5e8a\u5df2\u88ab");
         boolean isOwnBedLost = containsIgnoreCase(this.lineScratch, "Your bed was destroyed")
             || containsSequence(this.lineScratch, "\u4f60\u7684\u5e8a\u88ab\u7834\u574f")
-            || containsSequence(this.lineScratch, "\u4f60\u7684\u5e8a\u5df2\u88ab\u6467\u6bc1");
+            || containsSequence(this.lineScratch, "\u4f60\u7684\u5e8a\u5df2\u88ab\u7834\u574f")
+            || containsSequence(this.lineScratch, "\u4f60\u7684\u5e8a\u88ab\u6467\u6bc1")
+            || containsSequence(this.lineScratch, "\u4f60\u7684\u5e8a\u5df2\u88ab\u6467\u6bc1")
+            || containsSequence(this.lineScratch, "\u4f60\u4eec\u7684\u5e8a\u88ab\u7834\u574f")
+            || containsSequence(this.lineScratch, "\u4f60\u4eec\u7684\u5e8a\u5df2\u88ab\u7834\u574f")
+            || containsSequence(this.lineScratch, "\u4f60\u4eec\u7684\u5e8a\u88ab\u6467\u6bc1")
+            || containsSequence(this.lineScratch, "\u4f60\u4eec\u7684\u5e8a\u5df2\u88ab\u6467\u6bc1");
 
         if (!isBedDestruction && !isOwnBedLost) {
             return;
@@ -648,7 +664,7 @@ public final class BedWarsContext {
             }
         }
 
-        TeamColor targetColor = resolvePlayerTeamColor(target, mc);
+        TeamColor targetColor = resolvePlayerTeamColor(target, mc, presentTeamsMask);
         if (presentTeamsMask != 0 && targetColor != TeamColor.UNKNOWN
             && (presentTeamsMask & (1 << targetColor.ordinal())) == 0) {
             return false;
@@ -694,7 +710,7 @@ public final class BedWarsContext {
 
             TeamColor localColor = (contextLocalTeam != null && contextLocalTeam != TeamColor.UNKNOWN)
                 ? contextLocalTeam
-                : resolvePlayerTeamColor(local, mc);
+                : resolvePlayerTeamColor(local, mc, presentTeamsMask);
             if (localColor != TeamColor.UNKNOWN && targetColor == localColor) {
                 return false;
             }
@@ -710,7 +726,7 @@ public final class BedWarsContext {
      * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
      */
     public static TeamColor resolvePlayerTeamColor(EntityPlayer player) {
-        return resolvePlayerTeamColor(player, null);
+        return resolvePlayerTeamColor(player, null, 0);
     }
 
     /**
@@ -722,6 +738,19 @@ public final class BedWarsContext {
      * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
      */
     public static TeamColor resolvePlayerTeamColor(EntityPlayer player, Minecraft mc) {
+        return resolvePlayerTeamColor(player, mc, 0);
+    }
+
+    /**
+     * Resolves a player's BedWars team color with optional present-teams filtering so neutral reset
+     * formatting (such as white name tags) falls through to dyed armor when outside active teams.
+     *
+     * @param player           target player
+     * @param mc               optional Minecraft client instance for tab-list lookup
+     * @param presentTeamsMask bitmask of teams present on scoreboard ({@code 0} when unavailable)
+     * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor resolvePlayerTeamColor(EntityPlayer player, Minecraft mc, int presentTeamsMask) {
         if (player == null) {
             return TeamColor.UNKNOWN;
         }
@@ -742,18 +771,31 @@ public final class BedWarsContext {
             }
         }
 
+        TeamColor fallback = TeamColor.UNKNOWN;
+
         if (scoreTeam != null) {
-            TeamColor fromPrefix = extractLastColorFromFormattedText(scoreTeam.getColorPrefix());
-            if (fromPrefix != TeamColor.UNKNOWN) {
+            TeamColor fromPrefix = extractPrefixTeamColor(scoreTeam.getColorPrefix());
+            if (isColorAllowedByMask(fromPrefix, presentTeamsMask)) {
                 return fromPrefix;
             }
+            if (fallback == TeamColor.UNKNOWN && fromPrefix != TeamColor.UNKNOWN) {
+                fallback = fromPrefix;
+            }
+
             TeamColor fromFormat = fromChatFormatting(scoreTeam.getChatFormat());
-            if (fromFormat != TeamColor.UNKNOWN) {
+            if (isColorAllowedByMask(fromFormat, presentTeamsMask)) {
                 return fromFormat;
             }
+            if (fallback == TeamColor.UNKNOWN && fromFormat != TeamColor.UNKNOWN) {
+                fallback = fromFormat;
+            }
+
             TeamColor fromRegName = resolveTeamFromRegisteredName(scoreTeam.getRegisteredName());
-            if (fromRegName != TeamColor.UNKNOWN) {
+            if (isColorAllowedByMask(fromRegName, presentTeamsMask)) {
                 return fromRegName;
+            }
+            if (fallback == TeamColor.UNKNOWN && fromRegName != TeamColor.UNKNOWN) {
+                fallback = fromRegName;
             }
         }
 
@@ -765,8 +807,11 @@ public final class BedWarsContext {
                 if (fromTab == TeamColor.UNKNOWN) {
                     fromTab = extractLastColorFromFormattedText(formatted);
                 }
-                if (fromTab != TeamColor.UNKNOWN) {
+                if (isColorAllowedByMask(fromTab, presentTeamsMask)) {
                     return fromTab;
+                }
+                if (fallback == TeamColor.UNKNOWN && fromTab != TeamColor.UNKNOWN) {
+                    fallback = fromTab;
                 }
             }
         }
@@ -778,8 +823,11 @@ public final class BedWarsContext {
             if (fromDisplay == TeamColor.UNKNOWN) {
                 fromDisplay = extractLastColorFromFormattedText(formatted);
             }
-            if (fromDisplay != TeamColor.UNKNOWN) {
+            if (isColorAllowedByMask(fromDisplay, presentTeamsMask)) {
                 return fromDisplay;
+            }
+            if (fallback == TeamColor.UNKNOWN && fromDisplay != TeamColor.UNKNOWN) {
+                fallback = fromDisplay;
             }
         }
 
@@ -788,14 +836,24 @@ public final class BedWarsContext {
                 int rgb = getDyedLeatherArmorRgb(player, slot);
                 if (rgb != -1) {
                     TeamColor fromArmor = TeamColor.fromArmorColor(rgb);
-                    if (fromArmor != TeamColor.UNKNOWN) {
+                    if (isColorAllowedByMask(fromArmor, presentTeamsMask)) {
                         return fromArmor;
+                    }
+                    if (fallback == TeamColor.UNKNOWN && fromArmor != TeamColor.UNKNOWN) {
+                        fallback = fromArmor;
                     }
                 }
             }
         }
 
-        return TeamColor.UNKNOWN;
+        return fallback;
+    }
+
+    private static boolean isColorAllowedByMask(TeamColor color, int presentTeamsMask) {
+        if (color == null || color == TeamColor.UNKNOWN) {
+            return false;
+        }
+        return presentTeamsMask == 0 || (presentTeamsMask & (1 << color.ordinal())) != 0;
     }
 
     private static boolean haveEqualNonEmptyTeamPrefix(ScorePlayerTeam a, ScorePlayerTeam b) {
@@ -1036,18 +1094,22 @@ public final class BedWarsContext {
         boolean bedWarsTitle = containsIgnoreCase(this.scoreboardScratch, "BED WARS")
             || containsIgnoreCase(this.scoreboardScratch, "BEDWARS")
             || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a\u6218\u4e89")
-            || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a");
+            || containsSequence(this.scoreboardScratch, "\u8d77\u5e8a")
+            || containsSequence(this.scoreboardScratch, "\u5e8a\u306e\u6218\u4e89")
+            || containsSequence(this.scoreboardScratch, "\u5e8a\u7684\u6218\u4e89")
+            || containsSequence(this.scoreboardScratch, "\u8d85\u7ea7\u5e8a")
+            || containsSequence(this.scoreboardScratch, "\u5e8a\u6218");
 
         // Refresh sidebar team roster more often when the title indicates BedWars, while keeping
         // Scoreboard#getSortedScores off every single tick to avoid per-tick allocations.
         int refreshInterval = bedWarsTitle ? 10 : 20;
         if (this.tickCounter % refreshInterval == 0 || sidebar != this.lastSidebarObjective) {
             this.lastSidebarObjective = sidebar;
-            scanSidebarRoster(scoreboard, sidebar);
+            scanSidebarRoster(scoreboard, sidebar, bedWarsTitle);
         }
     }
 
-    private void scanSidebarRoster(Scoreboard scoreboard, ScoreObjective sidebar) {
+    private void scanSidebarRoster(Scoreboard scoreboard, ScoreObjective sidebar, boolean bedWarsTitle) {
         Collection<Score> scores = scoreboard.getSortedScores(sidebar);
         if (scores == null || scores.isEmpty()) {
             this.inBedWarsMatch = false;
@@ -1063,11 +1125,11 @@ public final class BedWarsContext {
         if (scores instanceof List<?>) {
             List<Score> list = (List<Score>) scores;
             for (int i = 0, size = list.size(); i < size; i++) {
-                accumulateSidebarRow(inspectScoreboardRow(scoreboard, list.get(i)));
+                inspectAndAccumulateScoreboardRow(scoreboard, list.get(i), bedWarsTitle);
             }
         } else {
             for (Score score : scores) {
-                accumulateSidebarRow(inspectScoreboardRow(scoreboard, score));
+                inspectAndAccumulateScoreboardRow(scoreboard, score, bedWarsTitle);
             }
         }
 
@@ -1107,13 +1169,13 @@ public final class BedWarsContext {
         }
     }
 
-    private int inspectScoreboardRow(Scoreboard scoreboard, Score score) {
+    private void inspectAndAccumulateScoreboardRow(Scoreboard scoreboard, Score score, boolean bedWarsTitle) {
         if (score == null) {
-            return 0;
+            return;
         }
         String entryName = score.getPlayerName();
         if (entryName == null) {
-            return 0;
+            return;
         }
         this.lineScratch.setLength(0);
         ScorePlayerTeam team = scoreboard.getPlayersTeam(entryName);
@@ -1132,7 +1194,79 @@ public final class BedWarsContext {
         }
 
         stripFormattingInto(this.lineScratch, this.cleanLineScratch);
-        return parseScoreboardTeamLine(this.lineScratch, this.cleanLineScratch);
+        if (isLocalTeamDeclarationRow(this.cleanLineScratch)) {
+            TeamColor declaredLocal = parseScoreboardLocalTeamLine(this.lineScratch, this.cleanLineScratch);
+            if (declaredLocal != TeamColor.UNKNOWN) {
+                this.rosterAccum[3] = declaredLocal.ordinal();
+            }
+            return;
+        }
+
+        int teamCount = parseScoreboardLine(
+            this.lineScratch,
+            this.cleanLineScratch,
+            bedWarsTitle,
+            this.parsedLineScratch
+        );
+        for (int k = 0; k < teamCount; k++) {
+            accumulateSidebarRow(this.parsedLineScratch[k]);
+        }
+    }
+
+    private static boolean isLocalTeamDeclarationRow(CharSequence cleanText) {
+        return findLocalTeamColonIndex(cleanText) > 0;
+    }
+
+    private static int findLocalTeamColonIndex(CharSequence cleanText) {
+        if (cleanText == null || cleanText.length() < 3) {
+            return -1;
+        }
+        int colonIdx = findColonIndex(cleanText);
+        if (colonIdx <= 0) {
+            return -1;
+        }
+        int keyStart = skipSpaces(cleanText, 0, colonIdx);
+        int keyEnd = colonIdx;
+        while (keyEnd > keyStart && isSpaceChar(cleanText.charAt(keyEnd - 1))) {
+            keyEnd--;
+        }
+        return isLocalTeamLabel(cleanText, keyStart, keyEnd) ? colonIdx : -1;
+    }
+
+    /**
+     * Parses a dedicated sidebar local-team declaration line (such as
+     * {@code "队伍: ❤ 灵梦红  人数: 4"}) without counting it as a bed roster entry.
+     *
+     * @param rawFormatted raw formatting-retained scoreboard text (nullable)
+     * @param cleanText    unformatted stripped scoreboard text
+     * @return declared local {@link TeamColor}, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor parseScoreboardLocalTeamLine(CharSequence rawFormatted, CharSequence cleanText) {
+        int colonIdx = findLocalTeamColonIndex(cleanText);
+        if (colonIdx <= 0) {
+            return TeamColor.UNKNOWN;
+        }
+
+        int valStart = colonIdx + 1;
+        int valEnd = findNextLocalTeamFieldEnd(cleanText, valStart, cleanText.length());
+        TeamColor named = detectTeamRowColor(cleanText, valStart, valEnd);
+        if (named != TeamColor.UNKNOWN) {
+            return named;
+        }
+        if (rawFormatted != null) {
+            for (int idx = valStart; idx < valEnd; idx++) {
+                char c = cleanText.charAt(idx);
+                if (isSpaceChar(c) || isTeamStatusIcon(c) || isLabelPunctuation(c)) {
+                    continue;
+                }
+                int state = findFormattingStateAtCleanIndex(rawFormatted, idx);
+                TeamColor fromFmt = TeamColor.fromChatColorChar((char) (state & 0xFFFF));
+                if (fromFmt != TeamColor.UNKNOWN) {
+                    return fromFmt;
+                }
+            }
+        }
+        return TeamColor.UNKNOWN;
     }
 
     /**
@@ -1145,54 +1279,216 @@ public final class BedWarsContext {
      * {@link #SCOREBOARD_FLAG_LOCAL_TEAM}, and ordinal bits {@link #SCOREBOARD_COLOR_MASK}
      */
     public static int parseScoreboardTeamLine(CharSequence rawFormatted, CharSequence cleanText) {
-        if (cleanText == null || cleanText.length() < 3) {
+        int[] single = new int[1];
+        return parseScoreboardLine(rawFormatted, cleanText, false, single) > 0 ? single[0] : 0;
+    }
+
+    /**
+     * Parses a formatted + unformatted BedWars sidebar row (supporting single or multiple teams per
+     * line, checkmark/heart/cross/pipe indicators, and colon-numeric fallback) into {@code outPackedTeams}.
+     *
+     * @param rawFormatted   raw formatting-retained scoreboard text (nullable)
+     * @param cleanText      unformatted stripped scoreboard text
+     * @param bedWarsTitle   true when the sidebar title indicates BedWars
+     * @param outPackedTeams destination buffer receiving packed status bitmasks
+     * @return number of valid team entries written to {@code outPackedTeams}
+     */
+    public static int parseScoreboardLine(
+        CharSequence rawFormatted,
+        CharSequence cleanText,
+        boolean bedWarsTitle,
+        int[] outPackedTeams
+    ) {
+        if (cleanText == null || cleanText.length() < 3 || outPackedTeams == null || outPackedTeams.length == 0) {
             return 0;
         }
-        boolean hasCheckmark = false;
-        boolean hasCross = false;
+
         int len = cleanText.length();
+        int segStart = 0;
+        int written = 0;
+
         for (int i = 0; i < len; i++) {
             char c = cleanText.charAt(i);
-            if (c == '\u2714' || c == '\u2713') {
-                hasCheckmark = true;
-            } else if (c == '\u2717' || c == '\u2718') {
-                hasCross = true;
+            int anchorKind = ANCHOR_NONE;
+            boolean bedAliveByAnchor = false;
+
+            if (isCheckmarkIcon(c)) {
+                anchorKind = ANCHOR_CHECK;
+                bedAliveByAnchor = true;
+            } else if (isHeartIcon(c)) {
+                anchorKind = ANCHOR_HEART;
+                bedAliveByAnchor = !isDeadHeartFormatting(findFormattingStateAtCleanIndex(rawFormatted, i));
+            } else if (isCrossOrDeadIcon(c)) {
+                anchorKind = ANCHOR_CROSS;
+                bedAliveByAnchor = false;
+            } else if ((c == 'X' || c == 'x') && isStandaloneXCrossAnchor(cleanText, i, len)) {
+                anchorKind = ANCHOR_CROSS;
+                bedAliveByAnchor = false;
+            } else if (isTeamSeparatorPipe(c) && isBarePipeCountAnchor(cleanText, segStart, i, len)) {
+                anchorKind = ANCHOR_PIPE_COUNT;
+                bedAliveByAnchor = false;
             }
+
+            if (anchorKind == ANCHOR_NONE) {
+                continue;
+            }
+
+            boolean hasPriorContent = hasLabelContent(cleanText, segStart, i);
+            boolean iconFirst = !hasPriorContent && !hasMoreStatusIcons(cleanText, i + 1);
+
+            int labelStart;
+            int labelEnd;
+            boolean hasCount = false;
+            int parsedCount = 0;
+            boolean isLocal;
+            int suffixEnd;
+
+            if (iconFirst) {
+                labelStart = i + 1;
+                labelEnd = len;
+                suffixEnd = len;
+                isLocal = containsAsciiWordIgnoreCase(cleanText, labelStart, labelEnd, "you")
+                    || containsSequence(cleanText, labelStart, labelEnd, "\u4f60");
+                int parsedPipeCount = findIconFirstTrailingCount(cleanText, labelStart, labelEnd);
+                if (parsedPipeCount >= 0) {
+                    hasCount = true;
+                    parsedCount = parsedPipeCount;
+                }
+            } else {
+                labelStart = segStart;
+                labelEnd = i;
+                int p = (anchorKind == ANCHOR_PIPE_COUNT) ? i : (i + 1);
+                p = skipSpaces(cleanText, p, len);
+                if (p < len && (isTeamSeparatorPipe(cleanText.charAt(p))
+                    || (anchorKind != ANCHOR_PIPE_COUNT
+                        && (cleanText.charAt(p) == ':' || cleanText.charAt(p) == '\uff1a')))) {
+                    int afterSep = p + 1;
+                    int q = skipSpaces(cleanText, afterSep, len);
+                    int digitEnd = parseStandaloneIntegerEnd(cleanText, q, len);
+                    if (digitEnd > q) {
+                        hasCount = true;
+                        parsedCount = parseNonNegativeInt(cleanText, q, digitEnd);
+                        p = digitEnd;
+                    } else {
+                        p = afterSep;
+                    }
+                } else if (p < len && cleanText.charAt(p) >= '0' && cleanText.charAt(p) <= '9') {
+                    int digitEnd = parseStandaloneIntegerEnd(cleanText, p, len);
+                    if (digitEnd > p) {
+                        hasCount = true;
+                        parsedCount = parseNonNegativeInt(cleanText, p, digitEnd);
+                        p = digitEnd;
+                    }
+                }
+
+                int localEnd = matchLocalMarkerEnd(cleanText, p, len);
+                isLocal = localEnd >= 0
+                    || containsAsciiWordIgnoreCase(cleanText, labelStart, labelEnd, "you")
+                    || containsSequence(cleanText, labelStart, labelEnd, "\u4f60");
+                if (localEnd >= 0) {
+                    p = localEnd;
+                }
+                suffixEnd = p;
+            }
+
+            TeamColor color = resolveLabelSegmentTeamColor(
+                rawFormatted,
+                cleanText,
+                labelStart,
+                labelEnd,
+                anchorKind,
+                bedWarsTitle,
+                hasCount,
+                parsedCount,
+                segStart == 0 && !hasMoreStatusIcons(cleanText, suffixEnd)
+            );
+
+            if (color != TeamColor.UNKNOWN && color.ordinal() < TeamColor.UNKNOWN.ordinal()) {
+                boolean bedAlive = bedAliveByAnchor && !(hasCount && parsedCount == 0);
+                int packed = SCOREBOARD_FLAG_VALID | (color.ordinal() & SCOREBOARD_COLOR_MASK);
+                if (bedAlive) {
+                    packed |= SCOREBOARD_FLAG_BED_ALIVE;
+                }
+                if (isLocal) {
+                    packed |= SCOREBOARD_FLAG_LOCAL_TEAM;
+                }
+                if (written < outPackedTeams.length) {
+                    outPackedTeams[written++] = packed;
+                }
+            }
+
+            segStart = suffixEnd;
+            i = Math.max(i, suffixEnd - 1);
+        }
+
+        if (written > 0) {
+            return written;
         }
 
         int colonIdx = findColonIndex(cleanText);
-        boolean hasNumericAliveCount = false;
-        if (!hasCheckmark && !hasCross && colonIdx >= 0) {
-            hasNumericAliveCount = isAliveCountAfterColon(cleanText, colonIdx);
-        }
-        if (!hasCheckmark && !hasCross && !hasNumericAliveCount) {
+        if (colonIdx < 0 || !isAliveCountAfterColon(cleanText, colonIdx)) {
             return 0;
         }
 
         int searchEnd = colonIdx > 0 ? colonIdx : len;
-        TeamColor color = detectTeamRowColor(cleanText, searchEnd);
+        TeamColor color = detectTeamRowColor(cleanText, 0, searchEnd);
         if (color == TeamColor.UNKNOWN && colonIdx <= 0) {
-            color = detectTeamRowColor(cleanText, len);
-        }
-        if (color == TeamColor.UNKNOWN && (hasCheckmark || hasCross) && rawFormatted != null) {
-            color = extractFirstColorFromFormattedText(rawFormatted);
+            color = detectTeamRowColor(cleanText, 0, len);
         }
         if (color == TeamColor.UNKNOWN || color.ordinal() >= TeamColor.UNKNOWN.ordinal()) {
             return 0;
         }
 
-        boolean bedAlive = hasCheckmark && !hasCross && !hasNumericAliveCount;
         boolean isLocal = containsAsciiWordIgnoreCase(cleanText, 0, len, "you")
             || containsSequence(cleanText, "\u4f60");
 
         int packed = SCOREBOARD_FLAG_VALID | (color.ordinal() & SCOREBOARD_COLOR_MASK);
-        if (bedAlive) {
-            packed |= SCOREBOARD_FLAG_BED_ALIVE;
-        }
         if (isLocal) {
             packed |= SCOREBOARD_FLAG_LOCAL_TEAM;
         }
-        return packed;
+        outPackedTeams[0] = packed;
+        return 1;
+    }
+
+    private static TeamColor resolveLabelSegmentTeamColor(
+        CharSequence rawFormatted,
+        CharSequence cleanText,
+        int labelStart,
+        int labelEnd,
+        int anchorKind,
+        boolean bedWarsTitle,
+        boolean hasCount,
+        int parsedCount,
+        boolean singleTeamLine
+    ) {
+        int labelColon = findColonIndexRange(cleanText, labelStart, labelEnd);
+        TeamColor color = TeamColor.UNKNOWN;
+        if (labelColon > labelStart) {
+            color = detectTeamRowColor(cleanText, labelStart, labelColon);
+        }
+        if (color == TeamColor.UNKNOWN) {
+            color = detectTeamRowColor(cleanText, labelStart, labelEnd);
+        }
+        if (color != TeamColor.UNKNOWN) {
+            return color;
+        }
+
+        if (anchorKind == ANCHOR_CHECK || anchorKind == ANCHOR_CROSS) {
+            color = extractFirstTeamColorInCleanRange(rawFormatted, cleanText, labelStart, labelEnd);
+            if (color == TeamColor.UNKNOWN && singleTeamLine && rawFormatted != null) {
+                color = extractFirstColorFromFormattedText(rawFormatted);
+            }
+            return color;
+        }
+
+        if (anchorKind == ANCHOR_HEART
+            && bedWarsTitle
+            && !containsNonTeamStatKeyword(cleanText, labelStart, labelEnd)
+            && (!hasCount || parsedCount <= 32)) {
+            return extractFirstTeamColorInCleanRange(rawFormatted, cleanText, labelStart, labelEnd);
+        }
+
+        return TeamColor.UNKNOWN;
     }
 
     private void updateLocalTeamColor(EntityPlayer player, Minecraft mc) {
@@ -1205,18 +1501,18 @@ public final class BedWarsContext {
         Team team = player.getTeam();
         if (team instanceof ScorePlayerTeam) {
             ScorePlayerTeam scoreTeam = (ScorePlayerTeam) team;
-            TeamColor fromPrefix = extractLastColorFromFormattedText(scoreTeam.getColorPrefix());
-            if (fromPrefix != TeamColor.UNKNOWN) {
+            TeamColor fromPrefix = extractPrefixTeamColor(scoreTeam.getColorPrefix());
+            if (isColorAllowedByMask(fromPrefix, this.presentTeamsMask)) {
                 this.localTeamColor = fromPrefix;
                 return;
             }
             TeamColor fromFormat = fromChatFormatting(scoreTeam.getChatFormat());
-            if (fromFormat != TeamColor.UNKNOWN) {
+            if (isColorAllowedByMask(fromFormat, this.presentTeamsMask)) {
                 this.localTeamColor = fromFormat;
                 return;
             }
             TeamColor fromReg = resolveTeamFromRegisteredName(scoreTeam.getRegisteredName());
-            if (fromReg != TeamColor.UNKNOWN) {
+            if (isColorAllowedByMask(fromReg, this.presentTeamsMask)) {
                 this.localTeamColor = fromReg;
                 return;
             }
@@ -1224,7 +1520,7 @@ public final class BedWarsContext {
 
         // Fall back to TabList + displayName + leather armor on initial/periodic ticks.
         if (this.localTeamColor == TeamColor.UNKNOWN || this.tickCounter % 10 == 0) {
-            TeamColor resolved = resolvePlayerTeamColor(player, mc);
+            TeamColor resolved = resolvePlayerTeamColor(player, mc, this.presentTeamsMask);
             if (resolved != TeamColor.UNKNOWN) {
                 this.localTeamColor = resolved;
             }
@@ -1741,7 +2037,7 @@ public final class BedWarsContext {
                 if (!isValidEnemyPlayer(candidate, localPlayer, mc, this.localTeamColor, this.presentTeamsMask)) {
                     continue;
                 }
-                TeamColor enemyColor = resolvePlayerTeamColor(candidate, mc);
+                TeamColor enemyColor = resolvePlayerTeamColor(candidate, mc, this.presentTeamsMask);
                 if (!isEligibleEnemyColor(enemyColor)) {
                     continue;
                 }
@@ -2029,6 +2325,65 @@ public final class BedWarsContext {
         return last;
     }
 
+    /**
+     * Extracts a player's team color from a scoreboard team prefix, resolving trailing reset-to-white
+     * Chinese prefixes such as {@code "§e[雾雨黄] §f"} while preserving Hypixel {@code "§f§lW §f"}.
+     *
+     * @param prefix formatted team prefix text
+     * @return resolved {@link TeamColor}, or {@link TeamColor#UNKNOWN}
+     */
+    public static TeamColor extractPrefixTeamColor(String prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            return TeamColor.UNKNOWN;
+        }
+        TeamColor lastColor = TeamColor.UNKNOWN;
+        TeamColor activeColor = TeamColor.UNKNOWN;
+        TeamColor lastVisibleColor = TeamColor.UNKNOWN;
+        boolean hasVisibleAfterLastColor = false;
+        int len = prefix.length();
+        for (int i = 0; i < len; i++) {
+            char c = prefix.charAt(i);
+            if (c == '\u00a7') {
+                if (i + 1 < len) {
+                    char code = toAsciiLower(prefix.charAt(i + 1));
+                    if (code == 'r') {
+                        activeColor = TeamColor.UNKNOWN;
+                    } else {
+                        TeamColor parsed = TeamColor.fromChatColorChar(code);
+                        if (parsed != TeamColor.UNKNOWN) {
+                            lastColor = parsed;
+                            activeColor = parsed;
+                            hasVisibleAfterLastColor = false;
+                        }
+                    }
+                    i++;
+                }
+                continue;
+            }
+            if (!isSpaceChar(c)) {
+                hasVisibleAfterLastColor = true;
+                if (activeColor != TeamColor.UNKNOWN) {
+                    lastVisibleColor = activeColor;
+                }
+            }
+        }
+        if (lastColor == TeamColor.WHITE
+            && !hasVisibleAfterLastColor
+            && isChromaticTeamColor(lastVisibleColor)) {
+            return lastVisibleColor;
+        }
+        return lastColor;
+    }
+
+    private static boolean isChromaticTeamColor(TeamColor color) {
+        return color == TeamColor.RED
+            || color == TeamColor.BLUE
+            || color == TeamColor.GREEN
+            || color == TeamColor.YELLOW
+            || color == TeamColor.AQUA
+            || color == TeamColor.PINK;
+    }
+
     private static TeamColor extractFirstColorFromFormattedText(CharSequence text) {
         if (text == null || text.length() < 2) {
             return TeamColor.UNKNOWN;
@@ -2162,7 +2517,7 @@ public final class BedWarsContext {
             || containsCamelOrDelimitedWord(regName, len, "grey")) {
             return TeamColor.GRAY;
         }
-        return TeamColor.UNKNOWN;
+        return detectTeamRowColor(regName, 0, len);
     }
 
     private static boolean containsCamelOrDelimitedWord(String text, int hLen, String needle) {
@@ -2289,55 +2644,399 @@ public final class BedWarsContext {
     }
 
     private static TeamColor detectTeamRowColor(CharSequence text, int endIdx) {
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "red")
-            || containsSequence(text, 0, endIdx, "\u7ea2\u961f")
-            || containsSequence(text, 0, endIdx, "\u7ea2")) {
+        return detectTeamRowColor(text, 0, endIdx);
+    }
+
+    private static TeamColor detectTeamRowColor(CharSequence text, int startIdx, int endIdx) {
+        if (text == null || endIdx <= startIdx) {
+            return TeamColor.UNKNOWN;
+        }
+        int safeStart = startIdx < 0 ? 0 : startIdx;
+        int safeEnd = endIdx > text.length() ? text.length() : endIdx;
+        if (safeEnd <= safeStart) {
+            return TeamColor.UNKNOWN;
+        }
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "red")
+            || containsSequence(text, safeStart, safeEnd, "\u7ea2\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u7ea2")) {
             return TeamColor.RED;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "blue")
-            || containsSequence(text, 0, endIdx, "\u84dd\u961f")
-            || containsSequence(text, 0, endIdx, "\u84dd")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "blue")
+            || containsSequence(text, safeStart, safeEnd, "\u84dd\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u84dd")) {
             return TeamColor.BLUE;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "green")
-            || containsSequence(text, 0, endIdx, "\u7eff\u961f")
-            || containsSequence(text, 0, endIdx, "\u7eff")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "green")
+            || containsSequence(text, safeStart, safeEnd, "\u7eff\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u7eff")) {
             return TeamColor.GREEN;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "yellow")
-            || containsSequence(text, 0, endIdx, "\u9ec4\u961f")
-            || containsSequence(text, 0, endIdx, "\u9ec4")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "yellow")
+            || containsSequence(text, safeStart, safeEnd, "\u9ec4\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u9ec4")) {
             return TeamColor.YELLOW;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "aqua")
-            || containsAsciiWordIgnoreCase(text, 0, endIdx, "cyan")
-            || containsSequence(text, 0, endIdx, "\u9752\u961f")
-            || containsSequence(text, 0, endIdx, "\u9752")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "aqua")
+            || containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "cyan")
+            || containsSequence(text, safeStart, safeEnd, "\u9752\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u9752")) {
             return TeamColor.AQUA;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "white")
-            || containsSequence(text, 0, endIdx, "\u767d\u961f")
-            || containsSequence(text, 0, endIdx, "\u767d")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "white")
+            || containsSequence(text, safeStart, safeEnd, "\u767d\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u767d")) {
             return TeamColor.WHITE;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "pink")
-            || containsSequence(text, 0, endIdx, "\u7c89\u961f")
-            || containsSequence(text, 0, endIdx, "\u7c89")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "pink")
+            || containsSequence(text, safeStart, safeEnd, "\u7c89\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u7c89")) {
             return TeamColor.PINK;
         }
-        if (containsAsciiWordIgnoreCase(text, 0, endIdx, "gray")
-            || containsAsciiWordIgnoreCase(text, 0, endIdx, "grey")
-            || containsSequence(text, 0, endIdx, "\u7070\u961f")
-            || containsSequence(text, 0, endIdx, "\u7070")) {
+        if (containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "gray")
+            || containsAsciiWordIgnoreCase(text, safeStart, safeEnd, "grey")
+            || containsSequence(text, safeStart, safeEnd, "\u7070\u961f")
+            || containsSequence(text, safeStart, safeEnd, "\u7070")) {
             return TeamColor.GRAY;
         }
         return TeamColor.UNKNOWN;
     }
 
+    private static int findColonIndexRange(CharSequence text, int start, int end) {
+        for (int i = start; i < end; i++) {
+            char c = text.charAt(i);
+            if (c == ':' || c == '\uff1a') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int skipSpaces(CharSequence text, int start, int end) {
+        int i = start;
+        while (i < end && isSpaceChar(text.charAt(i))) {
+            i++;
+        }
+        return i;
+    }
+
+    private static boolean isSpaceChar(char c) {
+        return c == ' ' || c == '\t' || c == '\u00a0';
+    }
+
+    private static boolean isLocalTeamLabel(CharSequence text, int start, int end) {
+        return equalsRangeIgnoreCase(text, start, end, "\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u4f60\u7684\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u6211\u7684\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u5f53\u524d\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u6240\u5c5e\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u6240\u5728\u961f\u4f0d")
+            || equalsRangeIgnoreCase(text, start, end, "\u9635\u8425")
+            || equalsRangeIgnoreCase(text, start, end, "team")
+            || equalsRangeIgnoreCase(text, start, end, "your team");
+    }
+
+    private static boolean equalsRangeIgnoreCase(CharSequence text, int start, int end, String target) {
+        int tLen = target.length();
+        if (end - start != tLen) {
+            return false;
+        }
+        return regionMatchesIgnoreCase(text, start, target, tLen);
+    }
+
+    private static int findNextLocalTeamFieldEnd(CharSequence text, int start, int len) {
+        int best = len;
+        for (int i = start; i < best; i++) {
+            char c = text.charAt(i);
+            if (c == ':' || c == '\uff1a') {
+                best = i;
+                break;
+            }
+        }
+        best = minPositiveIndex(best, indexOfSequence(text, start, best, "\u4eba\u6570"));
+        best = minPositiveIndex(best, indexOfSequence(text, start, best, "\u5b58\u6d3b"));
+        best = minPositiveIndex(best, indexOfSequence(text, start, best, "\u6740\u654c"));
+        best = minPositiveIndex(best, indexOfSequence(text, start, best, "\u51fb\u6740"));
+        best = minPositiveIndex(best, indexOfAsciiWordIgnoreCase(text, start, best, "players"));
+        return best;
+    }
+
+    private static int minPositiveIndex(int currentBest, int candidate) {
+        if (candidate >= 0 && candidate < currentBest) {
+            return candidate;
+        }
+        return currentBest;
+    }
+
+    private static boolean isTeamStatusIcon(char c) {
+        return isCheckmarkIcon(c) || isHeartIcon(c) || isCrossOrDeadIcon(c);
+    }
+
+    private static boolean isCheckmarkIcon(char c) {
+        return c == '\u2714' || c == '\u2713' || c == '\u221a' || c == '\u2611';
+    }
+
+    private static boolean isHeartIcon(char c) {
+        return c == '\u2764' || c == '\u2665' || c == '\u2765' || c == '\u2763';
+    }
+
+    private static boolean isCrossOrDeadIcon(char c) {
+        // Explicitly exclude multiplication sign '\u00d7' (used in e.g. "资源×2").
+        return c == '\u2717'
+            || c == '\u2718'
+            || c == '\u2716'
+            || c == '\u2715'
+            || c == '\u2612'
+            || c == '\u2661';
+    }
+
+    private static boolean isTeamSeparatorPipe(char c) {
+        return c == '|' || c == '\u00a6' || c == '\u2502' || c == '\u258f' || c == '\uff5c';
+    }
+
+    private static boolean isLabelPunctuation(char c) {
+        return c == '['
+            || c == ']'
+            || c == '('
+            || c == ')'
+            || c == '\u3010'
+            || c == '\u3011'
+            || c == '\uff08'
+            || c == '\uff09'
+            || isTeamSeparatorPipe(c)
+            || c == '-'
+            || c == '/'
+            || c == ':'
+            || c == '\uff1a';
+    }
+
+    private static int findFormattingStateAtCleanIndex(CharSequence rawFormatted, int targetCleanIdx) {
+        if (rawFormatted == null || targetCleanIdx < 0) {
+            return 0;
+        }
+        int activeColor = 0;
+        boolean strikethrough = false;
+        int cleanPos = 0;
+        int rawLen = rawFormatted.length();
+        for (int i = 0; i < rawLen; i++) {
+            char c = rawFormatted.charAt(i);
+            if (c == '\u00a7') {
+                if (i + 1 < rawLen) {
+                    char code = toAsciiLower(rawFormatted.charAt(i + 1));
+                    if (code == 'r') {
+                        activeColor = 0;
+                        strikethrough = false;
+                    } else if (code == 'm') {
+                        strikethrough = true;
+                    } else if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f')) {
+                        activeColor = code;
+                        strikethrough = false;
+                    }
+                    i++;
+                }
+                continue;
+            }
+            if (cleanPos == targetCleanIdx) {
+                return activeColor | (strikethrough ? (1 << 16) : 0);
+            }
+            cleanPos++;
+        }
+        return 0;
+    }
+
+    private static boolean isDeadHeartFormatting(int formatState) {
+        if ((formatState & (1 << 16)) != 0) {
+            return true;
+        }
+        char color = (char) (formatState & 0xFFFF);
+        return color == '7' || color == '8' || color == '0';
+    }
+
+    private static boolean isStandaloneXCrossAnchor(CharSequence cleanText, int idx, int len) {
+        if (idx > 0 && isAsciiAlphaNum(cleanText.charAt(idx - 1))) {
+            return false;
+        }
+        int p = skipSpaces(cleanText, idx + 1, len);
+        if (p >= len || !isTeamSeparatorPipe(cleanText.charAt(p))) {
+            return false;
+        }
+        int q = skipSpaces(cleanText, p + 1, len);
+        return parseStandaloneIntegerEnd(cleanText, q, len) > q;
+    }
+
+    private static boolean isBarePipeCountAnchor(CharSequence cleanText, int segStart, int pipeIdx, int len) {
+        int q = skipSpaces(cleanText, pipeIdx + 1, len);
+        if (parseStandaloneIntegerEnd(cleanText, q, len) <= q) {
+            return false;
+        }
+        return detectTeamRowColor(cleanText, segStart, pipeIdx) != TeamColor.UNKNOWN;
+    }
+
+    private static boolean hasLabelContent(CharSequence text, int start, int end) {
+        for (int i = start; i < end; i++) {
+            char c = text.charAt(i);
+            if (!isSpaceChar(c) && !isLabelPunctuation(c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasMoreStatusIcons(CharSequence text, int start) {
+        int len = text.length();
+        for (int i = start; i < len; i++) {
+            if (isTeamStatusIcon(text.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int findIconFirstTrailingCount(CharSequence text, int start, int end) {
+        for (int i = start; i < end; i++) {
+            char c = text.charAt(i);
+            if (isTeamSeparatorPipe(c) || c == ':' || c == '\uff1a') {
+                int q = skipSpaces(text, i + 1, end);
+                int digitEnd = parseStandaloneIntegerEnd(text, q, end);
+                if (digitEnd > q) {
+                    return parseNonNegativeInt(text, q, digitEnd);
+                }
+            }
+        }
+        return -1;
+    }
+
+    private static int parseStandaloneIntegerEnd(CharSequence text, int start, int len) {
+        if (start < 0 || start >= len) {
+            return -1;
+        }
+        int i = start;
+        while (i < len && text.charAt(i) >= '0' && text.charAt(i) <= '9') {
+            i++;
+        }
+        if (i == start) {
+            return -1;
+        }
+        if (i < len) {
+            char next = text.charAt(i);
+            if (next == ':' || next == '\uff1a' || next == '/' || next == '.' || isAsciiLetter(next)) {
+                return -1;
+            }
+        }
+        return i;
+    }
+
+    private static int parseNonNegativeInt(CharSequence text, int start, int end) {
+        int val = 0;
+        for (int i = start; i < end; i++) {
+            val = val * 10 + (text.charAt(i) - '0');
+            if (val > 100000) {
+                return 100000;
+            }
+        }
+        return val;
+    }
+
+    private static int matchLocalMarkerEnd(CharSequence text, int start, int len) {
+        int m = skipSpaces(text, start, len);
+        if (m >= len) {
+            return -1;
+        }
+        int matched = matchWrappedMarker(text, m, len, "(", ")");
+        if (matched >= 0) {
+            return matched;
+        }
+        matched = matchWrappedMarker(text, m, len, "[", "]");
+        if (matched >= 0) {
+            return matched;
+        }
+        matched = matchWrappedMarker(text, m, len, "\uff08", "\uff09");
+        if (matched >= 0) {
+            return matched;
+        }
+        matched = matchWrappedMarker(text, m, len, "\u3010", "\u3011");
+        if (matched >= 0) {
+            return matched;
+        }
+        if (m + 3 <= len
+            && regionMatchesIgnoreCase(text, m, "you", 3)
+            && (m + 3 == len || !isAsciiLetter(text.charAt(m + 3)))) {
+            return m + 3;
+        }
+        if (text.charAt(m) == '\u4f60') {
+            return m + 1;
+        }
+        return -1;
+    }
+
+    private static int matchWrappedMarker(CharSequence text, int start, int len, String open, String close) {
+        int oLen = open.length();
+        int cLen = close.length();
+        int inner = start + oLen;
+        if (inner + 3 + cLen <= len
+            && regionMatchesIgnoreCase(text, start, open, oLen)
+            && regionMatchesIgnoreCase(text, inner, "you", 3)
+            && regionMatchesIgnoreCase(text, inner + 3, close, cLen)) {
+            return inner + 3 + cLen;
+        }
+        if (inner + 1 + cLen <= len
+            && regionMatchesIgnoreCase(text, start, open, oLen)
+            && text.charAt(inner) == '\u4f60'
+            && regionMatchesIgnoreCase(text, inner + 1, close, cLen)) {
+            return inner + 1 + cLen;
+        }
+        return -1;
+    }
+
+    private static TeamColor extractFirstTeamColorInCleanRange(
+        CharSequence rawFormatted,
+        CharSequence cleanText,
+        int start,
+        int end
+    ) {
+        if (rawFormatted == null || cleanText == null) {
+            return TeamColor.UNKNOWN;
+        }
+        for (int idx = start; idx < end; idx++) {
+            char c = cleanText.charAt(idx);
+            if (isSpaceChar(c) || isTeamStatusIcon(c) || isLabelPunctuation(c)) {
+                continue;
+            }
+            int state = findFormattingStateAtCleanIndex(rawFormatted, idx);
+            TeamColor color = TeamColor.fromChatColorChar((char) (state & 0xFFFF));
+            if (color != TeamColor.UNKNOWN) {
+                return color;
+            }
+        }
+        return TeamColor.UNKNOWN;
+    }
+
+    private static boolean containsNonTeamStatKeyword(CharSequence text, int start, int end) {
+        return containsSequence(text, start, end, "\u8840\u91cf")
+            || containsSequence(text, start, end, "\u751f\u547d")
+            || containsSequence(text, start, end, "\u9965\u997f")
+            || containsSequence(text, start, end, "\u5fc3")
+            || containsSequence(text, start, end, "\u4e8b\u4ef6")
+            || containsSequence(text, start, end, "\u65f6\u95f4")
+            || containsSequence(text, start, end, "\u4eba\u6570")
+            || containsSequence(text, start, end, "\u5730\u56fe")
+            || containsSequence(text, start, end, "\u6740\u654c")
+            || containsSequence(text, start, end, "\u51fb\u6740")
+            || containsAsciiWordIgnoreCase(text, start, end, "health")
+            || containsAsciiWordIgnoreCase(text, start, end, "hp")
+            || containsAsciiWordIgnoreCase(text, start, end, "food")
+            || containsAsciiWordIgnoreCase(text, start, end, "hunger")
+            || containsAsciiWordIgnoreCase(text, start, end, "kills")
+            || containsAsciiWordIgnoreCase(text, start, end, "wins");
+    }
+
     private static boolean containsAsciiWordIgnoreCase(CharSequence haystack, int start, int end, String needle) {
+        return indexOfAsciiWordIgnoreCase(haystack, start, end, needle) >= 0;
+    }
+
+    private static int indexOfAsciiWordIgnoreCase(CharSequence haystack, int start, int end, String needle) {
         int nLen = needle.length();
         if (end - start < nLen) {
-            return false;
+            return -1;
         }
         int limit = end - nLen;
         for (int i = start; i <= limit; i++) {
@@ -2348,19 +3047,23 @@ public final class BedWarsContext {
             int after = i + nLen;
             boolean rightOk = after == end || !isAsciiLetter(haystack.charAt(after));
             if (leftOk && rightOk) {
-                return true;
+                return i;
             }
         }
-        return false;
+        return -1;
     }
 
     private static boolean containsSequence(CharSequence haystack, int start, int end, String needle) {
+        return indexOfSequence(haystack, start, end, needle) >= 0;
+    }
+
+    private static int indexOfSequence(CharSequence haystack, int start, int end, String needle) {
         int nLen = needle.length();
         if (nLen == 0) {
-            return true;
+            return start;
         }
         if (end - start < nLen) {
-            return false;
+            return -1;
         }
         int limit = end - nLen;
         for (int i = start; i <= limit; i++) {
@@ -2372,10 +3075,14 @@ public final class BedWarsContext {
                 }
             }
             if (match) {
-                return true;
+                return i;
             }
         }
-        return false;
+        return -1;
+    }
+
+    private static boolean isAsciiAlphaNum(char c) {
+        return isAsciiLetter(c) || (c >= '0' && c <= '9');
     }
 
     private static boolean isAsciiLetter(char c) {
@@ -2391,6 +3098,10 @@ public final class BedWarsContext {
     }
 
     private static TeamColor detectTeamMention(CharSequence text) {
+        TeamColor beforeBed = detectChineseTeamBeforeBedKeyword(text);
+        if (beforeBed != TeamColor.UNKNOWN) {
+            return beforeBed;
+        }
         if (containsIgnoreCase(text, "red") || containsSequence(text, "\u7ea2\u961f")) {
             return TeamColor.RED;
         }
@@ -2417,6 +3128,59 @@ public final class BedWarsContext {
             return TeamColor.GRAY;
         }
         return TeamColor.UNKNOWN;
+    }
+
+    private static TeamColor detectChineseTeamBeforeBedKeyword(CharSequence text) {
+        if (text == null) {
+            return TeamColor.UNKNOWN;
+        }
+        int len = text.length();
+        int earliest = len;
+        earliest = minPositiveIndex(earliest, indexOfSequence(text, 0, earliest, "\u7684\u5e8a"));
+        earliest = minPositiveIndex(earliest, indexOfSequence(text, 0, earliest, "\u5e8a\u88ab"));
+        earliest = minPositiveIndex(earliest, indexOfSequence(text, 0, earliest, "\u5e8a\u5df2"));
+        if (earliest >= len) {
+            return TeamColor.UNKNOWN;
+        }
+
+        int pos = earliest - 1;
+        while (pos >= 0) {
+            char c = text.charAt(pos);
+            if (isSpaceChar(c)
+                || c == ']'
+                || c == '\u3011'
+                || c == ')'
+                || c == '\uff09'
+                || c == '\u961f') {
+                pos--;
+                continue;
+            }
+            return fromChineseColorChar(c);
+        }
+        return TeamColor.UNKNOWN;
+    }
+
+    private static TeamColor fromChineseColorChar(char c) {
+        switch (c) {
+            case '\u7ea2':
+                return TeamColor.RED;
+            case '\u84dd':
+                return TeamColor.BLUE;
+            case '\u7eff':
+                return TeamColor.GREEN;
+            case '\u9ec4':
+                return TeamColor.YELLOW;
+            case '\u9752':
+                return TeamColor.AQUA;
+            case '\u767d':
+                return TeamColor.WHITE;
+            case '\u7c89':
+                return TeamColor.PINK;
+            case '\u7070':
+                return TeamColor.GRAY;
+            default:
+                return TeamColor.UNKNOWN;
+        }
     }
 
     private static boolean containsIgnoreCase(CharSequence haystack, String needle) {
