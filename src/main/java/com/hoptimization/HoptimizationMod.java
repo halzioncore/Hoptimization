@@ -33,7 +33,7 @@ import java.io.File;
 public class HoptimizationMod {
     public static final String MODID = "hoptimization";
     public static final String NAME = "Hoptimization";
-    public static final String VERSION = "0.15.0";
+    public static final String VERSION = "0.16.0";
     public static final Logger LOGGER = LogManager.getLogger(NAME);
 
     private static ModuleManager moduleManager;

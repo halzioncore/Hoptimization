@@ -14,25 +14,32 @@ void main() {
     vec3 N = normalize(v_Normal);
     vec3 V = normalize(v_ViewDir);
     float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
-    float fresnel = pow(1.0 - ndotv, 2.15);
+    float fresnel = pow(1.0 - ndotv, 2.0);
 
-    // Smooth 3D topographic elevation field (mechanical-keyboard contour style)
-    vec3 p = v_ModelPos * 0.14;
-    float elevation = p.y * 0.85
-        + sin(p.x * 2.3 + p.z * 1.7 + u_FlowPhase * 0.65) * 0.45
-        + cos(p.z * 2.1 - p.x * 1.4 - u_FlowPhase * 0.45) * 0.40
-        + sin((p.x + p.y) * 1.55 + u_FlowPhase * 0.35) * 0.25;
+    // Dense 3D domain-warped topographic contour cracks across head, torso, and limbs
+    vec3 p = v_ModelPos * 0.52;
+    vec3 w = p + vec3(
+        sin(p.y * 1.9 + p.z * 1.4 + u_FlowPhase * 0.45) * 0.65,
+        cos(p.z * 1.8 - p.x * 1.5 - u_FlowPhase * 0.35) * 0.65,
+        sin(p.x * 1.7 + p.y * 1.6 + u_FlowPhase * 0.40) * 0.65
+    );
+    float field = sin(w.x * 1.35 + w.y * 0.95) * 0.55
+                + cos(w.y * 1.65 - w.z * 1.25) * 0.45
+                + sin((w.x + w.z) * 2.15 + w.y * 0.70) * 0.30;
 
-    float phase = elevation * u_Density + u_FlowPhase * 0.14;
-    float distToLine = abs(fract(phase) - 0.5);
-    float contour = 1.0 - smoothstep(0.032, 0.115, distToLine);
-    float contourHalo = (1.0 - smoothstep(0.05, 0.26, distToLine)) * 0.35;
+    float phase = field * (u_Density * 2.1) + u_FlowPhase * 0.12;
+    float dist = abs(fract(phase) - 0.5);
 
-    float lineAlpha = (contour * 0.88 + contourHalo) * (0.45 + 0.55 * u_GlowStrength);
-    float rimAlpha = fresnel * (0.55 * u_GlowStrength + 0.20);
-    float alpha = clamp(u_FillAlpha + lineAlpha + rimAlpha, 0.0, 0.96);
+    // Razor-sharp luminous crack filament + soft surrounding glow
+    float filament = 1.0 - smoothstep(0.015, 0.068, dist);
+    float lineGlow = (1.0 - smoothstep(0.040, 0.220, dist)) * 0.48;
 
-    vec3 brightLine = mix(u_Color, vec3(1.0), 0.38);
-    vec3 rgb = mix(u_Color * 0.82, brightLine, clamp(contour * 0.85 + fresnel * 0.45, 0.0, 1.0));
+    float lineAlpha = (filament * 0.95 + lineGlow) * (0.45 + 0.55 * u_GlowStrength);
+    float rimAlpha = fresnel * (0.62 * u_GlowStrength + 0.22);
+    float alpha = clamp(u_FillAlpha + lineAlpha + rimAlpha, 0.0, 0.98);
+
+    vec3 haloColor = mix(u_Color, vec3(1.0), 0.32);
+    vec3 coreColor = mix(u_Color, vec3(1.0), 0.74);
+    vec3 rgb = mix(haloColor, coreColor, clamp(filament * 0.92 + fresnel * 0.35, 0.0, 1.0));
     gl_FragColor = vec4(rgb, alpha);
 }

@@ -116,7 +116,7 @@ setting.hoptimization.modern_inventory.show_potions.name=Show Potion Cards
 setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=Modern Main Menu
 setting.hoptimization.modern_vanilla_ui.modern_buttons.name=Modern Buttons & Sliders
 setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=Modern Menu Backgrounds
-setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Interactive Water Ripples
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Ambient Flow & Motes
 
 # Settings - Atmosphere
 setting.hoptimization.atmosphere.sky_preset.name=Abstract Sky

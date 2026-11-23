@@ -110,11 +110,17 @@ public final class ChamsRenderer {
             GL11.glCullFace(GL11.GL_FRONT);
             GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 
-            float outerAlpha1 = (occludedPass ? 0.12F : 0.16F) * glow;
-            float outerAlpha2 = (occludedPass ? 0.06F : 0.08F) * glow;
+            float outerAlpha1 = (occludedPass ? 0.14F : 0.19F) * glow;
+            float outerAlpha2 = (occludedPass ? 0.08F : 0.11F) * glow;
+            float outerAlpha3 = (occludedPass ? 0.04F : 0.055F) * glow;
 
-            drawScaledSilhouette(drawCallback, 1.032F, 1.016F, 1.032F, r, g, b, outerAlpha1);
-            drawScaledSilhouette(drawCallback, 1.068F, 1.034F, 1.068F, r, g, b, outerAlpha2);
+            float wr = Math.min(1.0F, r + (1.0F - r) * 0.45F);
+            float wg = Math.min(1.0F, g + (1.0F - g) * 0.45F);
+            float wb = Math.min(1.0F, b + (1.0F - b) * 0.45F);
+
+            drawScaledSilhouette(drawCallback, 1.028F, 1.014F, 1.028F, wr, wg, wb, outerAlpha1);
+            drawScaledSilhouette(drawCallback, 1.060F, 1.030F, 1.060F, r, g, b, outerAlpha2);
+            drawScaledSilhouette(drawCallback, 1.096F, 1.048F, 1.096F, r, g, b, outerAlpha3);
 
             GL11.glCullFace(GL11.GL_BACK);
         }

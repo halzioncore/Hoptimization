@@ -18,7 +18,7 @@ public class UiConfig {
     public static final String DEFAULT_THEME_ID = "obsidian_gold";
     public static final String DEFAULT_DISPLAY_STYLE = "standard";
     public static final float DEFAULT_BLUR_STRENGTH = 12.0f;
-    public static final float MIN_BLUR_STRENGTH = 4.0f;
+    public static final float MIN_BLUR_STRENGTH = 0.0f;
     public static final float MAX_BLUR_STRENGTH = 24.0f;
     public static final float MIN_UI_SCALE_MULTIPLIER = 0.1f;
     public static final float MAX_UI_SCALE_MULTIPLIER = 2.0f;

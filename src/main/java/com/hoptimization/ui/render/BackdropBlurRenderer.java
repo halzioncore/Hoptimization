@@ -113,7 +113,7 @@ public final class BackdropBlurRenderer {
             return false;
         }
 
-        float clampedStrength = blurStrength < 2.0f ? 2.0f : (blurStrength > 32.0f ? 32.0f : blurStrength);
+        float clampedStrength = blurStrength <= 0.0f ? 0.0f : (blurStrength > 32.0f ? 32.0f : blurStrength);
         // Scale down to half-res texel space and distribute across 2 ping-pong cycles for smooth results.
         float pass1Radius = clampedStrength * 0.22f;
         float pass2Radius = clampedStrength * 0.36f;

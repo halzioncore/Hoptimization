@@ -41,13 +41,13 @@ public class Chams extends Module {
                 new BooleanSetting("through_walls", "setting.hoptimization.chams.through_walls.name", false)
                         .visibleWhen(HoptimizationMod::isCheatModeEnabled));
         this.contourDensity = addSetting(
-                new NumberSetting("contour_density", "setting.hoptimization.chams.contour_density.name", 2.4, 0.8, 5.0, 0.2));
+                new NumberSetting("contour_density", "setting.hoptimization.chams.contour_density.name", 2.8, 1.0, 6.0, 0.2));
         this.contourFlow = addSetting(
                 new BooleanSetting("contour_flow", "setting.hoptimization.chams.contour_flow.name", true));
         this.glowStrength = addSetting(
-                new NumberSetting("glow_strength", "setting.hoptimization.chams.glow_strength.name", 0.85, 0.2, 1.5, 0.05));
+                new NumberSetting("glow_strength", "setting.hoptimization.chams.glow_strength.name", 0.90, 0.2, 1.5, 0.05));
         this.fillOpacity = addSetting(
-                new NumberSetting("fill_opacity", "setting.hoptimization.chams.fill_opacity.name", 0.14, 0.0, 0.45, 0.02));
+                new NumberSetting("fill_opacity", "setting.hoptimization.chams.fill_opacity.name", 0.08, 0.0, 0.45, 0.02));
         this.followTheme = addSetting(
                 new BooleanSetting("follow_theme", "setting.hoptimization.chams.follow_theme.name", true));
         this.color = addSetting(

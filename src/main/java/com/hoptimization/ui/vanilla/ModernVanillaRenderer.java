@@ -2,9 +2,9 @@ package com.hoptimization.ui.vanilla;
 
 import com.hoptimization.HoptimizationMod;
 import com.hoptimization.modules.visual.ModernVanillaUI;
+import com.hoptimization.ui.render.AmbientBackgroundRenderer;
 import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.RenderUtil;
-import com.hoptimization.ui.render.WaterRippleRenderer;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
 import com.hoptimization.ui.theme.ThemeMode;
@@ -57,9 +57,10 @@ public final class ModernVanillaRenderer {
         ThemeData theme = ThemeManager.current();
         boolean isLight = theme.getMode() == ThemeMode.LIGHT;
 
-        // Clean atmospheric gradient / top-down interactive water surface.
-        if (!ModernVanillaUI.isWaveStripesEnabled()
-            || !WaterRippleRenderer.renderWaterBackground(w, h, mouseX, mouseY, theme)) {
+        // Clean atmospheric gradient with lightweight 2D flowing lines and light motes.
+        if (ModernVanillaUI.isWaveStripesEnabled()) {
+            AmbientBackgroundRenderer.renderBackground(w, h, mouseX, mouseY, theme);
+        } else {
             RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
         }
 
@@ -171,8 +172,9 @@ public final class ModernVanillaRenderer {
                 guiMouseX = Mouse.getX() * sr.getScaledWidth() / Math.max(1, Minecraft.getMinecraft().displayWidth);
                 guiMouseY = sr.getScaledHeight() - Mouse.getY() * sr.getScaledHeight() / Math.max(1, Minecraft.getMinecraft().displayHeight) - 1;
             }
-            if (!ModernVanillaUI.isWaveStripesEnabled()
-                || !WaterRippleRenderer.renderWaterBackground(w, h, guiMouseX, guiMouseY, theme)) {
+            if (ModernVanillaUI.isWaveStripesEnabled()) {
+                AmbientBackgroundRenderer.renderBackground(w, h, guiMouseX, guiMouseY, theme);
+            } else {
                 RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
             }
             int subtleGlow = RenderUtil.withAlpha(theme.accent(), theme.getMode() == ThemeMode.LIGHT ? 0.08f : 0.06f);

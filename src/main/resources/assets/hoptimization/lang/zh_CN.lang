@@ -116,7 +116,7 @@ setting.hoptimization.modern_inventory.show_potions.name=显示药水卡片
 setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=现代开始界面
 setting.hoptimization.modern_vanilla_ui.modern_buttons.name=现代按钮与滑块
 setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=现代设置背景
-setting.hoptimization.modern_vanilla_ui.wave_stripes.name=俯视交互水波
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=流光微粒背景
 
 # 设置 - 氛围改变器
 setting.hoptimization.atmosphere.sky_preset.name=抽象天空预设
