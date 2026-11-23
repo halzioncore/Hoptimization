@@ -181,8 +181,8 @@ public class ConfigManager {
         ensureDirectories();
         bindClickGuiListeners();
         boolean uiExisted = Files.exists(this.uiConfigFile);
-        loadUiConfig();
-        boolean needSaveUi = !uiExisted;
+        boolean migratedScaleSchema = loadUiConfig();
+        boolean needSaveUi = !uiExisted || migratedScaleSchema;
 
         String requestedProfile = this.uiConfig.getActiveProfile();
         if (!isValidProfileName(requestedProfile)) {
@@ -220,6 +220,10 @@ public class ConfigManager {
         }
 
         loadProfileIntoModules(this.uiConfig.getActiveProfile());
+        if (migratedScaleSchema) {
+            syncClickGuiFromUiConfigInternal();
+            saveActiveProfileAsync();
+        }
         if (needSaveUi) {
             saveUiConfigAsync();
         }
@@ -649,27 +653,30 @@ public class ConfigManager {
         }
     }
 
-    private void loadUiConfig() {
+    private boolean loadUiConfig() {
         this.uiConfig.resetToDefaults();
         if (!Files.exists(this.uiConfigFile)) {
-            return;
+            return false;
         }
         JsonObject root = readJsonObject(this.uiConfigFile, "ui.json");
         if (root == null) {
-            return;
+            return false;
         }
 
+        int loadedSchema = 1;
         Integer schema = readInt(root, "schema", "ui.json");
         if (schema != null) {
-            if (schema.intValue() > UiConfig.CURRENT_SCHEMA) {
+            loadedSchema = schema.intValue();
+            if (loadedSchema > UiConfig.CURRENT_SCHEMA) {
                 HoptimizationMod.LOGGER.warn(
                     "ui.json schema {} is newer than supported schema {}, attempting best-effort load",
                     schema,
                     Integer.valueOf(UiConfig.CURRENT_SCHEMA)
                 );
             }
-            this.uiConfig.setSchema(schema.intValue());
+            this.uiConfig.setSchema(loadedSchema);
         }
+        boolean migratedScaleSchema = loadedSchema < 2;
 
         String activeProfile = readString(root, "activeProfile", "ui.json");
         if (activeProfile != null) {
@@ -681,6 +688,16 @@ public class ConfigManager {
             this.uiConfig.setThemeId(themeId);
         }
 
+        String displayStyle = readString(root, "displayStyle", "ui.json");
+        if (displayStyle != null) {
+            this.uiConfig.setDisplayStyle(displayStyle);
+        }
+
+        Double blurStrength = readNumber(root, "blurStrength", "ui.json");
+        if (blurStrength != null) {
+            this.uiConfig.setBlurStrength(blurStrength.floatValue());
+        }
+
         String accentOverride = readString(root, "accentOverride", "ui.json");
         if (accentOverride != null) {
             if (!accentOverride.trim().isEmpty() && ColorSetting.parseHexColor(accentOverride, true) == null) {
@@ -690,14 +707,21 @@ public class ConfigManager {
             }
         }
 
-        Double uiScale = readNumber(root, "uiScaleMultiplier", "ui.json");
-        if (uiScale != null) {
-            this.uiConfig.setUiScaleMultiplier(uiScale.floatValue());
-        }
+        if (migratedScaleSchema) {
+            // Re-baseline schema 1 scales so the new 1.0x (= old 2.0x) default takes effect cleanly.
+            this.uiConfig.setUiScaleMultiplier(1.0f);
+            this.uiConfig.setClickGuiScale(UiConfig.DEFAULT_CLICK_GUI_SCALE);
+            this.uiConfig.setSchema(UiConfig.CURRENT_SCHEMA);
+        } else {
+            Double uiScale = readNumber(root, "uiScaleMultiplier", "ui.json");
+            if (uiScale != null) {
+                this.uiConfig.setUiScaleMultiplier(uiScale.floatValue());
+            }
 
-        Double clickGuiScale = readNumber(root, "clickGuiScale", "ui.json");
-        if (clickGuiScale != null) {
-            this.uiConfig.setClickGuiScale(clickGuiScale.floatValue());
+            Double clickGuiScale = readNumber(root, "clickGuiScale", "ui.json");
+            if (clickGuiScale != null) {
+                this.uiConfig.setClickGuiScale(clickGuiScale.floatValue());
+            }
         }
 
         Boolean reduceMotion = readBoolean(root, "reduceMotion", "ui.json");
@@ -758,6 +782,7 @@ public class ConfigManager {
                 }
             }
         }
+        return migratedScaleSchema;
     }
 
     private void loadProfileIntoModules(String profileName) {
@@ -1063,6 +1088,8 @@ public class ConfigManager {
         root.addProperty("schema", Integer.valueOf(snapshot.getSchema()));
         root.addProperty("activeProfile", snapshot.getActiveProfile());
         root.addProperty("themeId", snapshot.getThemeId());
+        root.addProperty("displayStyle", snapshot.getDisplayStyle());
+        root.addProperty("blurStrength", Float.valueOf(snapshot.getBlurStrength()));
         root.addProperty("accentOverride", snapshot.getAccentOverride());
         root.addProperty("uiScaleMultiplier", Float.valueOf(snapshot.getUiScaleMultiplier()));
         root.addProperty("clickGuiScale", Float.valueOf(snapshot.getClickGuiScale()));

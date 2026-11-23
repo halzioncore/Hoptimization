@@ -275,18 +275,62 @@ public class Keystrokes extends Module implements HudElement {
     ) {
         anim.setTarget(pressed ? 1.0f : 0.0f);
         float t = anim.get();
+        float radius = theme.radiusControl();
+        boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
+        boolean frosted = com.hoptimization.ui.theme.ThemeManager.isFrostedGlass();
 
-        int bg = ColorAnimation.lerpArgb(theme.hudBackground(), theme.accent(), t);
-        int border = ColorAnimation.lerpArgb(theme.border(), theme.accent(), t);
-        int fg = ColorAnimation.lerpArgb(theme.textPrimary(), theme.textOnAccent(), t);
+        // Soft outer luminous bloom/halo when pressed.
+        if (t > 0.01f) {
+            int bloomColor = RenderUtil.withAlpha(theme.accent(), (isLight ? 0.34f : 0.44f) * t);
+            RenderUtil.drawShadow(x, y, width, height, radius, 11.0f, bloomColor);
+        }
 
-        RenderUtil.drawRoundedRect(
-            x, y, width, height,
-            theme.radiusControl(),
-            bg,
-            border,
-            UiTokens.BORDER_WIDTH
-        );
+        int glowBorder = RenderUtil.withAlpha(theme.accent(), 0.92f);
+        if (frosted) {
+            int baseGlassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.56f : 0.46f);
+            int pressedGlassRgb = ColorAnimation.lerpArgb(theme.surface0(), theme.accent(), isLight ? 0.28f : 0.34f);
+            int pressedGlassTint = RenderUtil.withAlpha(pressedGlassRgb, isLight ? 0.64f : 0.56f);
+            int glassTint = ColorAnimation.lerpArgb(baseGlassTint, pressedGlassTint, t);
+            int baseGlassBorder = isLight ? theme.borderStrong() : 0x36FFFFFF;
+            int glassBorder = ColorAnimation.lerpArgb(baseGlassBorder, glowBorder, t);
+            float highlight = (isLight ? 0.14f : 0.10f) + 0.14f * t;
+            RenderUtil.drawFrostedRoundedRect(
+                x, y, width, height,
+                radius,
+                glassTint,
+                glassBorder,
+                UiTokens.BORDER_WIDTH,
+                highlight,
+                1.0f
+            );
+        } else {
+            int pressedSoftBg = ColorAnimation.lerpArgb(theme.hudBackground(), theme.accent(), isLight ? 0.24f : 0.30f);
+            int bg = ColorAnimation.lerpArgb(theme.hudBackground(), pressedSoftBg, t);
+            int border = ColorAnimation.lerpArgb(theme.border(), glowBorder, t);
+            RenderUtil.drawRoundedRect(
+                x, y, width, height,
+                radius,
+                bg,
+                border,
+                UiTokens.BORDER_WIDTH
+            );
+        }
+
+        // Subtle inner backlit glow wash so the key feels softly illuminated from within.
+        if (t > 0.01f) {
+            int innerGlow = RenderUtil.withAlpha(theme.accent(), (isLight ? 0.12f : 0.16f) * t);
+            RenderUtil.drawRoundedRect(
+                x + 1.0f, y + 1.0f,
+                Math.max(0.0f, width - 2.0f), Math.max(0.0f, height - 2.0f),
+                Math.max(0.0f, radius - 1.0f),
+                innerGlow
+            );
+        }
+
+        int pressedFg = isLight
+            ? ColorAnimation.lerpArgb(theme.textPrimary(), theme.accent(), 0.72f)
+            : ColorAnimation.lerpArgb(0xFFFFFFFF, theme.accent(), 0.16f);
+        int fg = ColorAnimation.lerpArgb(theme.textPrimary(), pressedFg, t);
 
         float centerX = x + width * 0.5f;
         if (subLabel == null || subLabel.isEmpty()) {

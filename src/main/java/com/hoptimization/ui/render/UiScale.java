@@ -5,19 +5,21 @@ import org.lwjgl.opengl.Display;
 
 /**
  * Independent UI logical-to-physical scale system decoupled from Minecraft's GUI Scale.
- * Computes {@code clamp(displayHeight / 1080.0f * userMultiplier, 0.75f, 2.5f)}.
+ * Computes {@code clamp(displayHeight / 1080.0f * userMultiplier * 2.0f, 0.15f, 5.0f)},
+ * making the new {@code 1.0x} match the previous {@code 2.0x} visual size.
  */
 public final class UiScale {
-    public static final float MIN_SCALE = 0.75f;
-    public static final float MAX_SCALE = 2.5f;
+    public static final float MIN_SCALE = 0.15f;
+    public static final float MAX_SCALE = 5.0f;
     public static final float BASE_HEIGHT = 1080.0f;
+    public static final float BASE_SCALE_FACTOR = 2.0f;
     public static final float DEFAULT_MULTIPLIER = 1.0f;
-    public static final float DEFAULT_CLICKGUI_MULTIPLIER = 1.25f;
-    public static final float MIN_CLICKGUI_MULTIPLIER = 0.75f;
+    public static final float DEFAULT_CLICKGUI_MULTIPLIER = 1.0f;
+    public static final float MIN_CLICKGUI_MULTIPLIER = 0.1f;
     public static final float MAX_CLICKGUI_MULTIPLIER = 2.0f;
 
     private static final float[] PRESET_MULTIPLIERS = new float[] {
-        0.8f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f
+        0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f
     };
 
     private static volatile float userMultiplier = DEFAULT_MULTIPLIER;
@@ -59,7 +61,7 @@ public final class UiScale {
             ? DEFAULT_MULTIPLIER
             : multiplier;
         float safeHeight = Math.max(0, displayHeight);
-        float raw = (safeHeight / BASE_HEIGHT) * safeMultiplier;
+        float raw = (safeHeight / BASE_HEIGHT) * safeMultiplier * BASE_SCALE_FACTOR;
         if (raw <= MIN_SCALE) {
             return MIN_SCALE;
         }

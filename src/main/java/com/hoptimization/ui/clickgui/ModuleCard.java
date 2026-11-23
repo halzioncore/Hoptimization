@@ -432,21 +432,25 @@ public final class ModuleCard {
         float effMouseY = available ? mouseY : -99999.0f;
 
         float cardRadius = theme.radiusCard();
+        boolean frosted = com.hoptimization.ui.theme.ThemeManager.isFrostedGlass();
+        float surfaceAlpha = frosted
+            ? (cardAlpha * (theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT ? 0.68f : 0.58f))
+            : cardAlpha;
         if (this.currentBodyH < 1.0f) {
             int bg = ColorAnimation.lerpArgb(theme.surface2(), theme.surface3(), hoverT);
-            RenderUtil.drawRoundedRect(x, y, width, this.layoutH, cardRadius, RenderUtil.withAlpha(bg, cardAlpha));
+            RenderUtil.drawRoundedRect(x, y, width, this.layoutH, cardRadius, RenderUtil.withAlpha(bg, surfaceAlpha));
         } else {
             RenderUtil.drawRoundedRect(
                 x, y, width, this.layoutH,
                 cardRadius,
-                RenderUtil.withAlpha(theme.surface2(), cardAlpha)
+                RenderUtil.withAlpha(theme.surface2(), surfaceAlpha)
             );
             if (hoverT > 0.005f) {
                 int headerBg = ColorAnimation.lerpArgb(theme.surface2(), theme.surface3(), hoverT);
                 RenderUtil.drawRoundedRect(
                     x, y, width, Math.min(this.layoutH, COLLAPSED_HEIGHT),
                     cardRadius, cardRadius, 0.0f, 0.0f,
-                    RenderUtil.withAlpha(headerBg, cardAlpha)
+                    RenderUtil.withAlpha(headerBg, surfaceAlpha)
                 );
             }
         }
@@ -458,11 +462,14 @@ public final class ModuleCard {
             renderExpandedBody(x, y, width, effMouseX, effMouseY, cardAlpha, expandT, theme, tooltipManager);
         }
 
-        if (theme.style().isCardBorder()) {
+        if (frosted || theme.style().isCardBorder()) {
+            int borderColor = frosted
+                ? RenderUtil.withAlpha(theme.borderStrong(), cardAlpha * 0.85f)
+                : RenderUtil.withAlpha(theme.border(), cardAlpha);
             RenderUtil.drawRoundedBorder(
                 x, y, width, this.layoutH,
                 cardRadius, UiTokens.BORDER_WIDTH,
-                RenderUtil.withAlpha(theme.border(), cardAlpha)
+                borderColor
             );
         }
     }

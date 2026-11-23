@@ -16,7 +16,15 @@ module.hoptimization.combo_counter.desc=Tracks and displays consecutive melee hi
 
 # Modules - Visual
 module.hoptimization.theme.name=Theme
-module.hoptimization.theme.desc=Switch the global visual theme palette for ClickGUI and HUD
+module.hoptimization.theme.desc=Switch the global visual theme palette and surface display style for ClickGUI and HUD
+module.hoptimization.modern_font.name=Modern Font
+module.hoptimization.modern_font.desc=Replaces vanilla game text globally with a high-resolution anti-aliased modern font
+module.hoptimization.modern_inventory.name=Modern Inventory
+module.hoptimization.modern_inventory.desc=Replaces vanilla inventory and container backgrounds with a clean, restrained theme-matched UI
+module.hoptimization.modern_vanilla_ui.name=Modern Vanilla UI
+module.hoptimization.modern_vanilla_ui.desc=Styles the Minecraft start screen, options menus, buttons, and sliders to match your active theme
+module.hoptimization.atmosphere.name=Atmosphere
+module.hoptimization.atmosphere.desc=Customizes sky palettes, melancholy rain weather, and a soft anti-glare display filter
 module.hoptimization.low_fire.name=Low Fire
 module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
 module.hoptimization.block_outline.name=Block Outline
@@ -75,6 +83,56 @@ setting.hoptimization.theme.theme.option.sunset_amber=Sunset Amber
 setting.hoptimization.theme.theme.option.starlight_indigo=Starlight Indigo
 setting.hoptimization.theme.theme.option.arctic_frost=Arctic Frost
 setting.hoptimization.theme.theme.option.lavender_mist=Lavender Mist
+setting.hoptimization.theme.display_style.name=Display Style
+setting.hoptimization.theme.display_style.option.standard=Standard
+setting.hoptimization.theme.display_style.option.frosted_glass=Frosted Glass
+setting.hoptimization.theme.blur_strength.name=Blur Strength
+
+# Settings - Modern Font
+setting.hoptimization.modern_font.family.name=Font Family
+setting.hoptimization.modern_font.family.option.crisp_system=Crisp System
+setting.hoptimization.modern_font.family.option.google_sans=Google Sans
+setting.hoptimization.modern_font.family.option.inter=Inter
+setting.hoptimization.modern_font.weight.name=Weight
+setting.hoptimization.modern_font.weight.option.regular=Regular
+setting.hoptimization.modern_font.weight.option.medium=Medium
+setting.hoptimization.modern_font.weight.option.semibold=SemiBold
+setting.hoptimization.modern_font.scale.name=Font Scale
+setting.hoptimization.modern_font.shadow.name=Shadow Style
+setting.hoptimization.modern_font.shadow.option.modern=Modern Soft
+setting.hoptimization.modern_font.shadow.option.vanilla=Vanilla
+setting.hoptimization.modern_font.shadow.option.off=Off
+
+# Settings - Modern Inventory
+setting.hoptimization.modern_inventory.frosted_backdrop.name=Frosted Backdrop
+setting.hoptimization.modern_inventory.slot_style.name=Slot Style
+setting.hoptimization.modern_inventory.slot_style.option.soft=Soft Fill
+setting.hoptimization.modern_inventory.slot_style.option.outlined=Outlined
+setting.hoptimization.modern_inventory.show_potions.name=Show Potion Cards
+
+# Settings - Modern Vanilla UI
+setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=Modern Main Menu
+setting.hoptimization.modern_vanilla_ui.modern_buttons.name=Modern Buttons & Sliders
+setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=Modern Menu Backgrounds
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Interactive Wave Stripes
+
+# Settings - Atmosphere
+setting.hoptimization.atmosphere.sky_preset.name=Abstract Sky
+setting.hoptimization.atmosphere.sky_preset.option.off=Off (Vanilla)
+setting.hoptimization.atmosphere.sky_preset.option.melancholy_dusk=Melancholy Dusk
+setting.hoptimization.atmosphere.sky_preset.option.misty_slate=Misty Slate
+setting.hoptimization.atmosphere.sky_preset.option.midnight_indigo=Midnight Indigo
+setting.hoptimization.atmosphere.sky_preset.option.soft_overcast=Soft Overcast
+setting.hoptimization.atmosphere.sky_preset.option.theme_accent=Theme Accent
+setting.hoptimization.atmosphere.show_stars.name=Minimal Starlight
+setting.hoptimization.atmosphere.weather.name=Custom 3D Rain
+setting.hoptimization.atmosphere.weather.option.off=Off (Vanilla)
+setting.hoptimization.atmosphere.weather.option.light_rain=Light Rain
+setting.hoptimization.atmosphere.weather.option.heavy_rain=Heavy Rain
+setting.hoptimization.atmosphere.show_ripples.name=Ground Splash Ripples
+setting.hoptimization.atmosphere.soft_display.name=Soft Anti-Glare
+setting.hoptimization.atmosphere.soft_strength.name=Softness
+setting.hoptimization.atmosphere.soft_fog.name=Soft Rain Fog
 
 # Settings - Low Fire
 setting.hoptimization.low_fire.height.name=Height
@@ -228,6 +286,10 @@ module.hoptimization.coordinates.name=Coordinates
 module.hoptimization.coordinates.desc=Displays player coordinates, facing direction, and current biome
 module.hoptimization.keystrokes.name=Keystrokes
 module.hoptimization.keystrokes.desc=Displays movement, mouse clicks, and spacebar key presses
+module.hoptimization.scoreboard.name=Modern Scoreboard
+module.hoptimization.scoreboard.desc=Replaces the vanilla sidebar scoreboard with a soft modern card or frosted glass HUD
+module.hoptimization.potion_hud.name=Potion Effects
+module.hoptimization.potion_hud.desc=Displays active potion effects as sleek modern cards with circular remaining-time progress rings
 
 # Settings - Auto Clicker
 setting.hoptimization.auto_clicker.left_click.name=Left Click
@@ -294,6 +356,7 @@ setting.hoptimization.target_hud.style.option.text=Plain Text
 setting.hoptimization.fps_display.style.name=Style
 setting.hoptimization.fps_display.style.option.card=Card
 setting.hoptimization.fps_display.style.option.text=Plain Text
+setting.hoptimization.fps_display.show_ping.name=Show Ping
 
 setting.hoptimization.coordinates.show_facing.name=Show Facing
 setting.hoptimization.coordinates.show_biome.name=Show Biome
@@ -304,6 +367,18 @@ setting.hoptimization.coordinates.style.option.text=Plain Text
 setting.hoptimization.keystrokes.show_mouse.name=Show Mouse
 setting.hoptimization.keystrokes.show_space.name=Show Space
 setting.hoptimization.keystrokes.show_cps.name=Show CPS
+
+setting.hoptimization.scoreboard.style.name=Style
+setting.hoptimization.scoreboard.style.option.card=Card
+setting.hoptimization.scoreboard.style.option.text=Plain Text
+setting.hoptimization.scoreboard.hide_numbers.name=Hide Red Numbers
+setting.hoptimization.scoreboard.text_shadow.name=Text Shadow
+
+setting.hoptimization.potion_hud.style.name=Style
+setting.hoptimization.potion_hud.style.option.card=Card
+setting.hoptimization.potion_hud.style.option.text=Plain Text
+setting.hoptimization.potion_hud.use_potion_color.name=Potion Color Ring
+setting.hoptimization.potion_hud.show_ambient.name=Show Beacon Effects
 
 # HUD Editor & Runtime Strings
 ui.hoptimization.hud_editor.title=HUD Layout

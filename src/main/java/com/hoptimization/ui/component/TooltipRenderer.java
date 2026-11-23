@@ -118,20 +118,40 @@ public final class TooltipRenderer {
         }
 
         float radius = theme.radiusControl();
-        RenderUtil.drawRoundedRectWithShadow(
-            drawX,
-            drawY,
-            boxWidth,
-            boxHeight,
-            radius,
-            RenderUtil.withAlpha(theme.surface4(), alpha),
-            RenderUtil.withAlpha(theme.border(), alpha),
-            UiTokens.BORDER_WIDTH,
-            0.0f,
-            UiTokens.SHADOW_POPUP_OFFSET_Y,
-            UiTokens.SHADOW_POPUP_BLUR,
-            RenderUtil.withAlpha(theme.popupShadowColor(), alpha)
-        );
+        if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
+            boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
+            RenderUtil.drawFrostedRoundedRectWithShadow(
+                drawX,
+                drawY,
+                boxWidth,
+                boxHeight,
+                radius,
+                RenderUtil.withAlpha(theme.surface4(), isLight ? 0.76f : 0.68f),
+                isLight ? theme.borderStrong() : 0x38FFFFFF,
+                UiTokens.BORDER_WIDTH,
+                isLight ? 0.14f : 0.09f,
+                alpha,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                theme.popupShadowColor()
+            );
+        } else {
+            RenderUtil.drawRoundedRectWithShadow(
+                drawX,
+                drawY,
+                boxWidth,
+                boxHeight,
+                radius,
+                RenderUtil.withAlpha(theme.surface4(), alpha),
+                RenderUtil.withAlpha(theme.border(), alpha),
+                UiTokens.BORDER_WIDTH,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                RenderUtil.withAlpha(theme.popupShadowColor(), alpha)
+            );
+        }
 
         float textX = drawX + PADDING_H;
         float lineY = drawY + PADDING_V;

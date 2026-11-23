@@ -13,18 +13,24 @@ import java.util.Map;
  * Persistent UI and presentation preferences stored in {@code ui.json}.
  */
 public class UiConfig {
-    public static final int CURRENT_SCHEMA = 1;
+    public static final int CURRENT_SCHEMA = 2;
     public static final String DEFAULT_PROFILE = "default";
     public static final String DEFAULT_THEME_ID = "obsidian_gold";
-    public static final float MIN_UI_SCALE_MULTIPLIER = 0.5f;
+    public static final String DEFAULT_DISPLAY_STYLE = "standard";
+    public static final float DEFAULT_BLUR_STRENGTH = 12.0f;
+    public static final float MIN_BLUR_STRENGTH = 4.0f;
+    public static final float MAX_BLUR_STRENGTH = 24.0f;
+    public static final float MIN_UI_SCALE_MULTIPLIER = 0.1f;
     public static final float MAX_UI_SCALE_MULTIPLIER = 2.0f;
-    public static final float DEFAULT_CLICK_GUI_SCALE = 1.25f;
-    public static final float MIN_CLICK_GUI_SCALE = 0.75f;
+    public static final float DEFAULT_CLICK_GUI_SCALE = 1.0f;
+    public static final float MIN_CLICK_GUI_SCALE = 0.1f;
     public static final float MAX_CLICK_GUI_SCALE = 2.0f;
 
     private int schema = CURRENT_SCHEMA;
     private String activeProfile = DEFAULT_PROFILE;
     private String themeId = DEFAULT_THEME_ID;
+    private String displayStyle = DEFAULT_DISPLAY_STYLE;
+    private float blurStrength = DEFAULT_BLUR_STRENGTH;
     private String accentOverride = "";
     private float uiScaleMultiplier = 1.0f;
     private float clickGuiScale = DEFAULT_CLICK_GUI_SCALE;
@@ -49,6 +55,8 @@ public class UiConfig {
         this.schema = CURRENT_SCHEMA;
         this.activeProfile = DEFAULT_PROFILE;
         this.themeId = DEFAULT_THEME_ID;
+        this.displayStyle = DEFAULT_DISPLAY_STYLE;
+        this.blurStrength = DEFAULT_BLUR_STRENGTH;
         this.accentOverride = "";
         this.uiScaleMultiplier = 1.0f;
         this.clickGuiScale = DEFAULT_CLICK_GUI_SCALE;
@@ -71,6 +79,8 @@ public class UiConfig {
         copy.schema = this.schema;
         copy.activeProfile = this.activeProfile;
         copy.themeId = this.themeId;
+        copy.displayStyle = this.displayStyle;
+        copy.blurStrength = this.blurStrength;
         copy.accentOverride = this.accentOverride;
         copy.uiScaleMultiplier = this.uiScaleMultiplier;
         copy.clickGuiScale = this.clickGuiScale;
@@ -145,6 +155,57 @@ public class UiConfig {
     public void setThemeId(String themeId) {
         if (themeId != null && !themeId.trim().isEmpty()) {
             this.themeId = themeId.trim();
+        }
+    }
+
+    /**
+     * Returns the selected global display style identifier ({@code "standard"} or {@code "frosted_glass"}).
+     *
+     * @return display style id
+     */
+    public String getDisplayStyle() {
+        return this.displayStyle;
+    }
+
+    /**
+     * Sets the selected global display style identifier.
+     *
+     * @param displayStyle display style id
+     */
+    public void setDisplayStyle(String displayStyle) {
+        if (displayStyle == null || displayStyle.trim().isEmpty()) {
+            return;
+        }
+        String normalized = displayStyle.trim().toLowerCase(java.util.Locale.ROOT);
+        if ("standard".equals(normalized) || "frosted_glass".equals(normalized)) {
+            this.displayStyle = normalized;
+        }
+    }
+
+    /**
+     * Returns the frosted glass blur strength in pixels (default {@code 12.0f}).
+     *
+     * @return blur strength
+     */
+    public float getBlurStrength() {
+        return this.blurStrength;
+    }
+
+    /**
+     * Sets the frosted glass blur strength, clamped to [{@link #MIN_BLUR_STRENGTH}, {@link #MAX_BLUR_STRENGTH}].
+     *
+     * @param blurStrength blur strength in pixels
+     */
+    public void setBlurStrength(float blurStrength) {
+        if (Float.isNaN(blurStrength) || Float.isInfinite(blurStrength)) {
+            return;
+        }
+        if (blurStrength < MIN_BLUR_STRENGTH) {
+            this.blurStrength = MIN_BLUR_STRENGTH;
+        } else if (blurStrength > MAX_BLUR_STRENGTH) {
+            this.blurStrength = MAX_BLUR_STRENGTH;
+        } else {
+            this.blurStrength = blurStrength;
         }
     }
 

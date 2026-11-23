@@ -7,9 +7,13 @@ import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.core.setting.ModeSetting;
+import com.hoptimization.core.setting.NumberSetting;
+import com.hoptimization.ui.theme.DisplayStyle;
 import com.hoptimization.ui.theme.ThemeManager;
 import com.hoptimization.ui.theme.ThemeSerializer;
 import org.lwjgl.input.Keyboard;
+
+import java.util.function.Supplier;
 
 /**
  * Non-toggleable configuration module for switching the global visual theme palette in ClickGUI and via keybind.
@@ -28,11 +32,15 @@ public class Theme extends Module {
     public static final String THEME_ARCTIC_FROST = "arctic_frost";
     public static final String THEME_LAVENDER_MIST = "lavender_mist";
     public static final String DEFAULT_THEME_ID = THEME_OBSIDIAN_GOLD;
+    public static final String STYLE_STANDARD = "standard";
+    public static final String STYLE_FROSTED_GLASS = "frosted_glass";
 
     private static boolean initialized = false;
     private static boolean suppressSync = false;
 
     private final ModeSetting theme;
+    private final ModeSetting displayStyle;
+    private final NumberSetting blurStrength;
 
     /**
      * Creates the Theme selector module (non-toggleable, defaulting to {@code obsidian_gold}).
@@ -56,10 +64,47 @@ public class Theme extends Module {
                 THEME_LAVENDER_MIST
             )
         );
+        this.displayStyle = addSetting(
+            new ModeSetting(
+                "display_style",
+                "setting.hoptimization.theme.display_style.name",
+                STYLE_STANDARD,
+                STYLE_STANDARD,
+                STYLE_FROSTED_GLASS
+            )
+        );
+        this.blurStrength = addSetting(
+            new NumberSetting(
+                "blur_strength",
+                "setting.hoptimization.theme.blur_strength.name",
+                UiConfig.DEFAULT_BLUR_STRENGTH,
+                UiConfig.MIN_BLUR_STRENGTH,
+                UiConfig.MAX_BLUR_STRENGTH,
+                1.0D,
+                "px"
+            ).visibleWhen(new Supplier<Boolean>() {
+                @Override
+                public Boolean get() {
+                    return displayStyle.is(STYLE_FROSTED_GLASS);
+                }
+            })
+        );
         this.theme.addChangeListener(new Runnable() {
             @Override
             public void run() {
                 onThemeSettingChanged();
+            }
+        });
+        this.displayStyle.addChangeListener(new Runnable() {
+            @Override
+            public void run() {
+                onDisplayStyleChanged();
+            }
+        });
+        this.blurStrength.addChangeListener(new Runnable() {
+            @Override
+            public void run() {
+                onBlurStrengthChanged();
             }
         });
     }
@@ -71,6 +116,24 @@ public class Theme extends Module {
      */
     public ModeSetting getThemeSetting() {
         return this.theme;
+    }
+
+    /**
+     * Returns the global display style setting ({@code standard} or {@code frosted_glass}).
+     *
+     * @return display style mode setting
+     */
+    public ModeSetting getDisplayStyleSetting() {
+        return this.displayStyle;
+    }
+
+    /**
+     * Returns the frosted glass blur strength setting in pixels.
+     *
+     * @return blur strength number setting
+     */
+    public NumberSetting getBlurStrengthSetting() {
+        return this.blurStrength;
     }
 
     /**
@@ -106,8 +169,24 @@ public class Theme extends Module {
         suppressSync = true;
         try {
             ThemeManager.getInstance().applyImmediate(selectedId, accentOverride);
+            String resolvedStyle = uiConfig != null ? uiConfig.getDisplayStyle() : STYLE_STANDARD;
+            if (themeModule != null && STYLE_FROSTED_GLASS.equalsIgnoreCase(themeModule.getDisplayStyleSetting().getValue())) {
+                resolvedStyle = STYLE_FROSTED_GLASS;
+            }
+            DisplayStyle styleEnum = DisplayStyle.fromIdOrDefault(resolvedStyle, DisplayStyle.STANDARD);
+            float resolvedBlur = themeModule != null
+                ? themeModule.getBlurStrengthSetting().getFloatValue()
+                : (uiConfig != null ? uiConfig.getBlurStrength() : UiConfig.DEFAULT_BLUR_STRENGTH);
+            ThemeManager.getInstance().setDisplayStyle(styleEnum);
+            ThemeManager.getInstance().setBlurStrength(resolvedBlur);
+            if (themeModule != null) {
+                themeModule.getDisplayStyleSetting().setValue(styleEnum.getId());
+                themeModule.getBlurStrengthSetting().setValue(Double.valueOf(resolvedBlur));
+            }
             if (uiConfig != null) {
                 uiConfig.setThemeId(selectedId);
+                uiConfig.setDisplayStyle(styleEnum.getId());
+                uiConfig.setBlurStrength(resolvedBlur);
             }
         } finally {
             suppressSync = false;
@@ -129,6 +208,42 @@ public class Theme extends Module {
             ConfigManager configManager = HoptimizationMod.getConfigManager();
             if (configManager != null) {
                 configManager.getUiConfig().setThemeId(selectedId);
+                configManager.saveUiConfigDebounced();
+            }
+        } finally {
+            suppressSync = false;
+        }
+    }
+
+    private void onDisplayStyleChanged() {
+        if (!initialized || suppressSync) {
+            return;
+        }
+        DisplayStyle styleEnum = DisplayStyle.fromIdOrDefault(this.displayStyle.getValue(), DisplayStyle.STANDARD);
+        suppressSync = true;
+        try {
+            ThemeManager.getInstance().setDisplayStyle(styleEnum);
+            ConfigManager configManager = HoptimizationMod.getConfigManager();
+            if (configManager != null) {
+                configManager.getUiConfig().setDisplayStyle(styleEnum.getId());
+                configManager.saveUiConfigDebounced();
+            }
+        } finally {
+            suppressSync = false;
+        }
+    }
+
+    private void onBlurStrengthChanged() {
+        if (!initialized || suppressSync) {
+            return;
+        }
+        float strength = this.blurStrength.getFloatValue();
+        suppressSync = true;
+        try {
+            ThemeManager.getInstance().setBlurStrength(strength);
+            ConfigManager configManager = HoptimizationMod.getConfigManager();
+            if (configManager != null) {
+                configManager.getUiConfig().setBlurStrength(strength);
                 configManager.saveUiConfigDebounced();
             }
         } finally {

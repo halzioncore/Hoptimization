@@ -16,7 +16,15 @@ module.hoptimization.combo_counter.desc=记录并显示连续命中目标的连�
 
 # 模块 - 视觉
 module.hoptimization.theme.name=主题
-module.hoptimization.theme.desc=切换界面与 HUD 的全局视觉主题配色
+module.hoptimization.theme.desc=切换界面与 HUD 的全局视觉主题配色与显示风格
+module.hoptimization.modern_font.name=现代字体
+module.hoptimization.modern_font.desc=将游戏全局文字替换为高分辨率抗锯齿现代字体
+module.hoptimization.modern_inventory.name=现代背包
+module.hoptimization.modern_inventory.desc=以简洁、大方、克制的主题化现代界面替换原版背包与容器渲染
+module.hoptimization.modern_vanilla_ui.name=现代原版界面
+module.hoptimization.modern_vanilla_ui.desc=将游戏开始界面、设置界面与原版按钮滑块替换为与主题一致的现代界面
+module.hoptimization.atmosphere.name=氛围改变器
+module.hoptimization.atmosphere.desc=自定义天空色调、阴雨忧郁天气与护眼防刺眼柔光显示
 module.hoptimization.low_fire.name=低火焰
 module.hoptimization.low_fire.desc=降低着火时屏幕底部火焰的遮挡高度
 module.hoptimization.block_outline.name=方块轮廓
@@ -75,6 +83,56 @@ setting.hoptimization.theme.theme.option.sunset_amber=落日琥珀
 setting.hoptimization.theme.theme.option.starlight_indigo=星穹靛紫
 setting.hoptimization.theme.theme.option.arctic_frost=极地冰川
 setting.hoptimization.theme.theme.option.lavender_mist=晴空薰衣草
+setting.hoptimization.theme.display_style.name=显示风格
+setting.hoptimization.theme.display_style.option.standard=标准
+setting.hoptimization.theme.display_style.option.frosted_glass=毛玻璃
+setting.hoptimization.theme.blur_strength.name=模糊强度
+
+# 设置 - 现代字体
+setting.hoptimization.modern_font.family.name=字体族
+setting.hoptimization.modern_font.family.option.crisp_system=高清系统字体
+setting.hoptimization.modern_font.family.option.google_sans=Google Sans
+setting.hoptimization.modern_font.family.option.inter=Inter
+setting.hoptimization.modern_font.weight.name=字重
+setting.hoptimization.modern_font.weight.option.regular=常规
+setting.hoptimization.modern_font.weight.option.medium=中等
+setting.hoptimization.modern_font.weight.option.semibold=半粗
+setting.hoptimization.modern_font.scale.name=字号缩放
+setting.hoptimization.modern_font.shadow.name=阴影样式
+setting.hoptimization.modern_font.shadow.option.modern=柔和现代
+setting.hoptimization.modern_font.shadow.option.vanilla=原版风格
+setting.hoptimization.modern_font.shadow.option.off=关闭
+
+# 设置 - 现代背包
+setting.hoptimization.modern_inventory.frosted_backdrop.name=毛玻璃背景
+setting.hoptimization.modern_inventory.slot_style.name=槽位样式
+setting.hoptimization.modern_inventory.slot_style.option.soft=柔和填充
+setting.hoptimization.modern_inventory.slot_style.option.outlined=极简描边
+setting.hoptimization.modern_inventory.show_potions.name=显示药水卡片
+
+# 设置 - 现代原版界面
+setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=现代开始界面
+setting.hoptimization.modern_vanilla_ui.modern_buttons.name=现代按钮与滑块
+setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=现代设置背景
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=交互波浪条纹
+
+# 设置 - 氛围改变器
+setting.hoptimization.atmosphere.sky_preset.name=抽象天空预设
+setting.hoptimization.atmosphere.sky_preset.option.off=关闭（原版）
+setting.hoptimization.atmosphere.sky_preset.option.melancholy_dusk=忧郁暮色
+setting.hoptimization.atmosphere.sky_preset.option.misty_slate=雾霭灰蓝
+setting.hoptimization.atmosphere.sky_preset.option.midnight_indigo=静谧夜空
+setting.hoptimization.atmosphere.sky_preset.option.soft_overcast=阴柔云幕
+setting.hoptimization.atmosphere.sky_preset.option.theme_accent=跟随主题
+setting.hoptimization.atmosphere.show_stars.name=极简星点
+setting.hoptimization.atmosphere.weather.name=自研真实雨天
+setting.hoptimization.atmosphere.weather.option.off=关闭（原版）
+setting.hoptimization.atmosphere.weather.option.light_rain=细雨忧郁
+setting.hoptimization.atmosphere.weather.option.heavy_rain=滂沱大雨
+setting.hoptimization.atmosphere.show_ripples.name=地面水花涟漪
+setting.hoptimization.atmosphere.soft_display.name=护眼防刺眼柔光
+setting.hoptimization.atmosphere.soft_strength.name=柔光强度
+setting.hoptimization.atmosphere.soft_fog.name=柔和雨雾
 
 # 设置 - 低火焰
 setting.hoptimization.low_fire.height.name=高度
@@ -228,6 +286,10 @@ module.hoptimization.coordinates.name=坐标显示
 module.hoptimization.coordinates.desc=显示当前坐标、朝向方位与所在生物群系
 module.hoptimization.keystrokes.name=按键显示
 module.hoptimization.keystrokes.desc=实时显示移动键、鼠标点击与空格键状态
+module.hoptimization.scoreboard.name=现代计分板
+module.hoptimization.scoreboard.desc=以柔和圆角卡片或毛玻璃样式替代原版计分板，支持隐藏右侧数字与自由拖拽缩放
+module.hoptimization.potion_hud.name=药水效果
+module.hoptimization.potion_hud.desc=以简洁现代卡片与环形剩余时间进度圈展示当前生效的药水状态
 
 # 设置 - 自动连点
 setting.hoptimization.auto_clicker.left_click.name=左键连点
@@ -294,6 +356,7 @@ setting.hoptimization.target_hud.style.option.text=纯文本
 setting.hoptimization.fps_display.style.name=样式
 setting.hoptimization.fps_display.style.option.card=卡片
 setting.hoptimization.fps_display.style.option.text=纯文本
+setting.hoptimization.fps_display.show_ping.name=显示延迟 (Ping)
 
 setting.hoptimization.coordinates.show_facing.name=显示朝向
 setting.hoptimization.coordinates.show_biome.name=显示群系
@@ -304,6 +367,18 @@ setting.hoptimization.coordinates.style.option.text=纯文本
 setting.hoptimization.keystrokes.show_mouse.name=显示鼠标键
 setting.hoptimization.keystrokes.show_space.name=显示空格键
 setting.hoptimization.keystrokes.show_cps.name=显示 CPS
+
+setting.hoptimization.scoreboard.style.name=样式
+setting.hoptimization.scoreboard.style.option.card=卡片
+setting.hoptimization.scoreboard.style.option.text=纯文本
+setting.hoptimization.scoreboard.hide_numbers.name=隐藏右侧数字
+setting.hoptimization.scoreboard.text_shadow.name=文字阴影
+
+setting.hoptimization.potion_hud.style.name=样式
+setting.hoptimization.potion_hud.style.option.card=卡片
+setting.hoptimization.potion_hud.style.option.text=纯文本
+setting.hoptimization.potion_hud.use_potion_color.name=药水主题色环
+setting.hoptimization.potion_hud.show_ambient.name=显示信标效果
 
 # HUD 布局编辑器与本地化文本
 ui.hoptimization.hud_editor.title=HUD 布局

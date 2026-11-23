@@ -25,6 +25,7 @@ import java.nio.FloatBuffer;
  */
 public final class RenderUtil {
     private static final int CORNER_SEGMENTS = 16;
+    private static final int RING_SEGMENTS = 48;
     private static final int MAX_RING_VERTICES = (CORNER_SEGMENTS + 1) * 4;
     private static final int STATE_STACK_CAPACITY = 8;
     private static final int SHADOW_INWARD_STEPS = 3;
@@ -32,6 +33,8 @@ public final class RenderUtil {
 
     private static final float[] COS_TABLE = new float[CORNER_SEGMENTS + 1];
     private static final float[] SIN_TABLE = new float[CORNER_SEGMENTS + 1];
+    private static final float[] CIRCLE_COS = new float[RING_SEGMENTS + 1];
+    private static final float[] CIRCLE_SIN = new float[RING_SEGMENTS + 1];
     private static final float[] QUAD_COS_X = new float[] { -1.0f, 0.0f, 1.0f, 0.0f };
     private static final float[] QUAD_SIN_X = new float[] { 0.0f, 1.0f, 0.0f, -1.0f };
     private static final float[] QUAD_COS_Y = new float[] { 0.0f, -1.0f, 0.0f, 1.0f };
@@ -51,6 +54,11 @@ public final class RenderUtil {
             double angle = (Math.PI * 0.5D * i) / CORNER_SEGMENTS;
             COS_TABLE[i] = (float) Math.cos(angle);
             SIN_TABLE[i] = (float) Math.sin(angle);
+        }
+        for (int i = 0; i <= RING_SEGMENTS; i++) {
+            double angle = -Math.PI * 0.5D + (Math.PI * 2.0D * i) / RING_SEGMENTS;
+            CIRCLE_COS[i] = (float) Math.cos(angle);
+            CIRCLE_SIN[i] = (float) Math.sin(angle);
         }
         for (int i = 0; i < STATE_STACK_CAPACITY; i++) {
             STATE_STACK[i] = new StateBackup();
@@ -248,6 +256,72 @@ public final class RenderUtil {
     }
 
     /**
+     * Draws a frosted-glass rounded rectangle sampling the blurred backdrop texture, with automatic fallback
+     * to a translucent rounded rectangle when blur shaders or FBOs are unavailable.
+     */
+    public static void drawFrostedRoundedRect(
+        float x,
+        float y,
+        float width,
+        float height,
+        float radius,
+        int tintColor,
+        int borderColor,
+        float borderThickness,
+        float highlightStrength,
+        float masterAlpha
+    ) {
+        if (!BackdropBlurRenderer.tryDrawFrostedRoundedRect(
+            x, y, width, height,
+            radius, radius, radius, radius,
+            tintColor, borderColor, borderThickness,
+            highlightStrength, masterAlpha
+        )) {
+            drawRoundedRect(
+                x, y, width, height,
+                radius,
+                withAlpha(tintColor, masterAlpha),
+                withAlpha(borderColor, masterAlpha),
+                borderThickness
+            );
+        }
+    }
+
+    /**
+     * Draws a frosted-glass rounded rectangle with a soft drop shadow.
+     */
+    public static void drawFrostedRoundedRectWithShadow(
+        float x,
+        float y,
+        float width,
+        float height,
+        float radius,
+        int tintColor,
+        int borderColor,
+        float borderThickness,
+        float highlightStrength,
+        float masterAlpha,
+        float shadowOffsetX,
+        float shadowOffsetY,
+        float shadowBlur,
+        int shadowColor
+    ) {
+        if (shadowBlur > 0.0f && (shadowColor >>> 24) != 0) {
+            drawShadow(
+                x, y, width, height,
+                radius, radius, radius, radius,
+                shadowOffsetX, shadowOffsetY, shadowBlur,
+                withAlpha(shadowColor, masterAlpha)
+            );
+        }
+        drawFrostedRoundedRect(
+            x, y, width, height,
+            radius, tintColor, borderColor, borderThickness,
+            highlightStrength, masterAlpha
+        );
+    }
+
+    /**
      * Draws only the inner border of a rounded rectangle with uniform corner radius.
      *
      * @param x           logical left X
@@ -439,6 +513,99 @@ public final class RenderUtil {
             centerX - radius, centerY - radius, diameter, diameter,
             radius, fillColor, borderColor, borderThickness
         );
+    }
+
+    /**
+     * Draws a smooth circular progress ring starting at 12 o'clock and sweeping clockwise by {@code progress} in [0, 1].
+     *
+     * @param centerX       logical center X
+     * @param centerY       logical center Y
+     * @param radius        mid-line ring radius in logical pixels
+     * @param thickness     ring stroke width in logical pixels
+     * @param progress      fraction in {@code [0, 1]}
+     * @param trackColor    background track ARGB color
+     * @param progressColor active progress arc ARGB color
+     */
+    public static void drawCircularProgressRing(
+        float centerX,
+        float centerY,
+        float radius,
+        float thickness,
+        float progress,
+        int trackColor,
+        int progressColor
+    ) {
+        if (radius <= 0.0f || thickness <= 0.0f) {
+            return;
+        }
+        if (CircularRingShader.tryDrawCircularRing(
+            centerX, centerY, radius, thickness, progress, trackColor, progressColor
+        )) {
+            return;
+        }
+        float clampedProgress = progress <= 0.0f ? 0.0f : (progress >= 1.0f ? 1.0f : progress);
+        float halfT = thickness * 0.5f;
+        float innerR = Math.max(0.0f, radius - halfT);
+        float outerR = radius + halfT;
+
+        pushUntexturedBlendState(false);
+        try {
+            if (((trackColor >>> 24) & 0xFF) != 0) {
+                drawArcStripImmediate(centerX, centerY, innerR, outerR, 1.0f, trackColor);
+            }
+            if (clampedProgress > 0.005f && ((progressColor >>> 24) & 0xFF) != 0) {
+                drawArcStripImmediate(centerX, centerY, innerR, outerR, clampedProgress, progressColor);
+            }
+        } finally {
+            popState();
+        }
+
+        // Rounded caps at start and end of partial arcs for clean, modern Apple-Watch-like ring ends.
+        if (clampedProgress > 0.01f && clampedProgress < 0.995f && ((progressColor >>> 24) & 0xFF) != 0) {
+            float capRadius = halfT;
+            drawCircle(centerX, centerY - radius, capRadius, progressColor);
+            double endAngle = -Math.PI * 0.5D + Math.PI * 2.0D * clampedProgress;
+            float endX = centerX + (float) Math.cos(endAngle) * radius;
+            float endY = centerY + (float) Math.sin(endAngle) * radius;
+            drawCircle(endX, endY, capRadius, progressColor);
+        }
+    }
+
+    private static void drawArcStripImmediate(
+        float centerX,
+        float centerY,
+        float innerR,
+        float outerR,
+        float fraction,
+        int argb
+    ) {
+        int a = (argb >>> 24) & 0xFF;
+        int r = (argb >>> 16) & 0xFF;
+        int g = (argb >>> 8) & 0xFF;
+        int b = argb & 0xFF;
+
+        float totalSteps = RING_SEGMENTS * fraction;
+        int fullSteps = (int) Math.floor(totalSteps);
+        boolean hasPartial = (totalSteps - fullSteps) > 0.001f;
+
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(GL11.GL_TRIANGLE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        for (int i = 0; i <= fullSteps; i++) {
+            int idx = i <= RING_SEGMENTS ? i : RING_SEGMENTS;
+            float c = CIRCLE_COS[idx];
+            float s = CIRCLE_SIN[idx];
+            wr.pos(centerX + c * outerR, centerY + s * outerR, 0.0D).color(r, g, b, a).endVertex();
+            wr.pos(centerX + c * innerR, centerY + s * innerR, 0.0D).color(r, g, b, a).endVertex();
+        }
+        if (hasPartial) {
+            double endAngle = -Math.PI * 0.5D + Math.PI * 2.0D * fraction;
+            float c = (float) Math.cos(endAngle);
+            float s = (float) Math.sin(endAngle);
+            wr.pos(centerX + c * outerR, centerY + s * outerR, 0.0D).color(r, g, b, a).endVertex();
+            wr.pos(centerX + c * innerR, centerY + s * innerR, 0.0D).color(r, g, b, a).endVertex();
+        }
+        tessellator.draw();
     }
 
     /**
@@ -898,7 +1065,7 @@ public final class RenderUtil {
         }
     }
 
-    static void pushUntexturedBlendState(boolean smoothShade) {
+    public static void pushUntexturedBlendState(boolean smoothShade) {
         StateBackup state = acquireStateBackup();
         captureCommonState(state);
         state.hasTextureBackup = false;
@@ -938,7 +1105,7 @@ public final class RenderUtil {
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    static void popState() {
+    public static void popState() {
         if (stateDepth <= 0) {
             return;
         }

@@ -36,6 +36,15 @@ public final class TtfFontRenderer {
     private static final float SHADOW_OFFSET_LOGICAL = 1.0f;
     private static final float SHADOW_ALPHA_FACTOR = 0.45f;
     private static final char[] CAP_PROBE_CHARS = {'H'};
+    private static final int[] ALPHA_CONTRAST_LUT = new int[256];
+
+    static {
+        for (int i = 0; i < 256; i++) {
+            // Subtle gamma boost (0.82) keeps thin anti-aliased stems crisp and solid on 1080p monitors.
+            int boosted = (int) Math.round(Math.pow(i / 255.0D, 0.82D) * 255.0D);
+            ALPHA_CONTRAST_LUT[i] = boosted < 0 ? 0 : (boosted > 255 ? 255 : boosted);
+        }
+    }
 
     private final FontStyle style;
     private final int rasterSizePx;
@@ -70,7 +79,7 @@ public final class TtfFontRenderer {
     private Graphics2D rasterScratchGraphics;
     private int[] rasterScratchPixels = new int[64 * 64];
 
-    private static final class GlyphEntry {
+    static final class GlyphEntry {
         final int codePoint;
         final Font chosenFont;
         final float advance;
@@ -709,7 +718,7 @@ public final class TtfFontRenderer {
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    private GlyphEntry getOrMeasureGlyph(int codePoint) {
+    GlyphEntry getOrMeasureGlyph(int codePoint) {
         GlyphEntry cached = glyphMap.get(codePoint);
         if (cached != null) {
             return cached;
@@ -754,7 +763,7 @@ public final class TtfFontRenderer {
         return entry;
     }
 
-    private void ensureUploaded(GlyphEntry entry) {
+    void ensureUploaded(GlyphEntry entry) {
         if (entry.uploaded || !entry.visible) {
             return;
         }
@@ -778,9 +787,9 @@ public final class TtfFontRenderer {
             rasterScratchPixels = new int[Math.max(requiredPixels, rasterScratchPixels.length * 2)];
         }
         rasterScratchImage.getRGB(0, 0, w, h, rasterScratchPixels, 0, w);
-        // 统一将所有像素 RGB 置白、仅保留灰度抗锯齿 Alpha，消除线性滤波黑边
+        // 统一将所有像素 RGB 置白、仅保留灰度抗锯齿 Alpha（并应用微弱对比度增强提升 1080p 锐度）
         for (int i = 0; i < requiredPixels; i++) {
-            int alpha = (rasterScratchPixels[i] >>> 24) & 0xFF;
+            int alpha = ALPHA_CONTRAST_LUT[(rasterScratchPixels[i] >>> 24) & 0xFF];
             rasterScratchPixels[i] = (alpha << 24) | 0x00FFFFFF;
         }
 
@@ -823,7 +832,7 @@ public final class TtfFontRenderer {
         return primaryFont;
     }
 
-    private float snapToPhysicalPixel(float logicalCoord) {
+    float snapToPhysicalPixel(float logicalCoord) {
         return Math.round(logicalCoord * snapScale) / snapScale;
     }
 
@@ -834,7 +843,7 @@ public final class TtfFontRenderer {
     private static void configureGraphics(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
     }
 }

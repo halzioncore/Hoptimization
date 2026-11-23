@@ -4,6 +4,8 @@ import com.hoptimization.modules.misc.LanguageModule;
 import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
+import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -93,6 +95,21 @@ public final class HudRenderHelper {
      */
     public static void drawHudCard(float x, float y, float width, float height, ThemeData theme, float alpha) {
         if (width <= 0.0f || height <= 0.0f || alpha <= 0.0f) {
+            return;
+        }
+        if (ThemeManager.isFrostedGlass()) {
+            boolean isLight = theme.getMode() == ThemeMode.LIGHT;
+            int glassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.56f : 0.46f);
+            int glassBorder = isLight ? theme.borderStrong() : 0x36FFFFFF;
+            RenderUtil.drawFrostedRoundedRect(
+                x, y, width, height,
+                theme.radiusCard(),
+                glassTint,
+                glassBorder,
+                UiTokens.BORDER_WIDTH,
+                isLight ? 0.14f : 0.10f,
+                alpha
+            );
             return;
         }
         int bgColor = RenderUtil.withAlpha(theme.hudBackground(), alpha);

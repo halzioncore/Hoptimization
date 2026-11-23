@@ -27,14 +27,30 @@ public final class FontManager {
             "Noto Sans CJK SC",
             "SansSerif"
     };
-    private static final int MAX_RENDERER_CACHE = 20;
-    private static final float MIN_UI_SCALE = 0.5f;
-    private static final float MAX_UI_SCALE = 4.0f;
+    private static final String[] CRISP_LATIN_ORDER = {
+            "Segoe UI",
+            "Microsoft YaHei UI",
+            "SF Pro Text",
+            "PingFang SC",
+            "Noto Sans"
+    };
+    private static final int MAX_RENDERER_CACHE = 24;
+    private static final float MIN_UI_SCALE = 0.15f;
+    private static final float MAX_UI_SCALE = 5.0f;
+    private static final int MAX_RASTER_PX = 96;
     private static final FontToken[] TOKENS = FontToken.values();
 
     private static final FontManager INSTANCE = new FontManager();
 
+    public enum FontFamilyMode {
+        CRISP_SYSTEM,
+        GOOGLE_SANS,
+        INTER
+    }
+
     private final Map<FontWeight, Font> loadedInterFonts = new EnumMap<FontWeight, Font>(FontWeight.class);
+    private final Map<FontWeight, Font> loadedGoogleSansFonts = new EnumMap<FontWeight, Font>(FontWeight.class);
+    private final Map<FontWeight, Font> loadedSystemFonts = new EnumMap<FontWeight, Font>(FontWeight.class);
     private final TtfFontRenderer[] tokenRenderers = new TtfFontRenderer[TOKENS.length];
 
     // 限制同时保活的图集数量，避免连续拖拽缩放窗口时无限制创建 GL 纹理
@@ -42,6 +58,8 @@ public final class FontManager {
             new LinkedHashMap<RendererKey, TtfFontRenderer>(16, 0.75f, true);
 
     private String cjkFallbackFamily;
+    private String crispLatinFamily;
+    private volatile FontFamilyMode fontFamilyMode = FontFamilyMode.CRISP_SYSTEM;
     private boolean initialized = false;
     private float uiScale = 1.0f;
 
@@ -123,6 +141,39 @@ public final class FontManager {
     }
 
     /**
+     * Switches between native hinted crisp system fonts (e.g. Segoe UI + Microsoft YaHei UI) and bundled Inter.
+     *
+     * @param preferSystem {@code true} for crisp hinted system font, {@code false} for bundled Inter
+     */
+    public static void setPreferCrispSystemFont(boolean preferSystem) {
+        setFontFamilyMode(preferSystem ? FontFamilyMode.CRISP_SYSTEM : FontFamilyMode.INTER);
+    }
+
+    public static boolean isPreferCrispSystemFont() {
+        return INSTANCE.fontFamilyMode == FontFamilyMode.CRISP_SYSTEM;
+    }
+
+    public static void setFontFamilyMode(FontFamilyMode mode) {
+        INSTANCE.updateFontFamilyMode(mode);
+    }
+
+    public static FontFamilyMode getFontFamilyMode() {
+        return INSTANCE.fontFamilyMode;
+    }
+
+    public void updateFontFamilyMode(FontFamilyMode mode) {
+        FontFamilyMode resolved = mode != null ? mode : FontFamilyMode.CRISP_SYSTEM;
+        if (this.fontFamilyMode == resolved) {
+            return;
+        }
+        this.fontFamilyMode = resolved;
+        if (initialized) {
+            disposeAll();
+            refreshTokenRenderers();
+        }
+    }
+
+    /**
      * 释放所有字体图集纹理与缓存（应在关闭客户端或重载资源时于渲染线程调用）。
      */
     public static void dispose() {
@@ -194,13 +245,24 @@ public final class FontManager {
         ensureInitialized();
         FontStyle resolvedStyle = style != null ? style : FontStyle.BODY;
         float clampedScale = clampScale(targetUiScale);
-        int rasterPx = Math.max(8, Math.round(resolvedStyle.getSize() * clampedScale * 2.0f));
+        // Exact 1:1 physical-pixel rasterization preserves crisp TrueType hinting on 1080p monitors.
+        int rasterPx = Math.min(MAX_RASTER_PX, Math.max(8, Math.round(resolvedStyle.getSize() * clampedScale)));
         RendererKey key = new RendererKey(resolvedStyle, rasterPx);
         TtfFontRenderer cached = rendererCache.get(key);
         if (cached != null) {
             return cached;
         }
-        Font baseFont = loadedInterFonts.get(resolvedStyle.getWeight());
+        Font baseFont;
+        if (fontFamilyMode == FontFamilyMode.GOOGLE_SANS) {
+            baseFont = loadedGoogleSansFonts.get(resolvedStyle.getWeight());
+        } else if (fontFamilyMode == FontFamilyMode.CRISP_SYSTEM) {
+            baseFont = loadedSystemFonts.get(resolvedStyle.getWeight());
+        } else {
+            baseFont = loadedInterFonts.get(resolvedStyle.getWeight());
+        }
+        if (baseFont == null) {
+            baseFont = loadedInterFonts.get(resolvedStyle.getWeight());
+        }
         if (baseFont == null) {
             baseFont = new Font(Font.SANS_SERIF, resolvedStyle.getWeight().getAwtFallbackStyle(), 16);
         }
@@ -280,8 +342,11 @@ public final class FontManager {
         }
         initialized = true;
         cjkFallbackFamily = resolveCjkFallbackFamily();
+        crispLatinFamily = resolveCrispLatinFamily();
         for (FontWeight weight : FontWeight.values()) {
-            loadedInterFonts.put(weight, loadBundledInterFont(weight));
+            loadedInterFonts.put(weight, loadBundledFont(weight.getResourceName(), weight));
+            loadedGoogleSansFonts.put(weight, loadBundledFont("GoogleSans-" + weightToSuffix(weight) + ".ttf", weight));
+            loadedSystemFonts.put(weight, buildCrispSystemFont(crispLatinFamily, weight));
         }
         refreshTokenRenderers();
     }
@@ -301,8 +366,18 @@ public final class FontManager {
         return false;
     }
 
-    private static Font loadBundledInterFont(FontWeight weight) {
-        String resourcePath = FONT_RESOURCE_PREFIX + weight.getResourceName();
+    private static String weightToSuffix(FontWeight weight) {
+        if (weight == FontWeight.SEMIBOLD) {
+            return "SemiBold";
+        }
+        if (weight == FontWeight.MEDIUM) {
+            return "Medium";
+        }
+        return "Regular";
+    }
+
+    private static Font loadBundledFont(String fileName, FontWeight weight) {
+        String resourcePath = FONT_RESOURCE_PREFIX + fileName;
         InputStream stream = FontManager.class.getResourceAsStream(resourcePath);
         if (stream == null) {
             HoptimizationMod.LOGGER.error("Missing bundled Inter font resource '{}', falling back to SansSerif.",
@@ -346,6 +421,38 @@ public final class FontManager {
         }
         HoptimizationMod.LOGGER.info("No preferred CJK font found, falling back to SansSerif.");
         return Font.SANS_SERIF;
+    }
+
+    private static String resolveCrispLatinFamily() {
+        String[] available = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+        Map<String, String> normalizedMap = new HashMap<String, String>(available.length * 2);
+        for (String name : available) {
+            if (name != null) {
+                normalizedMap.put(name.trim().toLowerCase(Locale.ROOT), name);
+            }
+        }
+        for (String candidate : CRISP_LATIN_ORDER) {
+            String exact = normalizedMap.get(candidate.toLowerCase(Locale.ROOT));
+            if (exact != null) {
+                HoptimizationMod.LOGGER.info("Resolved crisp system font family: {}", exact);
+                return exact;
+            }
+        }
+        return null;
+    }
+
+    private static Font buildCrispSystemFont(String family, FontWeight weight) {
+        if (family == null) {
+            return null;
+        }
+        // On Windows, "Segoe UI Semibold" is a distinct crisp family name for medium/semibold weights.
+        if (weight == FontWeight.SEMIBOLD && "Segoe UI".equalsIgnoreCase(family)) {
+            Font semi = new Font("Segoe UI Semibold", Font.PLAIN, 16);
+            if (!Font.DIALOG.equalsIgnoreCase(semi.getFamily())) {
+                return semi;
+            }
+        }
+        return new Font(family, weight.getAwtFallbackStyle(), 16);
     }
 
     private static float clampScale(float scale) {

@@ -7,11 +7,13 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.font.TtfFontRenderer;
+import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -161,6 +163,9 @@ public class HudEditScreen extends GuiScreen {
 
         HudRenderHelper.GlStateSnapshot glSnapshot = HudRenderHelper.acquireSnapshot();
         glSnapshot.capture();
+        if (ThemeManager.isFrostedGlass()) {
+            BackdropBlurRenderer.captureAndBlur(ThemeManager.getBlurStrength());
+        }
         GlStateManager.pushMatrix();
         try {
             GlStateManager.scale(scaleRatio, scaleRatio, 1.0f);
@@ -653,17 +658,34 @@ public class HudEditScreen extends GuiScreen {
 
     private void renderToolbar(float logicalW, float mouseX, float mouseY, ThemeData theme) {
         computeToolbarMetrics(logicalW);
-        RenderUtil.drawRoundedRectWithShadow(
-            this.toolbarX, this.toolbarY, this.toolbarW, TOOLBAR_HEIGHT,
-            theme.radiusCard(),
-            RenderUtil.withAlpha(theme.surface0(), 0.92f),
-            theme.border(),
-            UiTokens.BORDER_WIDTH,
-            0.0f,
-            UiTokens.SHADOW_POPUP_OFFSET_Y,
-            UiTokens.SHADOW_POPUP_BLUR,
-            theme.popupShadowColor()
-        );
+        if (ThemeManager.isFrostedGlass()) {
+            boolean isLight = theme.getMode() == ThemeMode.LIGHT;
+            RenderUtil.drawFrostedRoundedRectWithShadow(
+                this.toolbarX, this.toolbarY, this.toolbarW, TOOLBAR_HEIGHT,
+                theme.radiusCard(),
+                RenderUtil.withAlpha(theme.surface0(), isLight ? 0.68f : 0.56f),
+                isLight ? theme.borderStrong() : 0x38FFFFFF,
+                UiTokens.BORDER_WIDTH,
+                isLight ? 0.14f : 0.10f,
+                1.0f,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                theme.popupShadowColor()
+            );
+        } else {
+            RenderUtil.drawRoundedRectWithShadow(
+                this.toolbarX, this.toolbarY, this.toolbarW, TOOLBAR_HEIGHT,
+                theme.radiusCard(),
+                RenderUtil.withAlpha(theme.surface0(), 0.92f),
+                theme.border(),
+                UiTokens.BORDER_WIDTH,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                theme.popupShadowColor()
+            );
+        }
 
         TtfFontRenderer bodyFont = FontManager.body();
         TtfFontRenderer captionFont = FontManager.caption();

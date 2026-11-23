@@ -18,11 +18,13 @@ import com.hoptimization.ui.component.TooltipManager;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.hud.HudOverlayRenderer;
+import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -321,6 +323,10 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         ThemeData theme = ThemeManager.current();
+        boolean frosted = ThemeManager.isFrostedGlass();
+        if (frosted) {
+            BackdropBlurRenderer.captureAndBlur(ThemeManager.getBlurStrength());
+        }
         float windowAlpha = progress * theme.style().getWindowOpacity();
         float animScale = OPEN_SCALE_MIN + (1.0f - OPEN_SCALE_MIN) * progress;
         float scaleRatio = uiScale / (float) sr.getScaleFactor();
@@ -328,8 +334,9 @@ public class ClickGuiScreen extends GuiScreen {
         GlStateManager.pushMatrix();
         GlStateManager.scale(scaleRatio, scaleRatio, 1.0f);
         try {
-            // 背后游戏画面遮罩 backdrop（随打开/关闭进度淡入淡出）
-            RenderUtil.drawRect(0.0f, 0.0f, logicalW, logicalH, RenderUtil.withAlpha(theme.backdrop(), progress));
+            // 背后游戏画面遮罩 backdrop（毛玻璃模式下减轻压暗，让模糊背景透出层次）
+            float backdropAlpha = frosted ? (progress * 0.45f) : progress;
+            RenderUtil.drawRect(0.0f, 0.0f, logicalW, logicalH, RenderUtil.withAlpha(theme.backdrop(), backdropAlpha));
 
             float centerX = windowX + WINDOW_WIDTH * 0.5f;
             float centerY = windowY + WINDOW_HEIGHT * 0.5f;
@@ -703,18 +710,39 @@ public class ClickGuiScreen extends GuiScreen {
     private void renderWindowContents(float mouseX, float mouseY, float windowAlpha, ThemeData theme) {
         tooltipManager.beginFrame();
 
+        boolean frosted = ThemeManager.isFrostedGlass();
+        boolean isLight = theme.getMode() == ThemeMode.LIGHT;
+
         // 主窗口阴影（offsetY=16, blur=48）+ 窗口底板 surface0 + 外沿 1px border
-        RenderUtil.drawRoundedRectWithShadow(
-            windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
-            theme.radiusWindow(),
-            RenderUtil.withAlpha(theme.surface0(), windowAlpha),
-            RenderUtil.withAlpha(theme.border(), windowAlpha),
-            UiTokens.BORDER_WIDTH,
-            0.0f,
-            UiTokens.SHADOW_WINDOW_OFFSET_Y,
-            UiTokens.SHADOW_WINDOW_BLUR,
-            RenderUtil.withAlpha(theme.windowShadowColor(), windowAlpha)
-        );
+        if (frosted) {
+            int glassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.66f : 0.56f);
+            int glassBorder = RenderUtil.withAlpha(isLight ? theme.borderStrong() : 0x38FFFFFF, 1.0f);
+            RenderUtil.drawFrostedRoundedRectWithShadow(
+                windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
+                theme.radiusWindow(),
+                glassTint,
+                glassBorder,
+                UiTokens.BORDER_WIDTH,
+                isLight ? 0.14f : 0.09f,
+                windowAlpha,
+                0.0f,
+                UiTokens.SHADOW_WINDOW_OFFSET_Y,
+                UiTokens.SHADOW_WINDOW_BLUR,
+                theme.windowShadowColor()
+            );
+        } else {
+            RenderUtil.drawRoundedRectWithShadow(
+                windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
+                theme.radiusWindow(),
+                RenderUtil.withAlpha(theme.surface0(), windowAlpha),
+                RenderUtil.withAlpha(theme.border(), windowAlpha),
+                UiTokens.BORDER_WIDTH,
+                0.0f,
+                UiTokens.SHADOW_WINDOW_OFFSET_Y,
+                UiTokens.SHADOW_WINDOW_BLUR,
+                RenderUtil.withAlpha(theme.windowShadowColor(), windowAlpha)
+            );
+        }
 
         // 右侧嵌入式内容面板（距窗口上/右/下各 4，radius 8，surface1）
         float contentX = windowX + ClickGuiSidebar.WIDTH;
@@ -722,12 +750,17 @@ public class ClickGuiScreen extends GuiScreen {
         float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
         float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
         float contentRadius = theme.nestedRadius(theme.radiusWindow(), CONTENT_MARGIN);
-        int contentBorder = theme.style().isCardBorder() ? RenderUtil.withAlpha(theme.border(), windowAlpha) : 0;
+        int contentBorder = (frosted || theme.style().isCardBorder())
+            ? RenderUtil.withAlpha(frosted ? theme.borderStrong() : theme.border(), windowAlpha * (frosted ? 0.75f : 1.0f))
+            : 0;
+        int contentFill = frosted
+            ? RenderUtil.withAlpha(theme.surface1(), windowAlpha * (isLight ? 0.52f : 0.44f))
+            : RenderUtil.withAlpha(theme.surface1(), windowAlpha);
 
         RenderUtil.drawRoundedRect(
             contentX, contentY, contentW, contentH,
             contentRadius,
-            RenderUtil.withAlpha(theme.surface1(), windowAlpha),
+            contentFill,
             contentBorder,
             contentBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
         );
@@ -834,15 +867,17 @@ public class ClickGuiScreen extends GuiScreen {
                 card.render(cardX, drawY, cardW, listMouseX, listMouseY, windowAlpha, theme, tooltipManager);
             }
 
-            // 12px 列表上下边缘渐隐遮罩（仅在存在可滚动隐藏内容时显示）
-            int maskSurface = RenderUtil.withAlpha(theme.surface1(), windowAlpha);
-            if (currentScroll > 0.5f) {
-                RenderUtil.drawScrollFadeMask(cardX, listY, cardW, FADE_MASK_HEIGHT, maskSurface, true);
-            }
-            if (maxScroll > 0.5f && currentScroll < maxScroll - 0.5f) {
-                RenderUtil.drawScrollFadeMask(
-                    cardX, listY + listH - FADE_MASK_HEIGHT, cardW, FADE_MASK_HEIGHT, maskSurface, false
-                );
+            // 12px 列表上下边缘渐隐遮罩（标准模式绘制，毛玻璃模式跳过避免出现不透明色条）
+            if (!ThemeManager.isFrostedGlass()) {
+                int maskSurface = RenderUtil.withAlpha(theme.surface1(), windowAlpha);
+                if (currentScroll > 0.5f) {
+                    RenderUtil.drawScrollFadeMask(cardX, listY, cardW, FADE_MASK_HEIGHT, maskSurface, true);
+                }
+                if (maxScroll > 0.5f && currentScroll < maxScroll - 0.5f) {
+                    RenderUtil.drawScrollFadeMask(
+                        cardX, listY + listH - FADE_MASK_HEIGHT, cardW, FADE_MASK_HEIGHT, maskSurface, false
+                    );
+                }
             }
 
             renderScrollbar(listX, listY, listW, listH, totalContentH, inListViewport, windowAlpha, theme);

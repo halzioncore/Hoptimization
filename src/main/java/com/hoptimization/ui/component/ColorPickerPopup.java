@@ -202,20 +202,40 @@ public class ColorPickerPopup implements PopupOverlay {
             return;
         }
 
-        RenderUtil.drawRoundedRectWithShadow(
-            this.popupX,
-            this.popupY,
-            POPUP_WIDTH,
-            this.popupH,
-            resolved.radiusCard(),
-            RenderUtil.withAlpha(resolved.surface2(), effAlpha),
-            RenderUtil.withAlpha(resolved.border(), effAlpha),
-            UiTokens.BORDER_WIDTH,
-            0.0f,
-            UiTokens.SHADOW_POPUP_OFFSET_Y,
-            UiTokens.SHADOW_POPUP_BLUR,
-            RenderUtil.withAlpha(resolved.popupShadowColor(), effAlpha)
-        );
+        if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
+            boolean isLight = resolved.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
+            RenderUtil.drawFrostedRoundedRectWithShadow(
+                this.popupX,
+                this.popupY,
+                POPUP_WIDTH,
+                this.popupH,
+                resolved.radiusCard(),
+                RenderUtil.withAlpha(resolved.surface2(), isLight ? 0.74f : 0.66f),
+                isLight ? resolved.borderStrong() : 0x38FFFFFF,
+                UiTokens.BORDER_WIDTH,
+                isLight ? 0.14f : 0.09f,
+                effAlpha,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                resolved.popupShadowColor()
+            );
+        } else {
+            RenderUtil.drawRoundedRectWithShadow(
+                this.popupX,
+                this.popupY,
+                POPUP_WIDTH,
+                this.popupH,
+                resolved.radiusCard(),
+                RenderUtil.withAlpha(resolved.surface2(), effAlpha),
+                RenderUtil.withAlpha(resolved.border(), effAlpha),
+                UiTokens.BORDER_WIDTH,
+                0.0f,
+                UiTokens.SHADOW_POPUP_OFFSET_Y,
+                UiTokens.SHADOW_POPUP_BLUR,
+                RenderUtil.withAlpha(resolved.popupShadowColor(), effAlpha)
+            );
+        }
 
         renderSvSquare(resolved, effAlpha);
         renderHueBar(resolved, effAlpha);

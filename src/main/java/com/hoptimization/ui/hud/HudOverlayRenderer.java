@@ -7,6 +7,7 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.font.FontManager;
+import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
@@ -30,7 +31,7 @@ import java.util.Map;
  * {@link RenderGameOverlayEvent.Text} using independent {@link UiScale#getScale()} scaling.
  */
 public final class HudOverlayRenderer {
-    public static final float MIN_ELEMENT_SCALE = 0.5f;
+    public static final float MIN_ELEMENT_SCALE = 0.1f;
     public static final float MAX_ELEMENT_SCALE = 2.0f;
 
     private static final HudOverlayRenderer INSTANCE = new HudOverlayRenderer();
@@ -207,6 +208,9 @@ public final class HudOverlayRenderer {
 
         HudRenderHelper.GlStateSnapshot glSnapshot = HudRenderHelper.acquireSnapshot();
         glSnapshot.capture();
+        if (ThemeManager.isFrostedGlass()) {
+            BackdropBlurRenderer.captureAndBlur(ThemeManager.getBlurStrength());
+        }
         GlStateManager.pushMatrix();
         try {
             FontManager.setUiScale(hudScale);

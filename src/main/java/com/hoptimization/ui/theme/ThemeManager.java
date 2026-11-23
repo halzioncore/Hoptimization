@@ -32,6 +32,8 @@ public final class ThemeManager {
     private ThemeData activeBaseTheme;
     private Integer accentOverride;
     private boolean reduceMotion;
+    private volatile DisplayStyle displayStyle = DisplayStyle.STANDARD;
+    private volatile float blurStrength = 12.0f;
 
     private ThemeData fromTheme;
     private ThemeData targetTheme;
@@ -65,6 +67,60 @@ public final class ThemeManager {
      */
     public static ThemeData current() {
         return INSTANCE.getCurrentTheme();
+    }
+
+    /**
+     * Returns whether the global frosted-glass display style is currently active.
+     *
+     * @return {@code true} when frosted glass is active
+     */
+    public static boolean isFrostedGlass() {
+        return INSTANCE.displayStyle == DisplayStyle.FROSTED_GLASS;
+    }
+
+    /**
+     * Returns the active global display style.
+     *
+     * @return display style
+     */
+    public DisplayStyle getDisplayStyle() {
+        return this.displayStyle;
+    }
+
+    /**
+     * Sets the active global display style.
+     *
+     * @param style new display style
+     */
+    public void setDisplayStyle(DisplayStyle style) {
+        this.displayStyle = style != null ? style : DisplayStyle.STANDARD;
+    }
+
+    /**
+     * Returns the configured frosted glass blur strength in pixels.
+     *
+     * @return blur strength
+     */
+    public static float getBlurStrength() {
+        return INSTANCE.blurStrength;
+    }
+
+    /**
+     * Sets the frosted glass blur strength clamped to [4, 24].
+     *
+     * @param strength blur strength in pixels
+     */
+    public void setBlurStrength(float strength) {
+        if (Float.isNaN(strength) || Float.isInfinite(strength)) {
+            return;
+        }
+        if (strength < 4.0f) {
+            this.blurStrength = 4.0f;
+        } else if (strength > 24.0f) {
+            this.blurStrength = 24.0f;
+        } else {
+            this.blurStrength = strength;
+        }
     }
 
     /**

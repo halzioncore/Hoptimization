@@ -479,20 +479,40 @@ public class DropdownComponent extends UiComponent {
             }
 
             float radius = theme.radiusCard();
-            RenderUtil.drawRoundedRectWithShadow(
-                DropdownComponent.this.popupX,
-                DropdownComponent.this.popupY,
-                DropdownComponent.this.popupW,
-                DropdownComponent.this.popupH,
-                radius,
-                RenderUtil.withAlpha(theme.surface2(), effAlpha),
-                RenderUtil.withAlpha(theme.border(), effAlpha),
-                UiTokens.BORDER_WIDTH,
-                0.0f,
-                UiTokens.SHADOW_POPUP_OFFSET_Y,
-                UiTokens.SHADOW_POPUP_BLUR,
-                RenderUtil.withAlpha(theme.popupShadowColor(), effAlpha)
-            );
+            if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
+                boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
+                RenderUtil.drawFrostedRoundedRectWithShadow(
+                    DropdownComponent.this.popupX,
+                    DropdownComponent.this.popupY,
+                    DropdownComponent.this.popupW,
+                    DropdownComponent.this.popupH,
+                    radius,
+                    RenderUtil.withAlpha(theme.surface2(), isLight ? 0.74f : 0.66f),
+                    isLight ? theme.borderStrong() : 0x38FFFFFF,
+                    UiTokens.BORDER_WIDTH,
+                    isLight ? 0.14f : 0.09f,
+                    effAlpha,
+                    0.0f,
+                    UiTokens.SHADOW_POPUP_OFFSET_Y,
+                    UiTokens.SHADOW_POPUP_BLUR,
+                    theme.popupShadowColor()
+                );
+            } else {
+                RenderUtil.drawRoundedRectWithShadow(
+                    DropdownComponent.this.popupX,
+                    DropdownComponent.this.popupY,
+                    DropdownComponent.this.popupW,
+                    DropdownComponent.this.popupH,
+                    radius,
+                    RenderUtil.withAlpha(theme.surface2(), effAlpha),
+                    RenderUtil.withAlpha(theme.border(), effAlpha),
+                    UiTokens.BORDER_WIDTH,
+                    0.0f,
+                    UiTokens.SHADOW_POPUP_OFFSET_Y,
+                    UiTokens.SHADOW_POPUP_BLUR,
+                    RenderUtil.withAlpha(theme.popupShadowColor(), effAlpha)
+                );
+            }
 
             float listX = DropdownComponent.this.popupX + POPUP_PAD;
             float listY = DropdownComponent.this.popupY + POPUP_PAD;

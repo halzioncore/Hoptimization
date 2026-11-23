@@ -10,10 +10,10 @@ import org.lwjgl.input.Keyboard;
  */
 public class ClickGuiModule extends Module {
     public static final String ID = "clickgui";
-    public static final double MIN_SCALE = 0.75D;
+    public static final double MIN_SCALE = 0.1D;
     public static final double MAX_SCALE = 2.0D;
     public static final double SCALE_STEP = 0.05D;
-    public static final double DEFAULT_SCALE = 1.25D;
+    public static final double DEFAULT_SCALE = 1.0D;
 
     private final NumberSetting scale;
 

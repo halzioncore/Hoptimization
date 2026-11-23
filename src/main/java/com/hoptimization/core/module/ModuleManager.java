@@ -20,13 +20,19 @@ import com.hoptimization.modules.ui.Coordinates;
 import com.hoptimization.modules.ui.CpsDisplay;
 import com.hoptimization.modules.ui.FPSDisplay;
 import com.hoptimization.modules.ui.Keystrokes;
+import com.hoptimization.modules.ui.PotionHud;
+import com.hoptimization.modules.ui.ScoreboardHud;
 import com.hoptimization.modules.ui.TargetHud;
+import com.hoptimization.modules.visual.Atmosphere;
 import com.hoptimization.modules.visual.BlockOutline;
 import com.hoptimization.modules.visual.Esp;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.Jarvis;
 import com.hoptimization.modules.visual.KillEffects;
 import com.hoptimization.modules.visual.LowFire;
+import com.hoptimization.modules.visual.ModernFont;
+import com.hoptimization.modules.visual.ModernInventory;
+import com.hoptimization.modules.visual.ModernVanillaUI;
 import com.hoptimization.modules.visual.Nametags;
 import com.hoptimization.modules.visual.Theme;
 import com.hoptimization.modules.visual.TimeChanger;
@@ -82,6 +88,10 @@ public class ModuleManager {
         register(new NoJumpDelay());
 
         register(new Theme());
+        register(new ModernFont());
+        register(new ModernInventory());
+        register(new ModernVanillaUI());
+        register(new Atmosphere());
         register(new LowFire());
         register(new BlockOutline());
         register(new HurtCam());
@@ -99,6 +109,8 @@ public class ModuleManager {
         register(new FPSDisplay());
         register(new Coordinates());
         register(new Keystrokes());
+        register(new ScoreboardHud());
+        register(new PotionHud());
 
         register(new ParticleLimit());
         register(new MouseDelayFix());
