@@ -13,8 +13,8 @@ import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.entity.player.EntityPlayer;
 
 /**
- * Renders 3D topographic contour lines and a soft Keystrokes-style outer glow
- * on living entities, with optional through-walls visibility when Cheat Mode is active.
+ * Renders dynamic, randomly appearing glowing 3D rift polylines on living entities,
+ * with an optional soft outer silhouette aura and Cheat Mode through-walls visibility.
  */
 public class Chams extends Module {
     public static final String ID = "chams";
@@ -25,10 +25,9 @@ public class Chams extends Module {
     private final BooleanSetting mobs;
     private final BooleanSetting self;
     private final BooleanSetting throughWalls;
-    private final NumberSetting contourDensity;
-    private final BooleanSetting contourFlow;
+    private final NumberSetting riftCount;
     private final NumberSetting glowStrength;
-    private final NumberSetting fillOpacity;
+    private final BooleanSetting outerAura;
     private final BooleanSetting followTheme;
     private final ColorSetting color;
 
@@ -40,14 +39,12 @@ public class Chams extends Module {
         this.throughWalls = addSetting(
                 new BooleanSetting("through_walls", "setting.hoptimization.chams.through_walls.name", false)
                         .visibleWhen(HoptimizationMod::isCheatModeEnabled));
-        this.contourDensity = addSetting(
-                new NumberSetting("contour_density", "setting.hoptimization.chams.contour_density.name", 2.8, 1.0, 6.0, 0.2));
-        this.contourFlow = addSetting(
-                new BooleanSetting("contour_flow", "setting.hoptimization.chams.contour_flow.name", true));
+        this.riftCount = addSetting(
+                new NumberSetting("rift_count", "setting.hoptimization.chams.rift_count.name", 5.0, 2.0, 12.0, 1.0));
         this.glowStrength = addSetting(
-                new NumberSetting("glow_strength", "setting.hoptimization.chams.glow_strength.name", 0.90, 0.2, 1.5, 0.05));
-        this.fillOpacity = addSetting(
-                new NumberSetting("fill_opacity", "setting.hoptimization.chams.fill_opacity.name", 0.08, 0.0, 0.45, 0.02));
+                new NumberSetting("glow_strength", "setting.hoptimization.chams.glow_strength.name", 1.0, 0.3, 1.6, 0.05));
+        this.outerAura = addSetting(
+                new BooleanSetting("outer_aura", "setting.hoptimization.chams.outer_aura.name", true));
         this.followTheme = addSetting(
                 new BooleanSetting("follow_theme", "setting.hoptimization.chams.follow_theme.name", true));
         this.color = addSetting(
@@ -84,20 +81,16 @@ public class Chams extends Module {
         return HoptimizationMod.isCheatModeEnabled() && this.throughWalls.isEnabled();
     }
 
-    public float getContourDensity() {
-        return this.contourDensity.getValue().floatValue();
-    }
-
-    public boolean isContourFlow() {
-        return this.contourFlow.isEnabled();
+    public int getRiftCount() {
+        return Math.max(2, Math.min(12, this.riftCount.getValue().intValue()));
     }
 
     public float getGlowStrength() {
         return this.glowStrength.getValue().floatValue();
     }
 
-    public float getFillOpacity() {
-        return this.fillOpacity.getValue().floatValue();
+    public boolean isOuterAuraEnabled() {
+        return this.outerAura.isEnabled();
     }
 
     public int getEffectColor() {

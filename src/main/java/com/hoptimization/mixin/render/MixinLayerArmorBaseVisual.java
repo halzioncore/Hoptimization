@@ -1,5 +1,6 @@
 package com.hoptimization.mixin.render;
 
+import com.hoptimization.modules.visual.HideArmor;
 import com.hoptimization.modules.visual.killeffects.KillEffectsRenderer;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.renderer.entity.layers.LayerArmorBase;
@@ -51,6 +52,28 @@ public class MixinLayerArmorBaseVisual {
         CallbackInfo ci
     ) {
         if (KillEffectsRenderer.isInternalRenderPass()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(
+        method = "doRenderLayer(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
+        at = @At("HEAD"),
+        cancellable = true,
+        require = 0
+    )
+    private void hoptimization$onDoRenderLayer(
+        EntityLivingBase entitylivingbaseIn,
+        float limbSwing,
+        float limbSwingAmount,
+        float partialTicks,
+        float ageInTicks,
+        float netHeadYaw,
+        float headPitch,
+        float scale,
+        CallbackInfo ci
+    ) {
+        if (HideArmor.shouldHideArmor(entitylivingbaseIn)) {
             ci.cancel();
         }
     }

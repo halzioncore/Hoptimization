@@ -25,8 +25,10 @@ module.hoptimization.modern_vanilla_ui.name=现代原版界面
 module.hoptimization.modern_vanilla_ui.desc=将游戏开始界面、设置界面与原版按钮滑块替换为与主题一致的现代界面
 module.hoptimization.atmosphere.name=氛围改变器
 module.hoptimization.atmosphere.desc=自定义天空色调、阴雨忧郁天气与护眼防刺眼柔光显示
-module.hoptimization.chams.name=Chams 等高线辉光
-module.hoptimization.chams.desc=为实体表面渲染机械键盘风格 3D 等高线与柔和外轮廓辉光
+module.hoptimization.chams.name=Chams 裂隙辉光
+module.hoptimization.chams.desc=在实体表面随机生成闪烁的 3D 辉光细折线裂隙与柔和外轮廓光晕
+module.hoptimization.hide_armor.name=隐藏敌人护甲
+module.hoptimization.hide_armor.desc=隐藏敌方玩家身上的盔甲渲染以便更清晰地识别皮肤与动作
 module.hoptimization.low_fire.name=低火焰
 module.hoptimization.low_fire.desc=降低着火时屏幕底部火焰的遮挡高度
 module.hoptimization.block_outline.name=方块轮廓
@@ -43,6 +45,8 @@ module.hoptimization.cheat_mode.name=作弊模式
 module.hoptimization.cheat_mode.desc=解锁高风险功能模块，在多人服务器可能触发反作弊检测
 
 # 模块 - 性能
+module.hoptimization.modern_hotbar.name=现代快捷栏与状态条
+module.hoptimization.modern_hotbar.desc=将原版快捷栏、生命值与饥饿值替换为与当前主题一致的现代卡片与胶囊进度条
 module.hoptimization.particle_limit.name=粒子限制
 module.hoptimization.particle_limit.desc=限制同屏粒子数量以维持高帧率稳定
 
@@ -116,7 +120,7 @@ setting.hoptimization.modern_inventory.show_potions.name=显示药水卡片
 setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=现代开始界面
 setting.hoptimization.modern_vanilla_ui.modern_buttons.name=现代按钮与滑块
 setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=现代设置背景
-setting.hoptimization.modern_vanilla_ui.wave_stripes.name=流光微粒背景
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=几何流光背景
 
 # 设置 - 氛围改变器
 setting.hoptimization.atmosphere.sky_preset.name=抽象天空预设
@@ -136,17 +140,25 @@ setting.hoptimization.atmosphere.soft_display.name=护眼防刺眼柔光
 setting.hoptimization.atmosphere.soft_strength.name=柔光强度
 setting.hoptimization.atmosphere.soft_fog.name=柔和雨雾
 
-# 设置 - Chams 等高线辉光
+# 设置 - Chams 裂隙辉光
 setting.hoptimization.chams.players.name=玩家实体
 setting.hoptimization.chams.mobs.name=生物实体
 setting.hoptimization.chams.self.name=自身模型
 setting.hoptimization.chams.through_walls.name=透视穿墙（作弊模式）
-setting.hoptimization.chams.contour_density.name=等高线密度
-setting.hoptimization.chams.contour_flow.name=等高线缓流
+setting.hoptimization.chams.rift_count.name=裂隙数量
 setting.hoptimization.chams.glow_strength.name=辉光强度
-setting.hoptimization.chams.fill_opacity.name=填充透明度
+setting.hoptimization.chams.outer_aura.name=柔和外轮廓光晕
 setting.hoptimization.chams.follow_theme.name=跟随主题色
 setting.hoptimization.chams.color.name=自定义颜色
+
+# 设置 - 现代快捷栏与状态条
+setting.hoptimization.modern_hotbar.hotbar.name=现代快捷栏
+setting.hoptimization.modern_hotbar.bars.name=平滑现代生命与饥饿值
+
+# 设置 - 隐藏敌人护甲
+setting.hoptimization.hide_armor.ignore_teammates.name=保留队友护甲
+setting.hoptimization.hide_armor.hide_mobs.name=隐藏生物护甲
+setting.hoptimization.hide_armor.hide_self.name=隐藏自身护甲
 
 # 设置 - 低火焰
 setting.hoptimization.low_fire.height.name=高度

@@ -25,8 +25,10 @@ module.hoptimization.modern_vanilla_ui.name=Modern Vanilla UI
 module.hoptimization.modern_vanilla_ui.desc=Styles the Minecraft start screen, options menus, buttons, and sliders to match your active theme
 module.hoptimization.atmosphere.name=Atmosphere
 module.hoptimization.atmosphere.desc=Customizes sky palettes, melancholy rain weather, and a soft anti-glare display filter
-module.hoptimization.chams.name=Chams Contours
-module.hoptimization.chams.desc=Renders 3D topographic contour lines and a soft outer silhouette glow on living entities
+module.hoptimization.chams.name=Chams Rifts
+module.hoptimization.chams.desc=Spawns random glowing 3D polyline rifts on living entities with a soft outer aura
+module.hoptimization.hide_armor.name=Hide Enemy Armor
+module.hoptimization.hide_armor.desc=Hides rendered armor on enemy players for cleaner target visibility
 module.hoptimization.low_fire.name=Low Fire
 module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
 module.hoptimization.block_outline.name=Block Outline
@@ -43,6 +45,8 @@ module.hoptimization.cheat_mode.name=Cheat Mode
 module.hoptimization.cheat_mode.desc=Unlocks gameplay-altering modules that may trigger server anticheat
 
 # Modules - Performance
+module.hoptimization.modern_hotbar.name=Modern Hotbar & Bars
+module.hoptimization.modern_hotbar.desc=Replaces the vanilla hotbar, health hearts, and hunger bar with theme-matched modern cards and capsule bars
 module.hoptimization.particle_limit.name=Particle Limit
 module.hoptimization.particle_limit.desc=Caps active particle count to keep frame rates steady
 
@@ -116,7 +120,7 @@ setting.hoptimization.modern_inventory.show_potions.name=Show Potion Cards
 setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=Modern Main Menu
 setting.hoptimization.modern_vanilla_ui.modern_buttons.name=Modern Buttons & Sliders
 setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=Modern Menu Backgrounds
-setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Ambient Flow & Motes
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Geometric Ambient
 
 # Settings - Atmosphere
 setting.hoptimization.atmosphere.sky_preset.name=Abstract Sky
@@ -136,17 +140,25 @@ setting.hoptimization.atmosphere.soft_display.name=Soft Anti-Glare
 setting.hoptimization.atmosphere.soft_strength.name=Softness
 setting.hoptimization.atmosphere.soft_fog.name=Soft Rain Fog
 
-# Settings - Chams Contours
+# Settings - Chams Rifts
 setting.hoptimization.chams.players.name=Players
 setting.hoptimization.chams.mobs.name=Mobs
 setting.hoptimization.chams.self.name=Self
 setting.hoptimization.chams.through_walls.name=Through Walls (Cheat)
-setting.hoptimization.chams.contour_density.name=Contour Density
-setting.hoptimization.chams.contour_flow.name=Contour Flow
+setting.hoptimization.chams.rift_count.name=Rift Count
 setting.hoptimization.chams.glow_strength.name=Glow Strength
-setting.hoptimization.chams.fill_opacity.name=Fill Opacity
+setting.hoptimization.chams.outer_aura.name=Outer Silhouette Aura
 setting.hoptimization.chams.follow_theme.name=Follow Theme Accent
 setting.hoptimization.chams.color.name=Custom Color
+
+# Settings - Modern Hotbar & Bars
+setting.hoptimization.modern_hotbar.hotbar.name=Modern Hotbar
+setting.hoptimization.modern_hotbar.bars.name=Smooth Hearts & Hunger
+
+# Settings - Hide Enemy Armor
+setting.hoptimization.hide_armor.ignore_teammates.name=Keep Teammate Armor
+setting.hoptimization.hide_armor.hide_mobs.name=Hide Mob Armor
+setting.hoptimization.hide_armor.hide_self.name=Hide Self Armor
 
 # Settings - Low Fire
 setting.hoptimization.low_fire.height.name=Height

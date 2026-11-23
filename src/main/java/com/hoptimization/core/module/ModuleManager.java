@@ -20,6 +20,7 @@ import com.hoptimization.modules.ui.Coordinates;
 import com.hoptimization.modules.ui.CpsDisplay;
 import com.hoptimization.modules.ui.FPSDisplay;
 import com.hoptimization.modules.ui.Keystrokes;
+import com.hoptimization.modules.ui.ModernHotbar;
 import com.hoptimization.modules.ui.PotionHud;
 import com.hoptimization.modules.ui.ScoreboardHud;
 import com.hoptimization.modules.ui.TargetHud;
@@ -27,6 +28,7 @@ import com.hoptimization.modules.visual.Atmosphere;
 import com.hoptimization.modules.visual.BlockOutline;
 import com.hoptimization.modules.visual.Chams;
 import com.hoptimization.modules.visual.Esp;
+import com.hoptimization.modules.visual.HideArmor;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.Jarvis;
 import com.hoptimization.modules.visual.KillEffects;
@@ -94,6 +96,7 @@ public class ModuleManager {
         register(new ModernVanillaUI());
         register(new Atmosphere());
         register(new Chams());
+        register(new HideArmor());
         register(new LowFire());
         register(new BlockOutline());
         register(new HurtCam());
@@ -113,6 +116,7 @@ public class ModuleManager {
         register(new Keystrokes());
         register(new ScoreboardHud());
         register(new PotionHud());
+        register(new ModernHotbar());
 
         register(new ParticleLimit());
         register(new MouseDelayFix());
