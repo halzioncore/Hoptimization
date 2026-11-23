@@ -4,6 +4,7 @@ import com.hoptimization.HoptimizationMod;
 import com.hoptimization.modules.visual.ModernVanillaUI;
 import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.RenderUtil;
+import com.hoptimization.ui.render.WaterRippleRenderer;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
 import com.hoptimization.ui.theme.ThemeMode;
@@ -56,11 +57,10 @@ public final class ModernVanillaRenderer {
         ThemeData theme = ThemeManager.current();
         boolean isLight = theme.getMode() == ThemeMode.LIGHT;
 
-        // Clean atmospheric gradient backdrop using surface0 & surface1.
-        RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
-
-        if (ModernVanillaUI.isWaveStripesEnabled()) {
-            renderInteractiveWaves(w, h, mouseX, mouseY, theme, isLight);
+        // Clean atmospheric gradient / top-down interactive water surface.
+        if (!ModernVanillaUI.isWaveStripesEnabled()
+            || !WaterRippleRenderer.renderWaterBackground(w, h, mouseX, mouseY, theme)) {
+            RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
         }
 
         // Gentle breathing ambient accent glow behind the menu card.
@@ -164,16 +164,16 @@ public final class ModernVanillaRenderer {
                 RenderUtil.drawRect(0.0f, 0.0f, w, h, RenderUtil.withAlpha(theme.backdrop(), 0.78f));
             }
         } else {
-            RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
-            if (ModernVanillaUI.isWaveStripesEnabled()) {
-                int guiMouseX = Math.round(smoothedMouseNormX * w);
-                int guiMouseY = Math.round(smoothedMouseNormY * h);
-                if (Mouse.isCreated() && Minecraft.getMinecraft() != null) {
-                    ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-                    guiMouseX = Mouse.getX() * sr.getScaledWidth() / Math.max(1, Minecraft.getMinecraft().displayWidth);
-                    guiMouseY = sr.getScaledHeight() - Mouse.getY() * sr.getScaledHeight() / Math.max(1, Minecraft.getMinecraft().displayHeight) - 1;
-                }
-                renderInteractiveWaves(w, h, guiMouseX, guiMouseY, theme, theme.getMode() == ThemeMode.LIGHT);
+            int guiMouseX = Math.round(w * 0.5f);
+            int guiMouseY = Math.round(h * 0.5f);
+            if (Mouse.isCreated() && Minecraft.getMinecraft() != null) {
+                ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
+                guiMouseX = Mouse.getX() * sr.getScaledWidth() / Math.max(1, Minecraft.getMinecraft().displayWidth);
+                guiMouseY = sr.getScaledHeight() - Mouse.getY() * sr.getScaledHeight() / Math.max(1, Minecraft.getMinecraft().displayHeight) - 1;
+            }
+            if (!ModernVanillaUI.isWaveStripesEnabled()
+                || !WaterRippleRenderer.renderWaterBackground(w, h, guiMouseX, guiMouseY, theme)) {
+                RenderUtil.drawVerticalGradient(0.0f, 0.0f, w, h, theme.surface0(), theme.surface1());
             }
             int subtleGlow = RenderUtil.withAlpha(theme.accent(), theme.getMode() == ThemeMode.LIGHT ? 0.08f : 0.06f);
             RenderUtil.drawShadow(w * 0.5f - 140.0f, -40.0f, 280.0f, 120.0f, 60.0f, 100.0f, subtleGlow);

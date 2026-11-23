@@ -25,6 +25,8 @@ module.hoptimization.modern_vanilla_ui.name=Modern Vanilla UI
 module.hoptimization.modern_vanilla_ui.desc=Styles the Minecraft start screen, options menus, buttons, and sliders to match your active theme
 module.hoptimization.atmosphere.name=Atmosphere
 module.hoptimization.atmosphere.desc=Customizes sky palettes, melancholy rain weather, and a soft anti-glare display filter
+module.hoptimization.chams.name=Chams Contours
+module.hoptimization.chams.desc=Renders 3D topographic contour lines and a soft outer silhouette glow on living entities
 module.hoptimization.low_fire.name=Low Fire
 module.hoptimization.low_fire.desc=Lowers the first-person fire overlay height
 module.hoptimization.block_outline.name=Block Outline
@@ -114,7 +116,7 @@ setting.hoptimization.modern_inventory.show_potions.name=Show Potion Cards
 setting.hoptimization.modern_vanilla_ui.modern_main_menu.name=Modern Main Menu
 setting.hoptimization.modern_vanilla_ui.modern_buttons.name=Modern Buttons & Sliders
 setting.hoptimization.modern_vanilla_ui.modern_backgrounds.name=Modern Menu Backgrounds
-setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Interactive Wave Stripes
+setting.hoptimization.modern_vanilla_ui.wave_stripes.name=Interactive Water Ripples
 
 # Settings - Atmosphere
 setting.hoptimization.atmosphere.sky_preset.name=Abstract Sky
@@ -133,6 +135,18 @@ setting.hoptimization.atmosphere.show_ripples.name=Ground Splash Ripples
 setting.hoptimization.atmosphere.soft_display.name=Soft Anti-Glare
 setting.hoptimization.atmosphere.soft_strength.name=Softness
 setting.hoptimization.atmosphere.soft_fog.name=Soft Rain Fog
+
+# Settings - Chams Contours
+setting.hoptimization.chams.players.name=Players
+setting.hoptimization.chams.mobs.name=Mobs
+setting.hoptimization.chams.self.name=Self
+setting.hoptimization.chams.through_walls.name=Through Walls (Cheat)
+setting.hoptimization.chams.contour_density.name=Contour Density
+setting.hoptimization.chams.contour_flow.name=Contour Flow
+setting.hoptimization.chams.glow_strength.name=Glow Strength
+setting.hoptimization.chams.fill_opacity.name=Fill Opacity
+setting.hoptimization.chams.follow_theme.name=Follow Theme Accent
+setting.hoptimization.chams.color.name=Custom Color
 
 # Settings - Low Fire
 setting.hoptimization.low_fire.height.name=Height

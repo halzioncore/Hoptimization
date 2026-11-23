@@ -8,10 +8,13 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+
+import java.nio.FloatBuffer;
 
 /**
  * High-resolution TTF bridge backing {@link com.hoptimization.mixin.render.MixinFontRenderer}.
@@ -45,6 +48,7 @@ public final class VanillaTtfFontBridge {
     }
 
     private static int obfuscateSeed = 0x1337BEEF;
+    private static final FloatBuffer MODELVIEW_BUF = BufferUtils.createFloatBuffer(16);
 
     private VanillaTtfFontBridge() {
     }
@@ -632,12 +636,23 @@ public final class VanillaTtfFontBridge {
     }
 
     private static float resolvePhysicalScale() {
+        float baseScale = 2.0f;
         Minecraft mc = Minecraft.getMinecraft();
         if (mc != null && Display.isCreated()) {
             ScaledResolution sr = new ScaledResolution(mc);
-            // Match exact physical pixel scale of Minecraft's active GUI scale for 1:1 hinted sharpness.
-            return Math.max(1.0f, (float) sr.getScaleFactor());
+            baseScale = Math.max(1.0f, (float) sr.getScaleFactor());
+            // Account for active GL modelview matrix scaling (e.g. 4x Title / 2x Subtitle banners).
+            MODELVIEW_BUF.clear();
+            GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MODELVIEW_BUF);
+            float m00 = MODELVIEW_BUF.get(0);
+            float m01 = MODELVIEW_BUF.get(1);
+            float m10 = MODELVIEW_BUF.get(4);
+            float m11 = MODELVIEW_BUF.get(5);
+            float sx = (float) Math.sqrt(m00 * m00 + m01 * m01);
+            float sy = (float) Math.sqrt(m10 * m10 + m11 * m11);
+            float matrixScale = Math.max(1.0f, Math.min(8.0f, 0.5f * (sx + sy)));
+            return baseScale * matrixScale;
         }
-        return 2.0f;
+        return baseScale;
     }
 }

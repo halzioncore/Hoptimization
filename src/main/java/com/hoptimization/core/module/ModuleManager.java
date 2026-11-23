@@ -25,6 +25,7 @@ import com.hoptimization.modules.ui.ScoreboardHud;
 import com.hoptimization.modules.ui.TargetHud;
 import com.hoptimization.modules.visual.Atmosphere;
 import com.hoptimization.modules.visual.BlockOutline;
+import com.hoptimization.modules.visual.Chams;
 import com.hoptimization.modules.visual.Esp;
 import com.hoptimization.modules.visual.HurtCam;
 import com.hoptimization.modules.visual.Jarvis;
@@ -92,6 +93,7 @@ public class ModuleManager {
         register(new ModernInventory());
         register(new ModernVanillaUI());
         register(new Atmosphere());
+        register(new Chams());
         register(new LowFire());
         register(new BlockOutline());
         register(new HurtCam());
