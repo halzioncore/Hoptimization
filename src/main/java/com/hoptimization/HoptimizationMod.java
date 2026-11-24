@@ -4,6 +4,7 @@ import com.hoptimization.core.config.ConfigManager;
 import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.modules.misc.LanguageModule;
+import com.hoptimization.modules.visual.ModernFont;
 import com.hoptimization.modules.visual.Theme;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.clickgui.ClickGuiScreen;
@@ -134,6 +135,7 @@ public class HoptimizationMod {
         ThemeManager themeManager = ThemeManager.getInstance();
         themeManager.setThemesDirectory(configManager.getThemesDir().toFile());
         Theme.syncOnStartup(uiConfig);
+        ModernFont.syncOnStartup();
         themeManager.setReduceMotion(uiConfig.isReduceMotion());
         Animation.setReduceMotion(uiConfig.isReduceMotion());
 

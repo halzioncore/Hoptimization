@@ -464,7 +464,7 @@ public final class ModuleCard {
 
         if (frosted || theme.style().isCardBorder()) {
             int borderColor = frosted
-                ? RenderUtil.withAlpha(theme.borderStrong(), cardAlpha * 0.85f)
+                ? RenderUtil.withAlpha(theme.frostedBorder(), cardAlpha)
                 : RenderUtil.withAlpha(theme.border(), cardAlpha);
             RenderUtil.drawRoundedBorder(
                 x, y, width, this.layoutH,

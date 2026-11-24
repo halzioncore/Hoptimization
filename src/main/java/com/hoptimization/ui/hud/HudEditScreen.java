@@ -659,14 +659,13 @@ public class HudEditScreen extends GuiScreen {
     private void renderToolbar(float logicalW, float mouseX, float mouseY, ThemeData theme) {
         computeToolbarMetrics(logicalW);
         if (ThemeManager.isFrostedGlass()) {
-            boolean isLight = theme.getMode() == ThemeMode.LIGHT;
             RenderUtil.drawFrostedRoundedRectWithShadow(
                 this.toolbarX, this.toolbarY, this.toolbarW, TOOLBAR_HEIGHT,
                 theme.radiusCard(),
-                RenderUtil.withAlpha(theme.surface0(), isLight ? 0.68f : 0.56f),
-                isLight ? theme.borderStrong() : 0x38FFFFFF,
+                theme.frostedWindowTint(),
+                theme.frostedBorder(),
                 UiTokens.BORDER_WIDTH,
-                isLight ? 0.14f : 0.10f,
+                theme.frostedHighlightStrength(),
                 1.0f,
                 0.0f,
                 UiTokens.SHADOW_POPUP_OFFSET_Y,

@@ -1,7 +1,9 @@
 package com.hoptimization.ui.theme;
 
+import com.hoptimization.modules.misc.LanguageModule;
+
 /**
- * 不可变主题 token 容器，包含全部 18 个基础色板 token、4 个派生 token（支持覆盖）与风格参数，
+ * 不可变主题 token 容器，包含全部 18 个基础色板 token、4 个派生 token（支持覆盖）、毛玻璃派生色与风格参数，
  * 以及 WCAG 相对亮度/对比度辅助计算方法。
  */
 public final class ThemeData {
@@ -51,6 +53,7 @@ public final class ThemeData {
     private final int accentMuted;
     private final int hudBackground;
     private final int scrollbar;
+    private final int frostedBorder;
 
     private final ThemeStyle style;
 
@@ -94,6 +97,7 @@ public final class ThemeData {
         this.scrollbar = this.scrollbarOverride != null
                 ? this.scrollbarOverride.intValue()
                 : computeScrollbar(this.textTertiary);
+        this.frostedBorder = computeFrostedBorder(this.borderStrong, this.thumb, this.mode);
     }
 
     /**
@@ -105,7 +109,7 @@ public final class ThemeData {
               int textPrimary, int textSecondary, int textTertiary,
               int accent, int textOnAccent, int thumb,
               int success, int warning, int danger, int shadow,
-              int accentHover, int accentMuted, int hudBackground, int scrollbar,
+              int accentHover, int accentMuted, int hudBackground, int scrollbar, int frostedBorder,
               ThemeStyle style) {
         this.id = id;
         this.name = name;
@@ -136,6 +140,7 @@ public final class ThemeData {
         this.accentMuted = accentMuted;
         this.hudBackground = hudBackground;
         this.scrollbar = scrollbar;
+        this.frostedBorder = frostedBorder;
         this.style = style;
     }
 
@@ -181,6 +186,7 @@ public final class ThemeData {
                 lerpColor(from.accentMuted, to.accentMuted, t),
                 lerpColor(from.hudBackground, to.hudBackground, t),
                 lerpColor(from.scrollbar, to.scrollbar, t),
+                lerpColor(from.frostedBorder, to.frostedBorder, t),
                 ThemeStyle.interpolate(from.style, to.style, t)
         );
     }
@@ -190,6 +196,26 @@ public final class ThemeData {
     }
 
     public String getName() {
+        return name;
+    }
+
+    /**
+     * 获取当前语言下的主题显示名称：内置主题优先读取 {@code ui.hoptimization.theme.<id>}，自定义主题返回其配置名称。
+     *
+     * @return 本地化后的主题名称
+     */
+    public String getLocalizedName() {
+        if (BuiltinThemes.isBuiltin(id)) {
+            String key = "ui.hoptimization.theme." + id;
+            try {
+                String formatted = LanguageModule.format(key);
+                if (formatted != null && !formatted.isEmpty() && !formatted.equals(key)) {
+                    return formatted;
+                }
+            } catch (RuntimeException ignored) {
+                // 单元测试或未初始化语言模块时安全回退内置默认名
+            }
+        }
         return name;
     }
 
@@ -283,6 +309,80 @@ public final class ThemeData {
 
     public int scrollbar() {
         return scrollbar;
+    }
+
+    /**
+     * 获取毛玻璃模式下的微光折射边框色（浅色基于 {@code borderStrong}，深色融合 {@code borderStrong} 与 {@code thumb}）。
+     *
+     * @return 毛玻璃边框 ARGB 颜色
+     */
+    public int frostedBorder() {
+        return frostedBorder;
+    }
+
+    /**
+     * 获取毛玻璃材质顶部高光光泽强度。
+     *
+     * @return 高光强度系数
+     */
+    public float frostedHighlightStrength() {
+        return mode == ThemeMode.LIGHT ? 0.14f : 0.09f;
+    }
+
+    /**
+     * 获取毛玻璃主窗口底板着色（基于 {@code surface0}）。
+     *
+     * @return 磨砂窗口着色 ARGB
+     */
+    public int frostedWindowTint() {
+        return scaleAlpha(surface0, mode == ThemeMode.LIGHT ? 0.68f : 0.56f);
+    }
+
+    /**
+     * 获取毛玻璃二级内容面板着色（基于 {@code surface1}）。
+     *
+     * @return 磨砂面板着色 ARGB
+     */
+    public int frostedPanelTint() {
+        return scaleAlpha(surface1, mode == ThemeMode.LIGHT ? 0.54f : 0.44f);
+    }
+
+    /**
+     * 获取毛玻璃卡片着色（基于 {@code surface2}）。
+     *
+     * @return 磨砂卡片着色 ARGB
+     */
+    public int frostedCardTint() {
+        return scaleAlpha(surface2, mode == ThemeMode.LIGHT ? 0.66f : 0.54f);
+    }
+
+    /**
+     * 获取毛玻璃顶层弹出菜单/取色器着色（基于 {@code surface2}）。
+     *
+     * @return 磨砂弹出层着色 ARGB
+     */
+    public int frostedPopupTint() {
+        return scaleAlpha(surface2, mode == ThemeMode.LIGHT ? 0.76f : 0.68f);
+    }
+
+    /**
+     * 获取毛玻璃悬停提示框着色（基于 {@code surface4}）。
+     *
+     * @return 磨砂提示框着色 ARGB
+     */
+    public int frostedTooltipTint() {
+        return scaleAlpha(surface4, mode == ThemeMode.LIGHT ? 0.78f : 0.70f);
+    }
+
+    /**
+     * 获取融合了主题 {@code hudOpacity} 的毛玻璃 HUD 卡片着色（基于 {@code surface0}）。
+     *
+     * @return 磨砂 HUD 卡片着色 ARGB
+     */
+    public int frostedHudTint() {
+        float base = mode == ThemeMode.LIGHT ? 0.78f : 0.66f;
+        float factor = Math.min(0.92f, Math.max(0.0f, style.getHudOpacity() * base));
+        return scaleAlpha(surface0, factor);
     }
 
     public Integer getAccentHoverOverride() {
@@ -441,6 +541,21 @@ public final class ThemeData {
      */
     public static int computeScrollbar(int textTertiaryArgb) {
         return scaleAlpha(textTertiaryArgb, 0.50f);
+    }
+
+    /**
+     * 计算与主题色调协调的毛玻璃微光边缘色，消除组件内硬编码白色描边。
+     */
+    public static int computeFrostedBorder(int borderStrongArgb, int thumbArgb, ThemeMode mode) {
+        if (mode == ThemeMode.LIGHT) {
+            int baseA = (borderStrongArgb >>> 24) & 0xFF;
+            int boostedA = Math.max(0x32, Math.min(0x54, baseA + 0x10));
+            return withAlpha(borderStrongArgb, boostedA);
+        }
+        int strongOpaque = 0xFF000000 | (borderStrongArgb & 0x00FFFFFF);
+        int thumbOpaque = 0xFF000000 | (thumbArgb & 0x00FFFFFF);
+        int mixedRgb = lerpColor(strongOpaque, thumbOpaque, 0.55f);
+        return withAlpha(mixedRgb, 0x36);
     }
 
     /**
