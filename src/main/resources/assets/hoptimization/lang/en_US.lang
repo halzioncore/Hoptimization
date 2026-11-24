@@ -43,10 +43,10 @@ module.hoptimization.clickgui.name=ClickGUI
 module.hoptimization.clickgui.desc=Configures the ClickGUI menu scale and open keybind
 module.hoptimization.cheat_mode.name=Cheat Mode
 module.hoptimization.cheat_mode.desc=Unlocks gameplay-altering modules that may trigger server anticheat
-
-# Modules - Performance
 module.hoptimization.modern_hotbar.name=Modern Hotbar & Bars
 module.hoptimization.modern_hotbar.desc=Replaces the vanilla hotbar, health hearts, and hunger bar with theme-matched modern cards and capsule bars
+
+# Modules - Performance
 module.hoptimization.particle_limit.name=Particle Limit
 module.hoptimization.particle_limit.desc=Caps active particle count to keep frame rates steady
 
@@ -131,7 +131,7 @@ setting.hoptimization.atmosphere.sky_preset.option.midnight_indigo=Midnight Indi
 setting.hoptimization.atmosphere.sky_preset.option.soft_overcast=Soft Overcast
 setting.hoptimization.atmosphere.sky_preset.option.theme_accent=Theme Accent
 setting.hoptimization.atmosphere.show_stars.name=Minimal Starlight
-setting.hoptimization.atmosphere.weather.name=Custom 3D Rain
+setting.hoptimization.atmosphere.weather.name=Realistic Rain
 setting.hoptimization.atmosphere.weather.option.off=Off (Vanilla)
 setting.hoptimization.atmosphere.weather.option.light_rain=Light Rain
 setting.hoptimization.atmosphere.weather.option.heavy_rain=Heavy Rain
@@ -217,6 +217,7 @@ ui.hoptimization.profile.new=New
 ui.hoptimization.profile.duplicate=Duplicate Current
 ui.hoptimization.profile.rename=Rename
 ui.hoptimization.profile.delete=Delete
+ui.hoptimization.profile.input_placeholder=Profile name
 
 ui.hoptimization.settings.title=Settings
 ui.hoptimization.settings.subtitle=Themes, appearance, and global preferences
@@ -229,6 +230,9 @@ ui.hoptimization.settings.theme.duplicate=Duplicate
 ui.hoptimization.settings.theme.rename=Rename
 ui.hoptimization.settings.theme.export=Export to Clipboard
 ui.hoptimization.settings.theme.delete=Delete
+ui.hoptimization.settings.theme.imported=Theme imported
+ui.hoptimization.settings.theme.exported=Copied to clipboard
+ui.hoptimization.settings.theme.import_failed=Invalid theme JSON
 ui.hoptimization.settings.accent=Accent Color
 ui.hoptimization.settings.accent.follow_theme=Follow Theme
 ui.hoptimization.settings.accent.custom=Custom
@@ -259,6 +263,16 @@ ui.hoptimization.theme.oled=OLED
 ui.hoptimization.theme.forest=Forest
 ui.hoptimization.theme.mist=Mist
 ui.hoptimization.theme.sand=Sand
+ui.hoptimization.theme.copy_suffix= Copy
+
+ui.hoptimization.accent.blue=Blue
+ui.hoptimization.accent.indigo=Indigo
+ui.hoptimization.accent.purple=Purple
+ui.hoptimization.accent.cyan=Cyan
+ui.hoptimization.accent.green=Green
+ui.hoptimization.accent.amber=Amber
+ui.hoptimization.accent.rose=Rose
+ui.hoptimization.accent.silver=Silver
 
 ui.hoptimization.common.save=Save
 ui.hoptimization.common.cancel=Cancel
