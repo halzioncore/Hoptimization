@@ -125,7 +125,7 @@ public class CpsDisplay extends Module implements HudElement {
 
     @Override
     public float getDefaultHudY(float screenWidth, float screenHeight) {
-        return UiTokens.HUD_SCREEN_MARGIN + 34.0f;
+        return UiTokens.HUD_SCREEN_MARGIN + 32.0f;
     }
 
     @Override

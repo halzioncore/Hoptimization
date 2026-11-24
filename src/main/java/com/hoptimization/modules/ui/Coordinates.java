@@ -155,7 +155,7 @@ public class Coordinates extends Module implements HudElement {
 
     @Override
     public float getDefaultHudY(float screenWidth, float screenHeight) {
-        return UiTokens.HUD_SCREEN_MARGIN + 68.0f;
+        return UiTokens.HUD_SCREEN_MARGIN + 64.0f;
     }
 
     @Override
@@ -198,17 +198,19 @@ public class Coordinates extends Module implements HudElement {
         float textX = x + UiTokens.HUD_PADDING_H;
         float line1Y = y + UiTokens.HUD_PADDING_V;
 
-        float afterPrefixX = HudRenderHelper.drawHudText(bodyFont, LABEL_XYZ, textX, line1Y, theme.accent(), shadow);
+        float afterPrefixX = HudRenderHelper.drawHudText(
+            bodyFont, LABEL_XYZ, textX, line1Y, theme.textSecondary(), shadow
+        );
         HudRenderHelper.drawHudText(bodyFont, coordText, afterPrefixX, line1Y, theme.textPrimary(), shadow);
 
         if (hasSecondLine) {
             float line2Y = line1Y + bodyFont.getHeight() + UiTokens.SPACE_2;
             if (facingOn && biomeOn) {
-                float cx = HudRenderHelper.drawHudText(captionFont, facingStr, textX, line2Y, theme.textSecondary(), shadow);
+                float cx = HudRenderHelper.drawHudText(captionFont, facingStr, textX, line2Y, theme.accent(), shadow);
                 cx = HudRenderHelper.drawHudText(captionFont, SEP_DOT, cx, line2Y, theme.textTertiary(), shadow);
                 HudRenderHelper.drawHudText(captionFont, biomeStr, cx, line2Y, theme.textSecondary(), shadow);
             } else if (facingOn) {
-                HudRenderHelper.drawHudText(captionFont, facingStr, textX, line2Y, theme.textSecondary(), shadow);
+                HudRenderHelper.drawHudText(captionFont, facingStr, textX, line2Y, theme.accent(), shadow);
             } else {
                 HudRenderHelper.drawHudText(captionFont, biomeStr, textX, line2Y, theme.textSecondary(), shadow);
             }

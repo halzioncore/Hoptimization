@@ -5,6 +5,7 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.core.setting.ModeSetting;
 import com.hoptimization.ui.font.FontManager;
+import com.hoptimization.ui.font.FontToken;
 import com.hoptimization.ui.font.VanillaTtfFontBridge;
 import com.hoptimization.ui.hud.HudElement;
 import com.hoptimization.ui.hud.HudOverlayRenderer;
@@ -33,14 +34,14 @@ public class ScoreboardHud extends Module implements HudElement {
     public static final String ID = "scoreboard";
 
     private static final int MAX_ROWS = 15;
-    private static final float TITLE_FONT_SIZE = 10.5f;
-    private static final float ROW_FONT_SIZE = 9.5f;
-    private static final float PAD_X = 10.0f;
-    private static final float PAD_Y = 8.0f;
+    private static final float TITLE_FONT_SIZE = FontToken.CAPTION.getSize();
+    private static final float ROW_FONT_SIZE = FontToken.CAPTION.getSize();
+    private static final float PAD_X = UiTokens.HUD_PADDING_H;
+    private static final float PAD_Y = UiTokens.SPACE_8;
     private static final float TITLE_HEIGHT = 14.0f;
-    private static final float DIVIDER_GAP = 6.0f;
-    private static final float ROW_HEIGHT = 12.5f;
-    private static final float SCORE_GAP = 10.0f;
+    private static final float DIVIDER_GAP = UiTokens.SPACE_4;
+    private static final float ROW_HEIGHT = 12.0f;
+    private static final float SCORE_GAP = UiTokens.SPACE_8;
     private static final float MIN_WIDTH = 112.0f;
 
     private static final String[] PREVIEW_ROWS = new String[] {
@@ -96,7 +97,7 @@ public class ScoreboardHud extends Module implements HudElement {
             new BooleanSetting("hide_numbers", "setting.hoptimization.scoreboard.hide_numbers.name", true)
         );
         this.textShadow = addSetting(
-            new BooleanSetting("text_shadow", "setting.hoptimization.scoreboard.text_shadow.name", true)
+            new BooleanSetting("text_shadow", "setting.hoptimization.scoreboard.text_shadow.name", false)
         );
         instance = this;
         setEnabled(true);
@@ -165,14 +166,18 @@ public class ScoreboardHud extends Module implements HudElement {
         float uiScale = FontManager.getUiScale();
         boolean showNumbers = !this.hideNumbers.isEnabled();
         boolean cardMode = !this.style.is("text");
-        boolean shadow = this.textShadow.isEnabled();
+        boolean shadow = !cardMode || this.textShadow.isEnabled();
 
         float maxContentW = VanillaTtfFontBridge.measureFormattedUiWidth(title, TITLE_FONT_SIZE, uiScale);
         int rowCount = this.rowTextScratch.size();
         for (int i = 0; i < rowCount; i++) {
-            float lineW = VanillaTtfFontBridge.measureFormattedUiWidth(this.rowTextScratch.get(i), ROW_FONT_SIZE, uiScale);
+            float lineW = VanillaTtfFontBridge.measureFormattedUiWidth(
+                this.rowTextScratch.get(i), ROW_FONT_SIZE, uiScale
+            );
             if (showNumbers) {
-                float scoreW = VanillaTtfFontBridge.measureFormattedUiWidth(this.rowScoreScratch.get(i), ROW_FONT_SIZE, uiScale);
+                float scoreW = VanillaTtfFontBridge.measureFormattedUiWidth(
+                    this.rowScoreScratch.get(i), ROW_FONT_SIZE, uiScale
+                );
                 lineW += SCORE_GAP + scoreW;
             }
             if (lineW > maxContentW) {
@@ -180,38 +185,35 @@ public class ScoreboardHud extends Module implements HudElement {
             }
         }
 
+        float dividerSpace = rowCount > 0 ? (DIVIDER_GAP * 2.0f + UiTokens.BORDER_WIDTH) : 0.0f;
         float boxW = Math.max(MIN_WIDTH, maxContentW + PAD_X * 2.0f);
-        float boxH = PAD_Y * 2.0f + TITLE_HEIGHT + (rowCount > 0 ? (DIVIDER_GAP + rowCount * ROW_HEIGHT) : 0.0f);
+        float boxH = PAD_Y * 2.0f + TITLE_HEIGHT + dividerSpace + rowCount * ROW_HEIGHT;
         this.cachedWidth = boxW;
         this.cachedHeight = boxH;
 
         if (cardMode) {
-            RenderUtil.drawShadow(
-                x, y, boxW, boxH,
-                theme.radiusCard(),
-                14.0f,
-                RenderUtil.withAlpha(theme.shadow(), 0.35f)
-            );
             HudRenderHelper.drawHudCard(x, y, boxW, boxH, theme, 1.0f);
         }
 
         float titleW = VanillaTtfFontBridge.measureFormattedUiWidth(title, TITLE_FONT_SIZE, uiScale);
         float titleX = x + (boxW - titleW) * 0.5f;
         float titleY = y + PAD_Y;
-        VanillaTtfFontBridge.drawFormattedUiString(title, titleX, titleY, theme.textPrimary(), shadow, TITLE_FONT_SIZE, uiScale);
+        VanillaTtfFontBridge.drawFormattedUiString(
+            title, titleX, titleY, theme.textPrimary(), shadow, TITLE_FONT_SIZE, uiScale
+        );
 
         if (rowCount > 0 && cardMode) {
-            float dividerY = titleY + TITLE_HEIGHT + DIVIDER_GAP * 0.4f;
+            float dividerY = titleY + TITLE_HEIGHT + DIVIDER_GAP;
             RenderUtil.drawRect(
                 x + PAD_X,
                 dividerY,
                 Math.max(0.0f, boxW - PAD_X * 2.0f),
-                0.75f,
-                RenderUtil.withAlpha(theme.borderStrong(), 0.70f)
+                UiTokens.BORDER_WIDTH,
+                theme.border()
             );
         }
 
-        float curY = titleY + TITLE_HEIGHT + DIVIDER_GAP;
+        float curY = titleY + TITLE_HEIGHT + dividerSpace;
         float leftX = x + PAD_X;
         float rightX = x + boxW - PAD_X;
         int defaultRowColor = theme.textPrimary();
@@ -220,12 +222,16 @@ public class ScoreboardHud extends Module implements HudElement {
         for (int i = 0; i < rowCount; i++) {
             String rowText = this.rowTextScratch.get(i);
             if (!rowText.isEmpty()) {
-                VanillaTtfFontBridge.drawFormattedUiString(rowText, leftX, curY, defaultRowColor, shadow, ROW_FONT_SIZE, uiScale);
+                VanillaTtfFontBridge.drawFormattedUiString(
+                    rowText, leftX, curY, defaultRowColor, shadow, ROW_FONT_SIZE, uiScale
+                );
             }
             if (showNumbers) {
                 String scoreStr = this.rowScoreScratch.get(i);
                 float scoreW = VanillaTtfFontBridge.measureFormattedUiWidth(scoreStr, ROW_FONT_SIZE, uiScale);
-                VanillaTtfFontBridge.drawFormattedUiString(scoreStr, rightX - scoreW, curY, scoreColor, shadow, ROW_FONT_SIZE, uiScale);
+                VanillaTtfFontBridge.drawFormattedUiString(
+                    scoreStr, rightX - scoreW, curY, scoreColor, shadow, ROW_FONT_SIZE, uiScale
+                );
             }
             curY += ROW_HEIGHT;
         }

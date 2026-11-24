@@ -15,6 +15,8 @@ import com.hoptimization.ui.hud.HudOverlayRenderer;
 import com.hoptimization.ui.hud.HudRenderHelper;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
+import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
@@ -276,24 +278,17 @@ public class Keystrokes extends Module implements HudElement {
         anim.setTarget(pressed ? 1.0f : 0.0f);
         float t = anim.get();
         float radius = theme.radiusControl();
-        boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
-        boolean frosted = com.hoptimization.ui.theme.ThemeManager.isFrostedGlass();
+        boolean isLight = theme.getMode() == ThemeMode.LIGHT;
+        boolean frosted = ThemeManager.isFrostedGlass();
 
-        // Soft outer luminous bloom/halo when pressed.
-        if (t > 0.01f) {
-            int bloomColor = RenderUtil.withAlpha(theme.accent(), (isLight ? 0.34f : 0.44f) * t);
-            RenderUtil.drawShadow(x, y, width, height, radius, 11.0f, bloomColor);
-        }
-
-        int glowBorder = RenderUtil.withAlpha(theme.accent(), 0.92f);
+        int pressedBorder = RenderUtil.withAlpha(theme.accent(), isLight ? 0.78f : 0.85f);
         if (frosted) {
-            int baseGlassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.56f : 0.46f);
-            int pressedGlassRgb = ColorAnimation.lerpArgb(theme.surface0(), theme.accent(), isLight ? 0.28f : 0.34f);
-            int pressedGlassTint = RenderUtil.withAlpha(pressedGlassRgb, isLight ? 0.64f : 0.56f);
+            int baseGlassTint = theme.frostedHudTint();
+            int pressedGlassRgb = ColorAnimation.lerpArgb(theme.surface0(), theme.accent(), isLight ? 0.24f : 0.30f);
+            int pressedGlassTint = RenderUtil.withAlpha(pressedGlassRgb, isLight ? 0.62f : 0.54f);
             int glassTint = ColorAnimation.lerpArgb(baseGlassTint, pressedGlassTint, t);
-            int baseGlassBorder = isLight ? theme.borderStrong() : 0x36FFFFFF;
-            int glassBorder = ColorAnimation.lerpArgb(baseGlassBorder, glowBorder, t);
-            float highlight = (isLight ? 0.14f : 0.10f) + 0.14f * t;
+            int glassBorder = ColorAnimation.lerpArgb(theme.frostedBorder(), pressedBorder, t);
+            float highlight = theme.frostedHighlightStrength() + 0.06f * t;
             RenderUtil.drawFrostedRoundedRect(
                 x, y, width, height,
                 radius,
@@ -304,32 +299,22 @@ public class Keystrokes extends Module implements HudElement {
                 1.0f
             );
         } else {
-            int pressedSoftBg = ColorAnimation.lerpArgb(theme.hudBackground(), theme.accent(), isLight ? 0.24f : 0.30f);
+            boolean hasCardBorder = theme.style().isCardBorder();
+            int pressedSoftBg = ColorAnimation.lerpArgb(theme.hudBackground(), theme.accent(), isLight ? 0.22f : 0.28f);
             int bg = ColorAnimation.lerpArgb(theme.hudBackground(), pressedSoftBg, t);
-            int border = ColorAnimation.lerpArgb(theme.border(), glowBorder, t);
+            int unpressedBorder = hasCardBorder ? theme.border() : RenderUtil.withAlpha(theme.accent(), 0.0f);
+            int border = ColorAnimation.lerpArgb(unpressedBorder, pressedBorder, t);
+            float borderWidth = (hasCardBorder || t > 0.01f) ? UiTokens.BORDER_WIDTH : 0.0f;
             RenderUtil.drawRoundedRect(
                 x, y, width, height,
                 radius,
                 bg,
                 border,
-                UiTokens.BORDER_WIDTH
+                borderWidth
             );
         }
 
-        // Subtle inner backlit glow wash so the key feels softly illuminated from within.
-        if (t > 0.01f) {
-            int innerGlow = RenderUtil.withAlpha(theme.accent(), (isLight ? 0.12f : 0.16f) * t);
-            RenderUtil.drawRoundedRect(
-                x + 1.0f, y + 1.0f,
-                Math.max(0.0f, width - 2.0f), Math.max(0.0f, height - 2.0f),
-                Math.max(0.0f, radius - 1.0f),
-                innerGlow
-            );
-        }
-
-        int pressedFg = isLight
-            ? ColorAnimation.lerpArgb(theme.textPrimary(), theme.accent(), 0.72f)
-            : ColorAnimation.lerpArgb(0xFFFFFFFF, theme.accent(), 0.16f);
+        int pressedFg = ColorAnimation.lerpArgb(theme.textPrimary(), theme.accent(), isLight ? 0.68f : 0.36f);
         int fg = ColorAnimation.lerpArgb(theme.textPrimary(), pressedFg, t);
 
         float centerX = x + width * 0.5f;

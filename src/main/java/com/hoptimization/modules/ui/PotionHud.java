@@ -35,15 +35,15 @@ import java.util.List;
 public class PotionHud extends Module implements HudElement {
     public static final String ID = "potion_hud";
 
-    private static final float CARD_HEIGHT = 34.0f;
-    private static final float CARD_GAP = 5.0f;
-    private static final float MIN_CARD_WIDTH = 122.0f;
-    private static final float PAD_LEFT = 8.0f;
-    private static final float PAD_RIGHT = 10.0f;
-    private static final float RING_RADIUS = 11.0f;
-    private static final float RING_THICKNESS = 2.2f;
+    private static final float CARD_HEIGHT = 32.0f;
+    private static final float CARD_GAP = UiTokens.SPACE_4;
+    private static final float MIN_CARD_WIDTH = 120.0f;
+    private static final float PAD_LEFT = UiTokens.SPACE_8;
+    private static final float PAD_RIGHT = UiTokens.SPACE_8;
+    private static final float RING_RADIUS = 10.0f;
+    private static final float RING_THICKNESS = 2.0f;
     private static final float ICON_SIZE = 12.0f;
-    private static final float TEXT_GAP = 8.0f;
+    private static final float TEXT_GAP = UiTokens.SPACE_8;
     private static final int LOW_DURATION_TICKS = 200; // 10 seconds
     private static final int MAX_POTION_SLOTS = 64;
     private static final ResourceLocation INVENTORY_TEXTURE =
@@ -187,9 +187,9 @@ public class PotionHud extends Module implements HudElement {
             }
 
             float textX = x + ringAreaW;
-            float textBlockH = titleFont.getHeight() + 1.5f + timeFont.getHeight();
+            float textBlockH = titleFont.getHeight() + UiTokens.SPACE_2 + timeFont.getHeight();
             float titleY = curY + (CARD_HEIGHT - textBlockH) * 0.5f;
-            float timeY = titleY + titleFont.getHeight() + 1.5f;
+            float timeY = titleY + titleFont.getHeight() + UiTokens.SPACE_2;
 
             HudRenderHelper.drawHudText(titleFont, entry.title, textX, titleY, theme.textPrimary(), !cardMode);
             int timeColor = entry.lowDuration ? theme.danger() : theme.textSecondary();
