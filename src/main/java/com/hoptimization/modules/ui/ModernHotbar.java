@@ -5,6 +5,10 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.anim.ColorAnimation;
+import com.hoptimization.ui.font.FontManager;
+import com.hoptimization.ui.font.FontStyle;
+import com.hoptimization.ui.font.FontWeight;
+import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.hud.HudRenderHelper;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
@@ -45,6 +49,8 @@ public class ModernHotbar extends Module {
     private static final float[] FOOD_UNIT_Y = new float[FOOD_VERTICES];
     private static final float[] HIGHLIGHT_COS = new float[HIGHLIGHT_SEGMENTS + 1];
     private static final float[] HIGHLIGHT_SIN = new float[HIGHLIGHT_SEGMENTS + 1];
+    private static final FontStyle XP_LEVEL_STYLE = FontStyle.of(8.5F, FontWeight.SEMIBOLD);
+    private static boolean prevCullFace = false;
 
     static {
         for (int i = 0; i < HEART_VERTICES; i++) {
@@ -75,13 +81,17 @@ public class ModernHotbar extends Module {
             new BooleanSetting("modern_hotbar", "setting.hoptimization.modern_hotbar.hotbar.name", true));
     private final BooleanSetting modernBars = addSetting(
             new BooleanSetting("modern_bars", "setting.hoptimization.modern_hotbar.bars.name", true));
+    private final BooleanSetting modernXpBar = addSetting(
+            new BooleanSetting("modern_xp_bar", "setting.hoptimization.modern_hotbar.xp_bar.name", true));
 
     private float smoothSlot = -1.0F;
     private float smoothHealth = -1.0F;
     private float smoothFood = -1.0F;
+    private float smoothXp = -1.0F;
     private long lastHotbarNanos;
     private long lastHealthNanos;
     private long lastFoodNanos;
+    private long lastXpNanos;
 
     public ModernHotbar() {
         super(ID, Category.UI);
@@ -137,6 +147,12 @@ public class ModernHotbar extends Module {
             float rowY = screenH - GuiIngameForge.right_height;
             GuiIngameForge.right_height += 11;
             renderFood(mc, sr, player, barX + HOTBAR_WIDTH, rowY, theme);
+        } else if (event.type == RenderGameOverlayEvent.ElementType.EXPERIENCE
+                && this.modernXpBar.isEnabled()
+                && mc.playerController != null
+                && mc.playerController.shouldDrawHUD()) {
+            event.setCanceled(true);
+            renderXpBar(sr, player, barX, barY, theme);
         }
     }
 
@@ -219,8 +235,7 @@ public class ModernHotbar extends Module {
                 ? 1.0F + 0.08F * (float) Math.sin((now / 1_000_000_000.0D) * 7.0D)
                 : 1.0F;
 
-        int trackFill = RenderUtil.withAlpha(theme.surface1(), 0.72F);
-        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.75F);
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.85F);
         int heartColor = theme.danger();
         int absColor = theme.warning();
 
@@ -234,7 +249,7 @@ public class ModernHotbar extends Module {
             float cx = hx + ICON_SIZE * 0.5F;
             float cy = hy + ICON_SIZE * 0.5F;
 
-            drawHeartShape(cx, cy, size, trackFill, trackBorder);
+            drawHeartShape(cx, cy, size, 0, trackBorder);
 
             float fill = clamp01((this.smoothHealth - i * hpPerHeart) / hpPerHeart);
             if (fill > 0.01F) {
@@ -270,8 +285,7 @@ public class ModernHotbar extends Module {
             this.smoothFood += (foodLevel - this.smoothFood) * lerp;
         }
 
-        int trackFill = RenderUtil.withAlpha(theme.surface1(), 0.72F);
-        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.75F);
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.85F);
         boolean hasHunger = player.isPotionActive(Potion.hunger);
         int foodColor = hasHunger ? ColorAnimation.lerpArgb(theme.success(), theme.warning(), 0.35F) : theme.warning();
 
@@ -280,7 +294,7 @@ public class ModernHotbar extends Module {
             float cx = rightX - (i + 0.5F) * ICON_STEP;
             float cy = y + ICON_SIZE * 0.5F;
 
-            drawFoodShape(cx, cy, ICON_SIZE, trackFill, trackBorder);
+            drawFoodShape(cx, cy, ICON_SIZE, 0, trackBorder);
 
             float fill = clamp01((this.smoothFood - i * 2.0F) / 2.0F);
             if (fill > 0.01F) {
@@ -290,8 +304,53 @@ public class ModernHotbar extends Module {
         endVector2D();
     }
 
+    private void renderXpBar(
+            ScaledResolution sr,
+            EntityPlayer player,
+            float barX,
+            float barY,
+            ThemeData theme) {
+        long now = System.nanoTime();
+        float dt = computeDelta(now, this.lastXpNanos);
+        this.lastXpNanos = now;
+
+        float xpProgress = clamp01(player.experience);
+        if (this.smoothXp < 0.0F || Animation.isReduceMotion() || xpProgress < this.smoothXp - 0.5F) {
+            this.smoothXp = xpProgress;
+        } else {
+            float lerp = 1.0F - (float) Math.exp(-16.0F * dt);
+            this.smoothXp += (xpProgress - this.smoothXp) * lerp;
+        }
+
+        float xpH = 4.0F;
+        float xpY = barY - 6.0F;
+        float radius = 2.0F;
+        int trackFill = RenderUtil.withAlpha(theme.surface1(), 0.72F);
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.65F);
+        RenderUtil.drawRoundedRect(
+                barX, xpY, HOTBAR_WIDTH, xpH, radius, trackFill, trackBorder, UiTokens.BORDER_WIDTH);
+
+        if (this.smoothXp > 0.005F) {
+            float fillW = Math.max(xpH, HOTBAR_WIDTH * this.smoothXp);
+            int xpColor = RenderUtil.withAlpha(theme.success(), 0.92F);
+            RenderUtil.drawRoundedRect(barX, xpY, fillW, xpH, radius, xpColor);
+        }
+
+        int level = player.experienceLevel;
+        if (level > 0) {
+            String lvlStr = Integer.toString(level);
+            float scale = Math.max(1.0F, (float) sr.getScaleFactor());
+            TtfFontRenderer font = FontManager.getInstance().getRenderer(XP_LEVEL_STYLE, scale);
+            float lvlX = barX + (HOTBAR_WIDTH - font.getWidth(lvlStr)) * 0.5F;
+            float lvlY = xpY - font.getHeight() - 1.5F;
+            HudRenderHelper.drawHudText(font, lvlStr, lvlX, lvlY, theme.success(), true);
+        }
+    }
+
     private static void beginVector2D() {
+        prevCullFace = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         GlStateManager.pushMatrix();
+        GlStateManager.disableCull();
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
         GlStateManager.disableAlpha();
@@ -303,6 +362,9 @@ public class ModernHotbar extends Module {
     private static void endVector2D() {
         GL11.glLineWidth(1.0F);
         GL11.glDisable(GL11.GL_LINE_SMOOTH);
+        if (prevCullFace) {
+            GlStateManager.enableCull();
+        }
         GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
@@ -360,12 +422,14 @@ public class ModernHotbar extends Module {
     private static void drawHeartShape(float cx, float cy, float size, int fillColor, int borderColor) {
         float scale = size * 0.028F;
         float centerY = cy - size * 0.05F;
-        setColor(fillColor);
-        GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-        GL11.glVertex2f(cx, centerY);
-        emitHeartVertices(cx, centerY, scale);
-        GL11.glVertex2f(cx + HEART_UNIT_X[0] * scale, centerY + HEART_UNIT_Y[0] * scale);
-        GL11.glEnd();
+        if (((fillColor >>> 24) & 0xFF) > 0) {
+            setColor(fillColor);
+            GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+            GL11.glVertex2f(cx, centerY);
+            emitHeartVertices(cx, centerY, scale);
+            GL11.glVertex2f(cx + HEART_UNIT_X[0] * scale, centerY + HEART_UNIT_Y[0] * scale);
+            GL11.glEnd();
+        }
 
         GL11.glLineWidth(1.05F);
         setColor(borderColor);
@@ -394,12 +458,14 @@ public class ModernHotbar extends Module {
     }
 
     private static void drawFoodShape(float cx, float cy, float size, int fillColor, int borderColor) {
-        setColor(fillColor);
-        GL11.glBegin(GL11.GL_TRIANGLE_FAN);
-        GL11.glVertex2f(cx, cy);
-        emitFoodVertices(cx, cy, size);
-        GL11.glVertex2f(cx + FOOD_UNIT_X[0] * size, cy + FOOD_UNIT_Y[0] * size);
-        GL11.glEnd();
+        if (((fillColor >>> 24) & 0xFF) > 0) {
+            setColor(fillColor);
+            GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+            GL11.glVertex2f(cx, cy);
+            emitFoodVertices(cx, cy, size);
+            GL11.glVertex2f(cx + FOOD_UNIT_X[0] * size, cy + FOOD_UNIT_Y[0] * size);
+            GL11.glEnd();
+        }
 
         GL11.glLineWidth(1.05F);
         setColor(borderColor);

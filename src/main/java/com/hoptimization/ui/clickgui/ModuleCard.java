@@ -434,7 +434,7 @@ public final class ModuleCard {
         float cardRadius = theme.radiusCard();
         boolean frosted = com.hoptimization.ui.theme.ThemeManager.isFrostedGlass();
         float surfaceAlpha = frosted
-            ? (cardAlpha * (theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT ? 0.68f : 0.58f))
+            ? (cardAlpha * (theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT ? 0.44f : 0.34f))
             : cardAlpha;
         if (this.currentBodyH < 1.0f) {
             int bg = ColorAnimation.lerpArgb(theme.surface2(), theme.surface3(), hoverT);
@@ -464,7 +464,7 @@ public final class ModuleCard {
 
         if (frosted || theme.style().isCardBorder()) {
             int borderColor = frosted
-                ? RenderUtil.withAlpha(theme.frostedBorder(), cardAlpha)
+                ? RenderUtil.withAlpha(theme.frostedBorder(), 0.55f * cardAlpha)
                 : RenderUtil.withAlpha(theme.border(), cardAlpha);
             RenderUtil.drawRoundedBorder(
                 x, y, width, this.layoutH,

@@ -110,7 +110,7 @@ public class CpsDisplay extends Module implements HudElement {
         boolean dual = this.showRightClick.isEnabled();
         float minTextW = font.getWidth(dual ? BASELINE_DUAL : BASELINE_SINGLE);
         float liveTextW = measureLiveWidth(font, dual, getLeftCps(), getRightCps());
-        return Math.max(minTextW, liveTextW) + UiTokens.HUD_PADDING_H * 2.0f;
+        return Math.max(Keystrokes.TOTAL_WIDTH, Math.max(minTextW, liveTextW) + UiTokens.HUD_PADDING_H * 2.0f);
     }
 
     @Override
@@ -151,7 +151,7 @@ public class CpsDisplay extends Module implements HudElement {
         float contentW = leftW + pipeW + rightW + labelW;
         float minTextW = font.getWidth(dual ? BASELINE_DUAL : BASELINE_SINGLE);
 
-        float boxW = Math.max(minTextW, contentW) + UiTokens.HUD_PADDING_H * 2.0f;
+        float boxW = Math.max(Keystrokes.TOTAL_WIDTH, Math.max(minTextW, contentW) + UiTokens.HUD_PADDING_H * 2.0f);
         float boxH = font.getHeight() + UiTokens.HUD_PADDING_V * 2.0f;
 
         boolean cardMode = !this.style.is("text");

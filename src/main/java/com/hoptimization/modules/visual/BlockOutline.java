@@ -5,6 +5,8 @@ import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
 import com.hoptimization.core.setting.ColorSetting;
 import com.hoptimization.core.setting.NumberSetting;
+import com.hoptimization.ui.render.RenderUtil;
+import com.hoptimization.ui.theme.ThemeManager;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
@@ -27,6 +29,7 @@ public class BlockOutline extends Module {
     public static final String ID = "block_outline";
     private static final float FILL_ALPHA_SCALE = 0.35F;
 
+    private final BooleanSetting useThemeColor;
     private final ColorSetting color;
     private final NumberSetting lineWidth;
     private final BooleanSetting fill;
@@ -36,8 +39,17 @@ public class BlockOutline extends Module {
      */
     public BlockOutline() {
         super(ID, Category.VISUAL);
+        this.useThemeColor = addSetting(
+            new BooleanSetting("use_theme_color", "setting.hoptimization.block_outline.use_theme_color.name", false)
+        );
         this.color = addSetting(
             new ColorSetting("color", "setting.hoptimization.block_outline.color.name", 0x995B8CFF, true)
+                .visibleWhen(new java.util.function.Supplier<Boolean>() {
+                    @Override
+                    public Boolean get() {
+                        return !useThemeColor.isEnabled();
+                    }
+                })
         );
         this.lineWidth = addSetting(
             new NumberSetting(
@@ -104,7 +116,9 @@ public class BlockOutline extends Module {
 
         event.setCanceled(true);
 
-        int argb = this.color.getArgb();
+        int argb = this.useThemeColor.isEnabled()
+            ? RenderUtil.withAlpha(ThemeManager.current().accent(), 0.70F)
+            : this.color.getArgb();
         float alpha = ((argb >>> 24) & 0xFF) / 255.0F;
         if (alpha <= 0.0F) {
             return;

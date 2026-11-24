@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 public class Keystrokes extends Module implements HudElement {
     private static final float KEY_SIZE = 28.0f;
     private static final float KEY_GAP = UiTokens.SPACE_4;
-    private static final float TOTAL_WIDTH = KEY_SIZE * 3.0f + KEY_GAP * 2.0f;
+    public static final float TOTAL_WIDTH = KEY_SIZE * 3.0f + KEY_GAP * 2.0f;
     private static final float MOUSE_WIDTH = (TOTAL_WIDTH - KEY_GAP) * 0.5f;
     private static final float MOUSE_HEIGHT_PLAIN = 24.0f;
     private static final float MOUSE_HEIGHT_CPS = 32.0f;

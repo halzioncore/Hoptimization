@@ -154,6 +154,7 @@ setting.hoptimization.chams.color.name=自定义颜色
 # 设置 - 现代快捷栏与状态条
 setting.hoptimization.modern_hotbar.hotbar.name=现代快捷栏
 setting.hoptimization.modern_hotbar.bars.name=平滑现代生命与饥饿值
+setting.hoptimization.modern_hotbar.xp_bar.name=现代经验条
 
 # 设置 - 隐藏敌人护甲
 setting.hoptimization.hide_armor.ignore_teammates.name=保留队友护甲
@@ -164,6 +165,7 @@ setting.hoptimization.hide_armor.hide_self.name=隐藏自身护甲
 setting.hoptimization.low_fire.height.name=高度
 
 # 设置 - 方块轮廓
+setting.hoptimization.block_outline.use_theme_color.name=跟随主题色
 setting.hoptimization.block_outline.color.name=颜色
 setting.hoptimization.block_outline.line_width.name=线宽
 setting.hoptimization.block_outline.fill.name=填充

@@ -154,6 +154,7 @@ setting.hoptimization.chams.color.name=Custom Color
 # Settings - Modern Hotbar & Bars
 setting.hoptimization.modern_hotbar.hotbar.name=Modern Hotbar
 setting.hoptimization.modern_hotbar.bars.name=Smooth Hearts & Hunger
+setting.hoptimization.modern_hotbar.xp_bar.name=Modern XP Bar
 
 # Settings - Hide Enemy Armor
 setting.hoptimization.hide_armor.ignore_teammates.name=Keep Teammate Armor
@@ -164,6 +165,7 @@ setting.hoptimization.hide_armor.hide_self.name=Hide Self Armor
 setting.hoptimization.low_fire.height.name=Height
 
 # Settings - Block Outline
+setting.hoptimization.block_outline.use_theme_color.name=Theme Color
 setting.hoptimization.block_outline.color.name=Color
 setting.hoptimization.block_outline.line_width.name=Line Width
 setting.hoptimization.block_outline.fill.name=Fill

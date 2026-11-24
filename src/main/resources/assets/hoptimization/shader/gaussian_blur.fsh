@@ -8,7 +8,7 @@ uniform float u_Radius;
 varying vec2 v_TexCoord;
 
 void main() {
-    vec2 stepUv = u_TexelSize * u_Direction * max(u_Radius, 0.5);
+    vec2 stepUv = u_TexelSize * u_Direction * max(u_Radius, 0.0);
     vec3 sum = texture2D(u_Texture, v_TexCoord).rgb * 0.227027027;
     sum += texture2D(u_Texture, v_TexCoord + stepUv * 1.3846153846).rgb * 0.3162162162;
     sum += texture2D(u_Texture, v_TexCoord - stepUv * 1.3846153846).rgb * 0.3162162162;

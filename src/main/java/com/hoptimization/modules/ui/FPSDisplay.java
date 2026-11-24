@@ -84,7 +84,7 @@ public class FPSDisplay extends Module implements HudElement {
             String pingStr = getCachedPingString(false);
             liveTextW += font.getWidth(LABEL_SEP) + font.getWidth(pingStr) + font.getWidth(LABEL_MS);
         }
-        return Math.max(minTextW, liveTextW) + UiTokens.HUD_PADDING_H * 2.0f;
+        return Math.max(Keystrokes.TOTAL_WIDTH, Math.max(minTextW, liveTextW) + UiTokens.HUD_PADDING_H * 2.0f);
     }
 
     @Override
@@ -115,7 +115,7 @@ public class FPSDisplay extends Module implements HudElement {
         }
         float minTextW = font.getWidth(pingEnabled ? BASELINE_FPS_PING : BASELINE_FPS);
 
-        float boxW = Math.max(minTextW, contentW) + UiTokens.HUD_PADDING_H * 2.0f;
+        float boxW = Math.max(Keystrokes.TOTAL_WIDTH, Math.max(minTextW, contentW) + UiTokens.HUD_PADDING_H * 2.0f);
         float boxH = font.getHeight() + UiTokens.HUD_PADDING_V * 2.0f;
 
         boolean cardMode = !this.style.is("text");

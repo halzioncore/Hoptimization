@@ -23,6 +23,7 @@ import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -759,26 +760,40 @@ public class ClickGuiScreen extends GuiScreen {
             );
         }
 
-        // 右侧嵌入式内容面板（距窗口上/右/下各 4，radius 8，surface1）
+        // 右侧嵌入式内容面板：标准模式使用 surface1 + 边框；毛玻璃模式使用轻透叠加与左侧竖向发丝分隔线保持通透一体感
         float contentX = windowX + ClickGuiSidebar.WIDTH;
         float contentY = windowY + CONTENT_MARGIN;
         float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
         float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
         float contentRadius = theme.nestedRadius(theme.radiusWindow(), CONTENT_MARGIN);
-        int contentBorder = (frosted || theme.style().isCardBorder())
-            ? RenderUtil.withAlpha(frosted ? theme.frostedBorder() : theme.border(), windowAlpha)
-            : 0;
-        int contentFill = frosted
-            ? RenderUtil.withAlpha(theme.frostedPanelTint(), windowAlpha)
-            : RenderUtil.withAlpha(theme.surface1(), windowAlpha);
-
-        RenderUtil.drawRoundedRect(
-            contentX, contentY, contentW, contentH,
-            contentRadius,
-            contentFill,
-            contentBorder,
-            contentBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
-        );
+        if (frosted) {
+            float panelAlpha = (theme.getMode() == ThemeMode.LIGHT ? 0.16f : 0.14f) * windowAlpha;
+            RenderUtil.drawRoundedRect(
+                contentX, contentY, contentW, contentH,
+                contentRadius,
+                RenderUtil.withAlpha(theme.surface1(), panelAlpha),
+                0,
+                0.0f
+            );
+            RenderUtil.drawRect(
+                contentX,
+                windowY + UiTokens.SPACE_12,
+                UiTokens.BORDER_WIDTH,
+                WINDOW_HEIGHT - UiTokens.SPACE_12 * 2.0f,
+                RenderUtil.withAlpha(theme.frostedBorder(), 0.55f * windowAlpha)
+            );
+        } else {
+            int contentBorder = theme.style().isCardBorder()
+                ? RenderUtil.withAlpha(theme.border(), windowAlpha)
+                : 0;
+            RenderUtil.drawRoundedRect(
+                contentX, contentY, contentW, contentH,
+                contentRadius,
+                RenderUtil.withAlpha(theme.surface1(), windowAlpha),
+                contentBorder,
+                contentBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
+            );
+        }
 
         profilePopup.updateAnchor(
             windowX + UiTokens.SPACE_8,

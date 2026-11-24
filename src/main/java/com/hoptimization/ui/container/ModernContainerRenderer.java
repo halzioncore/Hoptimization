@@ -46,7 +46,7 @@ import java.util.List;
  */
 public final class ModernContainerRenderer {
     private static final float OUTER_PAD = UiTokens.SPACE_6;
-    private static final float SLOT_SIZE = 18.0f;
+    private static final float SLOT_SIZE = 16.0f;
     private static final float SCREEN_MARGIN = UiTokens.SPACE_4;
 
     private static final float POTION_CARD_MAX_W = 120.0f;
@@ -258,10 +258,10 @@ public final class ModernContainerRenderer {
         int fill = RenderUtil.withAlpha(theme.accentMuted(), 0.90f * slotHoverAlpha);
         int border = RenderUtil.withAlpha(theme.accent(), 0.65f * slotHoverAlpha);
         RenderUtil.drawRoundedRect(
-            x - 1.0f,
-            y - 1.0f,
-            size + 2.0f,
-            size + 2.0f,
+            x,
+            y,
+            size,
+            size,
             radius,
             fill,
             border,
@@ -457,11 +457,11 @@ public final class ModernContainerRenderer {
         boolean outlined = ModernInventory.isOutlinedSlots();
         int slotFill = outlined
             ? 0
-            : RenderUtil.withAlpha(theme.surface2(), (frosted ? (isLight ? 0.52f : 0.44f) : 0.88f) * winAlpha);
+            : RenderUtil.withAlpha(theme.surface2(), (frosted ? (isLight ? 0.58f : 0.52f) : 0.92f) * winAlpha);
         int slotBorder = outlined
             ? RenderUtil.withAlpha(theme.borderStrong(), (frosted ? 0.85f : 1.0f) * winAlpha)
-            : 0;
-        float borderW = outlined ? UiTokens.BORDER_WIDTH : 0.0f;
+            : RenderUtil.withAlpha(theme.border(), (frosted ? 0.45f : 0.65f) * winAlpha);
+        float borderW = UiTokens.BORDER_WIDTH;
         float slotRadius = Math.min(UiTokens.RADIUS_MIN_NESTED, theme.radiusControl());
 
         List<Slot> slots = screen.inventorySlots.inventorySlots;
@@ -474,8 +474,8 @@ public final class ModernContainerRenderer {
             if (slot.xDisplayPosition < -100 || slot.yDisplayPosition < -100) {
                 continue;
             }
-            float sx = guiLeft + slot.xDisplayPosition - 1.0f;
-            float sy = guiTop + slot.yDisplayPosition - 1.0f;
+            float sx = guiLeft + slot.xDisplayPosition;
+            float sy = guiTop + slot.yDisplayPosition;
             RenderUtil.drawRoundedRect(sx, sy, SLOT_SIZE, SLOT_SIZE, slotRadius, slotFill, slotBorder, borderW);
         }
     }

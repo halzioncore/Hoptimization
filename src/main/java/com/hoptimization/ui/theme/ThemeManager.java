@@ -1,6 +1,7 @@
 package com.hoptimization.ui.theme;
 
 import com.hoptimization.HoptimizationMod;
+import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.modules.misc.LanguageModule;
 import net.minecraft.client.Minecraft;
 
@@ -107,7 +108,7 @@ public final class ThemeManager {
     }
 
     /**
-     * Sets the frosted glass blur strength clamped to [4, 24].
+     * Sets the frosted glass blur strength clamped to [0, 24].
      *
      * @param strength blur strength in pixels
      */
@@ -115,10 +116,10 @@ public final class ThemeManager {
         if (Float.isNaN(strength) || Float.isInfinite(strength)) {
             return;
         }
-        if (strength < 4.0f) {
-            this.blurStrength = 4.0f;
-        } else if (strength > 24.0f) {
-            this.blurStrength = 24.0f;
+        if (strength < UiConfig.MIN_BLUR_STRENGTH) {
+            this.blurStrength = UiConfig.MIN_BLUR_STRENGTH;
+        } else if (strength > UiConfig.MAX_BLUR_STRENGTH) {
+            this.blurStrength = UiConfig.MAX_BLUR_STRENGTH;
         } else {
             this.blurStrength = strength;
         }
