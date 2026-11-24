@@ -237,7 +237,8 @@ public final class ModernVanillaRenderer {
             return;
         }
         long now = System.nanoTime();
-        float dt = lastWaveNanos == 0L ? 0.016f : Math.min(0.05f, Math.max(0.0005f, (now - lastWaveNanos) / 1_000_000_000.0f));
+        float rawDt = (now - lastWaveNanos) / 1_000_000_000.0f;
+        float dt = lastWaveNanos == 0L ? 0.016f : Math.min(0.05f, Math.max(0.0005f, rawDt));
         lastWaveNanos = now;
 
         boolean reduceMotion = Animation.isReduceMotion();

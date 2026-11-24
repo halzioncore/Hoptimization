@@ -313,7 +313,7 @@ public class ScoreboardHud extends Module implements HudElement {
             || c == '\u2190' || c == '\u2191' || c == '\u2193') {
             return false;
         }
-        // Strip Miscellaneous Symbols (U+2600-U+26FF), Dingbats (U+2700-U+27BF), and Variation Selectors (U+FE00-U+FE0F).
+        // Strip Misc Symbols (U+2600-U+26FF), Dingbats (U+2700-U+27BF), and Variation Selectors (U+FE00-U+FE0F).
         return (c >= '\u2600' && c <= '\u27BF')
             || (c >= '\uFE00' && c <= '\uFE0F')
             || (c >= '\uE000' && c <= '\uF8FF');

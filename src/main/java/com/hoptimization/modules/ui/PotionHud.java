@@ -183,7 +183,12 @@ public class PotionHud extends Module implements HudElement {
             );
 
             if (entry.iconIndex >= 0) {
-                drawPotionIcon(entry.iconIndex, ringCenterX - ICON_SIZE * 0.5f, ringCenterY - ICON_SIZE * 0.5f, ICON_SIZE);
+                drawPotionIcon(
+                    entry.iconIndex,
+                    ringCenterX - ICON_SIZE * 0.5f,
+                    ringCenterY - ICON_SIZE * 0.5f,
+                    ICON_SIZE
+                );
             }
 
             float textX = x + ringAreaW;

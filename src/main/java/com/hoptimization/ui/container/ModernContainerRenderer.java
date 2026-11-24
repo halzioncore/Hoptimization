@@ -494,7 +494,8 @@ public final class ModernContainerRenderer {
         float boxY = guiTop + 8.0f;
         float boxW = 52.0f;
         float boxH = 70.0f;
-        int frameFill = RenderUtil.withAlpha(theme.surface1(), (frosted ? (isLight ? 0.50f : 0.42f) : 0.92f) * winAlpha);
+        float frameOpacity = (frosted ? (isLight ? 0.50f : 0.42f) : 0.92f) * winAlpha;
+        int frameFill = RenderUtil.withAlpha(theme.surface1(), frameOpacity);
         int frameBorder = theme.style().isCardBorder() ? RenderUtil.withAlpha(theme.border(), winAlpha) : 0;
         RenderUtil.drawRoundedRect(
             boxX, boxY, boxW, boxH,

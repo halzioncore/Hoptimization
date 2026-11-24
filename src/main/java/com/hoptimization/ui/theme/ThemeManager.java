@@ -647,7 +647,9 @@ public final class ThemeManager {
             }
         } catch (Throwable t) {
             // 纯单元测试环境下 Minecraft 单例可能尚未启动，回退相对配置路径
-            HoptimizationMod.LOGGER.warn("Minecraft instance unavailable while resolving themes directory, using local path.", t);
+            HoptimizationMod.LOGGER.warn(
+                    "Minecraft instance unavailable while resolving themes directory, using local path.", t
+            );
         }
         return new File("config/hoptimization/themes");
     }

@@ -245,7 +245,10 @@ public class Keystrokes extends Module implements HudElement {
                 leftSub = HudRenderHelper.formatCpsLabel(lCps, this.cpsScratch);
                 rightSub = HudRenderHelper.formatCpsLabel(rCps, this.cpsScratch);
             }
-            drawKeyBox(x, nextY, MOUSE_WIDTH, mouseH, LABEL_LMB, leftSub, pressLmb, this.animLmb, captionFont, overlineFont, theme);
+            drawKeyBox(
+                x, nextY, MOUSE_WIDTH, mouseH,
+                LABEL_LMB, leftSub, pressLmb, this.animLmb, captionFont, overlineFont, theme
+            );
             drawKeyBox(
                 x + MOUSE_WIDTH + KEY_GAP, nextY, MOUSE_WIDTH, mouseH,
                 LABEL_RMB, rightSub, pressRmb, this.animRmb, captionFont, overlineFont, theme

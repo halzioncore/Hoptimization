@@ -71,7 +71,8 @@ public abstract class MixinGuiButton {
             if (Animation.isReduceMotion() || this.hoptimization$lastHoverNanos == 0L) {
                 this.hoptimization$hoverProgress = target;
             } else {
-                float dt = Math.min(0.05f, Math.max(0.0005f, (now - this.hoptimization$lastHoverNanos) / 1_000_000_000.0f));
+                float rawDt = (now - this.hoptimization$lastHoverNanos) / 1_000_000_000.0f;
+                float dt = Math.min(0.05f, Math.max(0.0005f, rawDt));
                 float factor = 1.0f - (float) Math.exp(-dt / 0.045f);
                 this.hoptimization$hoverProgress += (target - this.hoptimization$hoverProgress) * factor;
                 if (Math.abs(target - this.hoptimization$hoverProgress) < 0.003f) {

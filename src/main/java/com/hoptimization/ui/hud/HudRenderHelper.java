@@ -236,9 +236,15 @@ public final class HudRenderHelper {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             try {
                 // Base face (8,8 -> 16,16 on 64x64)
-                drawTexturedRegion(x, y, size, size, 8.0f / 64.0f, 8.0f / 64.0f, 16.0f / 64.0f, 16.0f / 64.0f, clampedAlpha);
+                drawTexturedRegion(
+                    x, y, size, size,
+                    8.0f / 64.0f, 8.0f / 64.0f, 16.0f / 64.0f, 16.0f / 64.0f, clampedAlpha
+                );
                 // Hat overlay (40,8 -> 48,16 on 64x64)
-                drawTexturedRegion(x, y, size, size, 40.0f / 64.0f, 8.0f / 64.0f, 48.0f / 64.0f, 16.0f / 64.0f, clampedAlpha);
+                drawTexturedRegion(
+                    x, y, size, size,
+                    40.0f / 64.0f, 8.0f / 64.0f, 48.0f / 64.0f, 16.0f / 64.0f, clampedAlpha
+                );
             } finally {
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, prevMinFilter);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, prevMagFilter);

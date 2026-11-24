@@ -124,7 +124,9 @@ public class Coordinates extends Module implements HudElement {
             String facingStr = facingOn ? resolveFacingText() : "";
             String biomeStr = biomeOn ? resolveBiomeText(coords[0], coords[1], coords[2]) : "";
             if (facingOn && biomeOn) {
-                line2W = captionFont.getWidth(facingStr) + captionFont.getWidth(SEP_DOT) + captionFont.getWidth(biomeStr);
+                line2W = captionFont.getWidth(facingStr)
+                    + captionFont.getWidth(SEP_DOT)
+                    + captionFont.getWidth(biomeStr);
             } else if (facingOn) {
                 line2W = captionFont.getWidth(facingStr);
             } else {
