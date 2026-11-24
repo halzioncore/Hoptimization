@@ -442,6 +442,8 @@ module.hoptimization.esp.name=ESP
 module.hoptimization.esp.desc=Renders clean structural outlines for players, mobs, chests, and beds
 module.hoptimization.chinese_input.name=Chinese Input
 module.hoptimization.chinese_input.desc=Enables system IME input in chat, text screens, and ClickGUI search
+module.hoptimization.auto_tools.name=Auto Tools
+module.hoptimization.auto_tools.desc=Automatically switches to the fastest hotbar tool when mining blocks
 
 # Settings - Target Ring
 setting.hoptimization.target_ring.style.name=Style
@@ -492,6 +494,9 @@ setting.hoptimization.esp.follow_theme.name=Follow Theme
 setting.hoptimization.chinese_input.show_composition_bar.name=Show Composition Bar
 setting.hoptimization.chinese_input.enable_in_chat.name=Enable in Chat
 setting.hoptimization.chinese_input.enable_in_clickgui.name=Enable in ClickGUI
+setting.hoptimization.auto_tools.switch_back.name=Switch Back
+setting.hoptimization.auto_tools.sneak_only.name=Sneak Only
+setting.hoptimization.auto_tools.best_weapon.name=Best Weapon on Attack
 
 # Module - Jarvis (v0.13.0)
 module.hoptimization.jarvis.name=Jarvis

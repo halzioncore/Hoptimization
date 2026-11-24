@@ -36,17 +36,26 @@ public class ModernHotbar extends Module {
 
     private static final float HOTBAR_WIDTH = 182.0F;
     private static final float HOTBAR_HEIGHT = 22.0F;
+    private static final float CAPSULE_WIDTH = 88.0F;
+    private static final float CAPSULE_HEIGHT = 12.0F;
     private static final int ICON_COUNT = 10;
-    private static final float ICON_SIZE = 8.4F;
-    private static final float ICON_STEP = 8.8F;
+    private static final float ICON_SIZE = 7.8F;
+    private static final float ICON_STEP = 8.4F;
     private static final int HEART_VERTICES = 28;
     private static final int FOOD_VERTICES = 24;
+    private static final int SHIELD_VERTICES = 8;
     private static final int HIGHLIGHT_SEGMENTS = 10;
 
     private static final float[] HEART_UNIT_X = new float[HEART_VERTICES];
     private static final float[] HEART_UNIT_Y = new float[HEART_VERTICES];
     private static final float[] FOOD_UNIT_X = new float[FOOD_VERTICES];
     private static final float[] FOOD_UNIT_Y = new float[FOOD_VERTICES];
+    private static final float[] SHIELD_UNIT_X = new float[] {
+        0.0F, 0.42F, 0.42F, 0.30F, 0.0F, -0.30F, -0.42F, -0.42F
+    };
+    private static final float[] SHIELD_UNIT_Y = new float[] {
+        -0.46F, -0.34F, 0.05F, 0.30F, 0.48F, 0.30F, 0.05F, -0.34F
+    };
     private static final float[] HIGHLIGHT_COS = new float[HIGHLIGHT_SEGMENTS + 1];
     private static final float[] HIGHLIGHT_SIN = new float[HIGHLIGHT_SEGMENTS + 1];
     private static final FontStyle XP_LEVEL_STYLE = FontStyle.of(8.5F, FontWeight.SEMIBOLD);
@@ -86,12 +95,16 @@ public class ModernHotbar extends Module {
 
     private float smoothSlot = -1.0F;
     private float smoothHealth = -1.0F;
+    private float smoothArmor = -1.0F;
     private float smoothFood = -1.0F;
     private float smoothXp = -1.0F;
     private long lastHotbarNanos;
     private long lastHealthNanos;
+    private long lastArmorNanos;
     private long lastFoodNanos;
     private long lastXpNanos;
+    private float cachedXpScale = -1.0F;
+    private TtfFontRenderer cachedXpFont;
 
     public ModernHotbar() {
         super(ID, Category.UI);
@@ -136,16 +149,27 @@ public class ModernHotbar extends Module {
                 && mc.playerController != null
                 && mc.playerController.shouldDrawHUD()) {
             event.setCanceled(true);
-            float rowY = screenH - GuiIngameForge.left_height;
-            GuiIngameForge.left_height += 11;
+            float rowY = screenH - GuiIngameForge.left_height - 2.0F;
+            GuiIngameForge.left_height += 14;
             renderHearts(mc, sr, player, barX, rowY, theme);
+        } else if (event.type == RenderGameOverlayEvent.ElementType.ARMOR
+                && this.modernBars.isEnabled()
+                && mc.playerController != null
+                && mc.playerController.shouldDrawHUD()) {
+            event.setCanceled(true);
+            int armor = player.getTotalArmorValue();
+            if (armor > 0) {
+                float rowY = screenH - GuiIngameForge.left_height - 2.0F;
+                GuiIngameForge.left_height += 14;
+                renderArmor(mc, sr, armor, barX, rowY, theme);
+            }
         } else if (event.type == RenderGameOverlayEvent.ElementType.FOOD
                 && this.modernBars.isEnabled()
                 && mc.playerController != null
                 && mc.playerController.shouldDrawHUD()) {
             event.setCanceled(true);
-            float rowY = screenH - GuiIngameForge.right_height;
-            GuiIngameForge.right_height += 11;
+            float rowY = screenH - GuiIngameForge.right_height - 2.0F;
+            GuiIngameForge.right_height += 14;
             renderFood(mc, sr, player, barX + HOTBAR_WIDTH, rowY, theme);
         } else if (event.type == RenderGameOverlayEvent.ElementType.EXPERIENCE
                 && this.modernXpBar.isEnabled()
@@ -235,19 +259,20 @@ public class ModernHotbar extends Module {
                 ? 1.0F + 0.08F * (float) Math.sin((now / 1_000_000_000.0D) * 7.0D)
                 : 1.0F;
 
-        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.85F);
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.72F);
         int heartColor = theme.danger();
         int absColor = theme.warning();
 
+        drawBarCapsule(startX, y, theme);
+
         float hpPerHeart = Math.max(2.0F, maxHealth / ICON_COUNT);
+        float innerStartX = startX + 2.2F;
+        float cy = y + CAPSULE_HEIGHT * 0.5F;
 
         beginVector2D();
         for (int i = 0; i < ICON_COUNT; i++) {
-            float hx = startX + i * ICON_STEP;
-            float hy = y;
             float size = ICON_SIZE * (lowHealth && i < Math.ceil(health / hpPerHeart) ? pulse : 1.0F);
-            float cx = hx + ICON_SIZE * 0.5F;
-            float cy = hy + ICON_SIZE * 0.5F;
+            float cx = innerStartX + i * ICON_STEP + ICON_SIZE * 0.5F;
 
             drawHeartShape(cx, cy, size, 0, trackBorder);
 
@@ -259,8 +284,46 @@ public class ModernHotbar extends Module {
             if (absorption > 0.0F) {
                 float absFill = clamp01((absorption - i * 2.0F) / 2.0F);
                 if (absFill > 0.01F) {
-                    drawClippedHeart(mc, sr, cx, cy - 0.5F, size * 0.92F, absFill, absColor);
+                    drawClippedHeart(mc, sr, cx, cy - 0.4F, size * 0.90F, absFill, absColor);
                 }
+            }
+        }
+        endVector2D();
+    }
+
+    private void renderArmor(
+            Minecraft mc,
+            ScaledResolution sr,
+            int armor,
+            float startX,
+            float y,
+            ThemeData theme) {
+        long now = System.nanoTime();
+        float dt = computeDelta(now, this.lastArmorNanos);
+        this.lastArmorNanos = now;
+
+        if (this.smoothArmor < 0.0F || Animation.isReduceMotion()) {
+            this.smoothArmor = armor;
+        } else {
+            float lerp = 1.0F - (float) Math.exp(-14.0F * dt);
+            this.smoothArmor += (armor - this.smoothArmor) * lerp;
+        }
+
+        drawBarCapsule(startX, y, theme);
+
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.72F);
+        int armorColor = theme.accent();
+        float innerStartX = startX + 2.2F;
+        float cy = y + CAPSULE_HEIGHT * 0.5F;
+
+        beginVector2D();
+        for (int i = 0; i < ICON_COUNT; i++) {
+            float cx = innerStartX + i * ICON_STEP + ICON_SIZE * 0.5F;
+            drawShieldShape(cx, cy, ICON_SIZE, 0, trackBorder);
+
+            float fill = clamp01((this.smoothArmor - i * 2.0F) / 2.0F);
+            if (fill > 0.01F) {
+                drawClippedShield(mc, sr, cx, cy, ICON_SIZE, fill, armorColor);
             }
         }
         endVector2D();
@@ -285,14 +348,18 @@ public class ModernHotbar extends Module {
             this.smoothFood += (foodLevel - this.smoothFood) * lerp;
         }
 
-        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.85F);
+        float capsuleX = rightX - CAPSULE_WIDTH;
+        drawBarCapsule(capsuleX, y, theme);
+
+        int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.72F);
         boolean hasHunger = player.isPotionActive(Potion.hunger);
         int foodColor = hasHunger ? ColorAnimation.lerpArgb(theme.success(), theme.warning(), 0.35F) : theme.warning();
+        float innerRightX = rightX - 2.2F;
+        float cy = y + CAPSULE_HEIGHT * 0.5F;
 
         beginVector2D();
         for (int i = 0; i < ICON_COUNT; i++) {
-            float cx = rightX - (i + 0.5F) * ICON_STEP;
-            float cy = y + ICON_SIZE * 0.5F;
+            float cx = innerRightX - i * ICON_STEP - ICON_SIZE * 0.5F;
 
             drawFoodShape(cx, cy, ICON_SIZE, 0, trackBorder);
 
@@ -302,6 +369,22 @@ public class ModernHotbar extends Module {
             }
         }
         endVector2D();
+    }
+
+    private static void drawBarCapsule(float x, float y, ThemeData theme) {
+        float radius = CAPSULE_HEIGHT * 0.5F;
+        if (ThemeManager.isFrostedGlass()) {
+            RenderUtil.drawFrostedRoundedRect(
+                    x, y, CAPSULE_WIDTH, CAPSULE_HEIGHT, radius,
+                    theme.frostedHudTint(), theme.frostedBorder(),
+                    UiTokens.BORDER_WIDTH, theme.frostedHighlightStrength(), 0.90F);
+        } else {
+            int border = theme.style().isCardBorder() ? theme.border() : 0;
+            RenderUtil.drawRoundedRect(
+                    x, y, CAPSULE_WIDTH, CAPSULE_HEIGHT, radius,
+                    RenderUtil.withAlpha(theme.hudBackground(), 0.86F),
+                    border, border != 0 ? UiTokens.BORDER_WIDTH : 0.0F);
+        }
     }
 
     private void renderXpBar(
@@ -340,7 +423,11 @@ public class ModernHotbar extends Module {
         if (level > 0) {
             String lvlStr = Integer.toString(level);
             float scale = Math.max(1.0F, (float) sr.getScaleFactor());
-            TtfFontRenderer font = FontManager.getInstance().getRenderer(XP_LEVEL_STYLE, scale);
+            if (this.cachedXpFont == null || Math.abs(scale - this.cachedXpScale) > 0.001F) {
+                this.cachedXpScale = scale;
+                this.cachedXpFont = FontManager.getInstance().getRenderer(XP_LEVEL_STYLE, scale);
+            }
+            TtfFontRenderer font = this.cachedXpFont;
             float lvlX = barX + (HOTBAR_WIDTH - font.getWidth(lvlStr)) * 0.5F;
             float lvlY = xpY - font.getHeight() - 1.5F;
             HudRenderHelper.drawHudText(font, lvlStr, lvlX, lvlY, theme.success(), true);
@@ -356,7 +443,7 @@ public class ModernHotbar extends Module {
         GlStateManager.disableAlpha();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
-        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_FASTEST);
     }
 
     private static void endVector2D() {
@@ -379,15 +466,17 @@ public class ModernHotbar extends Module {
             float size,
             float fillRatio,
             int color) {
-        if (fillRatio >= 0.98F) {
-            drawHeartShape(cx, cy, size, RenderUtil.withAlpha(color, 0.92F), RenderUtil.withAlpha(color, 0.98F));
-            drawHeartHighlight(cx, cy, size);
-            return;
+        boolean clipped = fillRatio < 0.98F;
+        if (clipped) {
+            enableHorizontalScissor(mc, sr, cx - size * 0.55F, size * 1.10F * fillRatio);
         }
-        enableHorizontalScissor(mc, sr, cx - size * 0.55F, size * 1.10F * fillRatio);
-        drawHeartShape(cx, cy, size, RenderUtil.withAlpha(color, 0.92F), RenderUtil.withAlpha(color, 0.98F));
+        drawHeartShape(cx, cy, size * 1.30F, RenderUtil.withAlpha(color, 0.16F), 0);
+        drawHeartShape(cx, cy, size * 1.14F, RenderUtil.withAlpha(color, 0.28F), 0);
+        drawHeartShape(cx, cy, size, RenderUtil.withAlpha(color, 0.94F), RenderUtil.withAlpha(color, 1.0F));
         drawHeartHighlight(cx, cy, size);
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        if (clipped) {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        }
     }
 
     private static void drawClippedFood(
@@ -398,17 +487,39 @@ public class ModernHotbar extends Module {
             float size,
             float fillRatio,
             int color) {
-        if (fillRatio >= 0.98F) {
-            drawFoodShape(cx, cy, size, RenderUtil.withAlpha(color, 0.92F), RenderUtil.withAlpha(color, 0.98F));
-            drawFoodHighlight(cx, cy, size);
-            return;
+        boolean clipped = fillRatio < 0.98F;
+        if (clipped) {
+            float totalW = size * 1.10F;
+            float clipW = totalW * fillRatio;
+            enableHorizontalScissor(mc, sr, cx + size * 0.55F - clipW, clipW);
         }
-        float totalW = size * 1.10F;
-        float clipW = totalW * fillRatio;
-        enableHorizontalScissor(mc, sr, cx + size * 0.55F - clipW, clipW);
-        drawFoodShape(cx, cy, size, RenderUtil.withAlpha(color, 0.92F), RenderUtil.withAlpha(color, 0.98F));
+        drawFoodShape(cx, cy, size * 1.30F, RenderUtil.withAlpha(color, 0.16F), 0);
+        drawFoodShape(cx, cy, size * 1.14F, RenderUtil.withAlpha(color, 0.28F), 0);
+        drawFoodShape(cx, cy, size, RenderUtil.withAlpha(color, 0.94F), RenderUtil.withAlpha(color, 1.0F));
         drawFoodHighlight(cx, cy, size);
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        if (clipped) {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        }
+    }
+
+    private static void drawClippedShield(
+            Minecraft mc,
+            ScaledResolution sr,
+            float cx,
+            float cy,
+            float size,
+            float fillRatio,
+            int color) {
+        boolean clipped = fillRatio < 0.98F;
+        if (clipped) {
+            enableHorizontalScissor(mc, sr, cx - size * 0.55F, size * 1.10F * fillRatio);
+        }
+        drawShieldShape(cx, cy, size * 1.30F, RenderUtil.withAlpha(color, 0.16F), 0);
+        drawShieldShape(cx, cy, size * 1.14F, RenderUtil.withAlpha(color, 0.28F), 0);
+        drawShieldShape(cx, cy, size, RenderUtil.withAlpha(color, 0.94F), RenderUtil.withAlpha(color, 1.0F));
+        if (clipped) {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        }
     }
 
     private static void enableHorizontalScissor(Minecraft mc, ScaledResolution sr, float x, float width) {
@@ -431,11 +542,13 @@ public class ModernHotbar extends Module {
             GL11.glEnd();
         }
 
-        GL11.glLineWidth(1.05F);
-        setColor(borderColor);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        emitHeartVertices(cx, centerY, scale);
-        GL11.glEnd();
+        if (((borderColor >>> 24) & 0xFF) > 0) {
+            GL11.glLineWidth(1.05F);
+            setColor(borderColor);
+            GL11.glBegin(GL11.GL_LINE_LOOP);
+            emitHeartVertices(cx, centerY, scale);
+            GL11.glEnd();
+        }
     }
 
     private static void emitHeartVertices(float cx, float cy, float scale) {
@@ -467,11 +580,36 @@ public class ModernHotbar extends Module {
             GL11.glEnd();
         }
 
-        GL11.glLineWidth(1.05F);
-        setColor(borderColor);
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        emitFoodVertices(cx, cy, size);
-        GL11.glEnd();
+        if (((borderColor >>> 24) & 0xFF) > 0) {
+            GL11.glLineWidth(1.05F);
+            setColor(borderColor);
+            GL11.glBegin(GL11.GL_LINE_LOOP);
+            emitFoodVertices(cx, cy, size);
+            GL11.glEnd();
+        }
+    }
+
+    private static void drawShieldShape(float cx, float cy, float size, int fillColor, int borderColor) {
+        if (((fillColor >>> 24) & 0xFF) > 0) {
+            setColor(fillColor);
+            GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+            GL11.glVertex2f(cx, cy);
+            for (int i = 0; i < SHIELD_VERTICES; i++) {
+                GL11.glVertex2f(cx + SHIELD_UNIT_X[i] * size, cy + SHIELD_UNIT_Y[i] * size);
+            }
+            GL11.glVertex2f(cx + SHIELD_UNIT_X[0] * size, cy + SHIELD_UNIT_Y[0] * size);
+            GL11.glEnd();
+        }
+
+        if (((borderColor >>> 24) & 0xFF) > 0) {
+            GL11.glLineWidth(1.05F);
+            setColor(borderColor);
+            GL11.glBegin(GL11.GL_LINE_LOOP);
+            for (int i = 0; i < SHIELD_VERTICES; i++) {
+                GL11.glVertex2f(cx + SHIELD_UNIT_X[i] * size, cy + SHIELD_UNIT_Y[i] * size);
+            }
+            GL11.glEnd();
+        }
     }
 
     private static void emitFoodVertices(float cx, float cy, float size) {

@@ -137,19 +137,24 @@ public class BlockOutline extends Module {
 
         // Save both GL attribute values and GlStateManager-tracked toggles so state cache stays coherent.
         boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+        boolean wasAlphaTest = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
         boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
         boolean wasCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean prevDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         float prevLineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
 
         try {
+            // Force-sync GL_BLEND in case external GL11 calls desynced GlStateManager's cached state.
+            GlStateManager.disableBlend();
             GlStateManager.enableBlend();
+            GL11.glEnable(GL11.GL_BLEND);
             GlStateManager.tryBlendFuncSeparate(
                 GL11.GL_SRC_ALPHA,
                 GL11.GL_ONE_MINUS_SRC_ALPHA,
                 GL11.GL_ONE,
                 GL11.GL_ZERO
             );
+            GlStateManager.disableAlpha();
             GlStateManager.disableTexture2D();
             GlStateManager.depthMask(false);
 
@@ -174,6 +179,11 @@ public class BlockOutline extends Module {
                 GlStateManager.enableTexture2D();
             } else {
                 GlStateManager.disableTexture2D();
+            }
+            if (wasAlphaTest) {
+                GlStateManager.enableAlpha();
+            } else {
+                GlStateManager.disableAlpha();
             }
             if (wasBlend) {
                 GlStateManager.enableBlend();

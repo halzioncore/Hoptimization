@@ -7,6 +7,7 @@ import com.hoptimization.modules.combat.HitDelayFix;
 import com.hoptimization.modules.combat.OldAnimations;
 import com.hoptimization.modules.combat.TargetRing;
 import com.hoptimization.modules.combat.WTap;
+import com.hoptimization.modules.misc.AutoTools;
 import com.hoptimization.modules.misc.ChineseInput;
 import com.hoptimization.modules.misc.Fullbright;
 import com.hoptimization.modules.misc.LanguageModule;
@@ -124,6 +125,7 @@ public class ModuleManager {
         register(new Fullbright());
         register(new LanguageModule());
         register(new ChineseInput());
+        register(new AutoTools());
     }
 
     /**

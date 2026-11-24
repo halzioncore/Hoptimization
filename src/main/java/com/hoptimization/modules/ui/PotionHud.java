@@ -37,13 +37,13 @@ public class PotionHud extends Module implements HudElement {
 
     private static final float CARD_HEIGHT = 32.0f;
     private static final float CARD_GAP = UiTokens.SPACE_4;
-    private static final float MIN_CARD_WIDTH = 120.0f;
-    private static final float PAD_LEFT = UiTokens.SPACE_8;
-    private static final float PAD_RIGHT = UiTokens.SPACE_8;
-    private static final float RING_RADIUS = 10.0f;
+    private static final float MIN_CARD_WIDTH = Keystrokes.TOTAL_WIDTH;
+    private static final float PAD_LEFT = 6.0f;
+    private static final float PAD_RIGHT = 6.0f;
+    private static final float RING_RADIUS = 8.5f;
     private static final float RING_THICKNESS = 2.0f;
-    private static final float ICON_SIZE = 12.0f;
-    private static final float TEXT_GAP = UiTokens.SPACE_8;
+    private static final float ICON_SIZE = 10.5f;
+    private static final float TEXT_GAP = 6.0f;
     private static final int LOW_DURATION_TICKS = 200; // 10 seconds
     private static final int MAX_POTION_SLOTS = 64;
     private static final ResourceLocation INVENTORY_TEXTURE =
@@ -147,14 +147,7 @@ public class PotionHud extends Module implements HudElement {
 
         float ringAreaW = PAD_LEFT + RING_RADIUS * 2.0f + TEXT_GAP;
         float maxW = MIN_CARD_WIDTH;
-        for (int i = 0; i < count; i++) {
-            PotionEntry entry = this.activeScratch.get(i);
-            float textW = Math.max(titleFont.getWidth(entry.title), timeFont.getWidth(entry.durationText));
-            float candidateW = ringAreaW + textW + PAD_RIGHT;
-            if (candidateW > maxW) {
-                maxW = candidateW;
-            }
-        }
+        float maxTextW = Math.max(12.0f, maxW - ringAreaW - PAD_RIGHT);
 
         float totalH = count * CARD_HEIGHT + (count - 1) * CARD_GAP;
         this.cachedWidth = maxW;
@@ -196,7 +189,7 @@ public class PotionHud extends Module implements HudElement {
             float titleY = curY + (CARD_HEIGHT - textBlockH) * 0.5f;
             float timeY = titleY + titleFont.getHeight() + UiTokens.SPACE_2;
 
-            HudRenderHelper.drawHudText(titleFont, entry.title, textX, titleY, theme.textPrimary(), !cardMode);
+            titleFont.drawStringWithEllipsis(entry.title, textX, titleY, maxTextW, theme.textPrimary());
             int timeColor = entry.lowDuration ? theme.danger() : theme.textSecondary();
             HudRenderHelper.drawHudText(timeFont, entry.durationText, textX, timeY, timeColor, !cardMode);
 

@@ -67,6 +67,7 @@ public final class BackdropBlurRenderer {
     private static int cachedFboW = 0;
     private static int cachedFboH = 0;
     private static boolean blurReady = false;
+    private static boolean hasOpenGL12 = false;
 
     private BackdropBlurRenderer() {
     }
@@ -129,13 +130,6 @@ public final class BackdropBlurRenderer {
         int prevTex2D = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
 
-        VIEWPORT_BUFFER.clear();
-        GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT_BUFFER);
-        int prevVpX = VIEWPORT_BUFFER.get(0);
-        int prevVpY = VIEWPORT_BUFFER.get(1);
-        int prevVpW = VIEWPORT_BUFFER.get(2);
-        int prevVpH = VIEWPORT_BUFFER.get(3);
-
         try {
             if (wasScissor) {
                 GL11.glDisable(GL11.GL_SCISSOR_TEST);
@@ -155,14 +149,22 @@ public final class BackdropBlurRenderer {
             float invBlurW = 1.0f / (float) targetW;
             float invBlurH = 1.0f / (float) targetH;
 
-            // Pass 1: Main FBO -> blurFboA (Horizontal)
-            runBlurPass(blurFboA, mainFbo.framebufferTexture, invMainW, invMainH, 1.0f, 0.0f, pass1Radius);
-            // Pass 2: blurFboA -> blurFboB (Vertical)
-            runBlurPass(blurFboB, blurFboA.framebufferTexture, invBlurW, invBlurH, 0.0f, 1.0f, pass1Radius);
-            // Pass 3: blurFboB -> blurFboA (Horizontal wide)
-            runBlurPass(blurFboA, blurFboB.framebufferTexture, invBlurW, invBlurH, 1.0f, 0.0f, pass2Radius);
-            // Pass 4: blurFboA -> blurFboB (Vertical wide)
-            runBlurPass(blurFboB, blurFboA.framebufferTexture, invBlurW, invBlurH, 0.0f, 1.0f, pass2Radius);
+            if (clampedStrength <= 0.0f) {
+                runBlurPass(blurFboB, mainFbo.framebufferTexture, invMainW, invMainH, 0.0f, 0.0f, 0.0f);
+            } else if (clampedStrength <= 6.0f) {
+                float singleRadius = clampedStrength * 0.42f;
+                runBlurPass(blurFboA, mainFbo.framebufferTexture, invMainW, invMainH, 1.0f, 0.0f, singleRadius);
+                runBlurPass(blurFboB, blurFboA.framebufferTexture, invBlurW, invBlurH, 0.0f, 1.0f, singleRadius);
+            } else {
+                // Pass 1: Main FBO -> blurFboA (Horizontal)
+                runBlurPass(blurFboA, mainFbo.framebufferTexture, invMainW, invMainH, 1.0f, 0.0f, pass1Radius);
+                // Pass 2: blurFboA -> blurFboB (Vertical)
+                runBlurPass(blurFboB, blurFboA.framebufferTexture, invBlurW, invBlurH, 0.0f, 1.0f, pass1Radius);
+                // Pass 3: blurFboB -> blurFboA (Horizontal wide)
+                runBlurPass(blurFboA, blurFboB.framebufferTexture, invBlurW, invBlurH, 1.0f, 0.0f, pass2Radius);
+                // Pass 4: blurFboA -> blurFboB (Vertical wide)
+                runBlurPass(blurFboB, blurFboA.framebufferTexture, invBlurW, invBlurH, 0.0f, 1.0f, pass2Radius);
+            }
 
             blurReady = true;
             return true;
@@ -171,8 +173,7 @@ public final class BackdropBlurRenderer {
             return false;
         } finally {
             GL20.glUseProgram(prevProgram);
-            mainFbo.bindFramebuffer(false);
-            GL11.glViewport(prevVpX, prevVpY, prevVpW, prevVpH);
+            mainFbo.bindFramebuffer(true);
 
             GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.bindTexture(prevTex2D);
@@ -249,7 +250,6 @@ public final class BackdropBlurRenderer {
         try {
             GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.bindTexture(blurFboB.framebufferTexture);
-            applyLinearClamp();
 
             GL20.glUseProgram(glassProgram);
             GL20.glUniform1i(glassBlurTexLoc, 0);
@@ -290,7 +290,6 @@ public final class BackdropBlurRenderer {
     ) {
         targetFbo.bindFramebuffer(true);
         GlStateManager.bindTexture(sourceTexId);
-        applyLinearClamp();
 
         GL20.glUniform2f(blurTexelSizeLoc, texelX, texelY);
         GL20.glUniform2f(blurDirectionLoc, dirX, dirY);
@@ -338,8 +337,7 @@ public final class BackdropBlurRenderer {
     private static void applyLinearClamp() {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        ContextCapabilities caps = Display.isCreated() ? GLContext.getCapabilities() : null;
-        if (caps != null && caps.OpenGL12) {
+        if (hasOpenGL12) {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
         }
@@ -352,8 +350,12 @@ public final class BackdropBlurRenderer {
         deleteFramebuffers();
         blurFboA = new Framebuffer(width, height, false);
         blurFboA.setFramebufferFilter(GL11.GL_LINEAR);
+        GlStateManager.bindTexture(blurFboA.framebufferTexture);
+        applyLinearClamp();
         blurFboB = new Framebuffer(width, height, false);
         blurFboB.setFramebufferFilter(GL11.GL_LINEAR);
+        GlStateManager.bindTexture(blurFboB.framebufferTexture);
+        applyLinearClamp();
         cachedFboW = width;
         cachedFboH = height;
     }
@@ -386,6 +388,7 @@ public final class BackdropBlurRenderer {
             markFailed("OpenGL 2.0 is not supported; frosted glass blur disabled.", null);
             return false;
         }
+        hasOpenGL12 = caps.OpenGL12;
 
         try {
             String blurVert = loadShaderSource(BLUR_VERT_RESOURCE);
