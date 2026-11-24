@@ -72,11 +72,9 @@ public final class VanillaTtfFontBridge {
         if ((resolvedColor & 0xFC000000) == 0) {
             resolvedColor |= 0xFF000000;
         }
-        boolean forceContainerShadow = false;
         if (com.hoptimization.ui.container.ModernContainerRenderer.isRenderingForeground()
             && (resolvedColor & 0x00FFFFFF) == 0x00404040) {
-            resolvedColor = com.hoptimization.ui.theme.ThemeManager.current().accent();
-            forceContainerShadow = true;
+            resolvedColor = com.hoptimization.ui.theme.ThemeManager.current().textSecondary();
         }
         boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
         boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);
@@ -100,7 +98,7 @@ public final class VanillaTtfFontBridge {
         float drawY = y + verticalOffset;
 
         String shadowMode = ModernFont.getConfiguredShadowMode();
-        boolean drawShadow = (dropShadow || forceContainerShadow) && !ModernFont.SHADOW_OFF.equals(shadowMode);
+        boolean drawShadow = dropShadow && !ModernFont.SHADOW_OFF.equals(shadowMode);
         boolean modernShadow = ModernFont.SHADOW_MODERN.equals(shadowMode);
 
         int prevActiveTex = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);

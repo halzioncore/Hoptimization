@@ -37,8 +37,8 @@ public abstract class MixinFontRenderer {
     private int hoptimization$remapContainerForegroundColor(int color) {
         if (ModernContainerRenderer.isRenderingForeground() && (color & 0x00FFFFFF) == 0x00404040) {
             int alpha = (color >>> 24) & 0xFF;
-            int accent = ThemeManager.current().accent();
-            return (alpha > 0 ? (alpha << 24) : 0xFF000000) | (accent & 0x00FFFFFF);
+            int labelColor = ThemeManager.current().textSecondary();
+            return (alpha > 0 ? (alpha << 24) : 0xFF000000) | (labelColor & 0x00FFFFFF);
         }
         return color;
     }
