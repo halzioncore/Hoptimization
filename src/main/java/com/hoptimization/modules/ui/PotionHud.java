@@ -146,7 +146,7 @@ public class PotionHud extends Module implements HudElement {
         boolean cardMode = !this.style.is("text");
 
         float ringAreaW = PAD_LEFT + RING_RADIUS * 2.0f + TEXT_GAP;
-        float maxW = MIN_CARD_WIDTH;
+        float maxW = Keystrokes.getAlignedWidthFor(getHudId());
         float maxTextW = Math.max(12.0f, maxW - ringAreaW - PAD_RIGHT);
 
         float totalH = count * CARD_HEIGHT + (count - 1) * CARD_GAP;

@@ -1,5 +1,8 @@
 package com.hoptimization.modules.ui;
 
+import com.hoptimization.HoptimizationMod;
+import com.hoptimization.core.config.ConfigManager;
+import com.hoptimization.core.config.UiConfig;
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
@@ -160,6 +163,19 @@ public class Keystrokes extends Module implements HudElement {
     @Override
     public boolean isHudEnabled() {
         return isEnabled();
+    }
+
+    public static float getAlignedWidthFor(String hudId) {
+        ConfigManager cm = HoptimizationMod.getConfigManager();
+        UiConfig ui = cm != null ? cm.getUiConfig() : null;
+        if (ui == null) {
+            return TOTAL_WIDTH;
+        }
+        UiConfig.HudLayout ksLayout = ui.getHudLayout("keystrokes");
+        float ksScale = ksLayout != null ? HudOverlayRenderer.clampElementScale(ksLayout.getScale()) : 1.0f;
+        UiConfig.HudLayout myLayout = hudId != null ? ui.getHudLayout(hudId) : null;
+        float myScale = myLayout != null ? HudOverlayRenderer.clampElementScale(myLayout.getScale()) : 1.0f;
+        return TOTAL_WIDTH * (ksScale / myScale);
     }
 
     @Override

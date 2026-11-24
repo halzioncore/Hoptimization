@@ -8,6 +8,7 @@ import com.hoptimization.core.module.ModuleManager;
 import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.render.BackdropBlurRenderer;
+import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
@@ -212,6 +213,7 @@ public final class HudOverlayRenderer {
             BackdropBlurRenderer.captureAndBlur(ThemeManager.getBlurStrength());
         }
         GlStateManager.pushMatrix();
+        RenderUtil.beginUiBatch();
         try {
             FontManager.setUiScale(hudScale);
             GlStateManager.scale(scaleRatio, scaleRatio, 1.0f);
@@ -243,6 +245,7 @@ public final class HudOverlayRenderer {
             }
         } finally {
             ScissorStack.clear();
+            RenderUtil.endUiBatch();
             GlStateManager.popMatrix();
             FontManager.setUiScale(preserveScreenFontScale ? prevFontScale : hudScale);
             glSnapshot.restore();

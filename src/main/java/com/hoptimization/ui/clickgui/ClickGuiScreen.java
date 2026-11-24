@@ -341,6 +341,7 @@ public class ClickGuiScreen extends GuiScreen {
 
         GlStateManager.pushMatrix();
         GlStateManager.scale(scaleRatio, scaleRatio, 1.0f);
+        RenderUtil.beginUiBatch();
         try {
             // 背后游戏画面遮罩 backdrop（毛玻璃模式下减轻压暗，让模糊背景透出层次）
             float backdropAlpha = frosted ? (progress * 0.45f) : progress;
@@ -359,6 +360,7 @@ public class ClickGuiScreen extends GuiScreen {
                 GlStateManager.popMatrix();
             }
         } finally {
+            RenderUtil.endUiBatch();
             GlStateManager.popMatrix();
         }
     }

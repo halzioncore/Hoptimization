@@ -48,6 +48,8 @@ public final class RenderUtil {
     private static final FloatBuffer COLOR_BUFFER = BufferUtils.createFloatBuffer(16);
     private static final StateBackup[] STATE_STACK = new StateBackup[STATE_STACK_CAPACITY];
     private static int stateDepth = 0;
+    private static int uiBatchDepth = 0;
+    private static int uiBatchInnerDepth = 0;
 
     static {
         for (int i = 0; i <= CORNER_SEGMENTS; i++) {
@@ -1065,7 +1067,39 @@ public final class RenderUtil {
         }
     }
 
+    /**
+     * Begins a batched UI rendering pass, capturing outer OpenGL state once and avoiding
+     * per-widget synchronous {@code glGet*} driver stalls until {@link #endUiBatch()}.
+     */
+    public static void beginUiBatch() {
+        if (uiBatchDepth == 0) {
+            pushUntexturedBlendState(true);
+        }
+        uiBatchDepth++;
+    }
+
+    /**
+     * Ends a batched UI rendering pass started with {@link #beginUiBatch()} and restores outer OpenGL state.
+     */
+    public static void endUiBatch() {
+        if (uiBatchDepth <= 0) {
+            return;
+        }
+        uiBatchDepth--;
+        if (uiBatchDepth == 0) {
+            uiBatchInnerDepth = 0;
+            popState();
+        }
+    }
+
     public static void pushUntexturedBlendState(boolean smoothShade) {
+        if (uiBatchDepth > 0) {
+            uiBatchInnerDepth++;
+            GlStateManager.disableTexture2D();
+            GlStateManager.shadeModel(smoothShade ? GL11.GL_SMOOTH : GL11.GL_FLAT);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            return;
+        }
         StateBackup state = acquireStateBackup();
         captureCommonState(state);
         state.hasTextureBackup = false;
@@ -1084,6 +1118,13 @@ public final class RenderUtil {
     }
 
     static void pushTexturedBlendState() {
+        if (uiBatchDepth > 0) {
+            uiBatchInnerDepth++;
+            GlStateManager.enableTexture2D();
+            GlStateManager.shadeModel(GL11.GL_SMOOTH);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            return;
+        }
         StateBackup state = acquireStateBackup();
         captureCommonState(state);
         state.hasTextureBackup = true;
@@ -1106,6 +1147,16 @@ public final class RenderUtil {
     }
 
     public static void popState() {
+        if (uiBatchDepth > 0 && uiBatchInnerDepth > 0) {
+            uiBatchInnerDepth--;
+            ContextCapabilities caps = getCapabilities();
+            if (caps != null && caps.OpenGL20) {
+                GL20.glUseProgram(0);
+            }
+            GlStateManager.enableTexture2D();
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            return;
+        }
         if (stateDepth <= 0) {
             return;
         }
