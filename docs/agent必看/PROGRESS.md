@@ -8,6 +8,23 @@
 
 ---
 
+## 2026-11-24 · 全域双材质审美规范统一、背包药水恒定居中修复与设置页/配置档弹窗补齐（v0.18.0）
+
+- **做了什么**：围绕精致克制的 Linear / macOS 双材质设计体系（`standard` 实体层级 + `frosted_glass` 高斯磨砂）完成全域 UI/HUD/容器/原版界面审美规范收口，修复打开背包因药水效果向右偏移 `+60px` 的 Bug，并补齐 ClickGUI 设置页与配置档切换弹窗，版本号同步升级至 `0.18.0`：
+  1. **美术规范与底层主题/三阶字重收口 (`6eafff6`)**：更新 `docs/agent必看/02_美术规范.md`（新增 `§2.8` 毛玻璃派生材质 Token、更新 `§8` 弹窗规范、新增 `§13` 容器界面与恒定居中药水自适应规范及 `§14` 原版菜单规范）；在 `ThemeData` 预计算并参与 `interpolate` 平滑过渡 `frostedBorder`、`frostedHighlightStrength()` 及 `frosted{Window,Panel,Card,Popup,Tooltip,Hud}Tint()`，清零 `ClickGuiScreen`/`ModuleCard`/`ColorPickerPopup`/`DropdownComponent`/`TooltipRenderer`/`HudEditScreen` 中的硬编码 `0x38FFFFFF`；在 `FontManager` 将 Windows `Segoe UI` 映射至 `Plain` / `Semibold` / `Bold` 三档真实原生字重并在启动期调用 `ModernFont.syncOnStartup()`。
+  2. **修复背包右移 Bug 与现代容器/创造栏重塑 (`66151f8`)**：在 `MixinInventoryEffectRenderer` 以 `@Inject(method = "updateActivePotionEffects", at = @At("HEAD"), cancellable = true)` 保持 `this.guiLeft = (this.width - this.xSize) / 2` 恒定水平居中，彻底消除原版有药水时 `+60px` 右移跳变；重写 `ModernContainerRenderer` 实现左侧三档响应式药水卡片（`>= 104px` 完整进度环卡片、`60..104px` 紧凑计时胶囊、`< 60px` `32×32` 圆环徽章）、无噪点 `soft` 槽位与 `120ms` 平滑悬停高亮、创造标签页与原版点击热区 `1:1` 对齐及浅色主题搜索框可读前景色；将容器标题映射回克制无阴影的 `theme.textSecondary()`。
+  3. **原版主菜单、按钮、滑块与列表质感升级 (`a4a6f2d`)**：为 `MixinGuiButton` 增加真实时间 `120ms` 悬停插值并在 `ModernVanillaRenderer` 支持双材质按钮与重新设计的胶囊轨道+圆点拇指滑块（文字与轨道分离无遮挡）、高分屏物理像素直出 TTF 主菜单标题与克制圆点装饰、帧率无关几何流光及 `reduceMotion` 静止支持；在 `MixinGuiSlot` 补齐 `1px theme.border()` 细分割线。
+  4. **全套 HUD 与现代快捷栏规范统一 (`4bfad42`)**：修复 `HudRenderHelper.drawHudCard` 标准模式未遵循 `cardBorder` 与毛玻璃模式未遵循 `hudOpacity` 的问题并简化 `JarvisHudRenderer.drawThemedHudCard`；移除 `ScoreboardHud` 卡片外阴影与 `Keystrokes` 霓虹外发光并修复浅色/素白强调色按键文字对比度；对齐 `PotionHud`/`CpsDisplay`/`Coordinates`/`FPSDisplay` 4px 网格与单卡片最多一处 `accent` 规则；将 `ModernHotbar` 心形/饱食度改为静态预计算顶点数组 + `GL_TRIANGLE_FAN` 修复凹多边形顶部桥接伪影并实现热路径零三角函数计算。
+  5. **补齐 ClickGUI 设置页与侧边栏配置档弹窗 (`f2a5fa0`)**：新增可滚动 `ClickGuiSettingsPanel`（三列微缩窗口主题预览网格、剪贴板 JSON 导入导出与主题目录入口、显示风格与模糊强度、跟随主题 + 8 预设色板 + `ColorPickerPopup` 自定义强调色、全局界面缩放下拉、减少动效、ClickGUI 缩放与打开快捷键、HUD 布局编辑与配置目录打开）及上浮 `ProfilePopupOverlay`（配置档切换与新建/复制当前/重命名/删除内联交互）；补齐并 100% 对齐 `zh_CN.lang` 与 `en_US.lang`（各 `451` 条唯一键，无 UTF-8 BOM）。
+- **改动文件**：`.gitignore`、`docs/agent必看/{02_美术规范,PROGRESS}.md`、`gradle.properties`、`src/main/java/com/hoptimization/HoptimizationMod.java`、`mixin/render/{MixinFontRenderer,MixinGuiButton,MixinGuiSlot,MixinInventoryEffectRenderer}.java`、`modules/ui/{Coordinates,CpsDisplay,FPSDisplay,Keystrokes,ModernHotbar,PotionHud,ScoreboardHud}.java`、`modules/visual/ModernFont.java`、`modules/visual/jarvis/JarvisHudRenderer.java`、`ui/clickgui/{ClickGuiScreen,ClickGuiSettingsPanel,ClickGuiSidebar,ModuleCard,ProfilePopupOverlay}.java`、`ui/component/{ColorPickerPopup,DropdownComponent,SliderComponent,TooltipRenderer}.java`、`ui/container/ModernContainerRenderer.java`、`ui/font/{FontManager,VanillaTtfFontBridge}.java`、`ui/hud/{HudEditScreen,HudRenderHelper}.java`、`ui/render/AmbientBackgroundRenderer.java`、`ui/theme/{BuiltinThemes,ThemeData,ThemeManager}.java`、`ui/vanilla/ModernVanillaRenderer.java`、`src/main/resources/assets/hoptimization/lang/{en_US,zh_CN}.lang`
+- **验证**：`.\gradlew.bat clean build --offline --console=plain` ✅（`BUILD SUCCESSFUL in 13s`，零编译错误与零 Mixin 告警，生成 `build/libs/hoptimization-0.18.0.jar`，`5034941` 字节）；静态与字节码审查 ✅（`285` 个 `.class` 全部为 Java 8 `major=52`，33 个改动 Java 文件零超 120 字符行、零 `System.out`/`@Overwrite`，`zh_CN.lang` 与 `en_US.lang` 各 `451` 条键 100% 对齐且无 BOM）；`.\gradlew.bat launchClient --offline --console=plain` ✅（`run/logs/latest.log` 实测确认 `Pre-initializing Hoptimization 0.18.0`、`Resolved crisp system font family: Segoe UI`、`Hoptimization initialized (40 modules).`、`Hoptimization mixins active.` 及 `MixinInventoryEffectRenderer`/`MixinGuiButton`/`MixinGuiOptionSlider` 全部正常注入，主菜单稳定运行零异常，进程已干净退出）
+- **Git**：分支 `feat/aesthetic-unification-and-inv-fix` (`2786e1e`) `--no-ff` 合入 `main`（`0125601`），标签 `v0.18.0`，推送 ❌ 未推送（待所有者确认）
+- **回退到上一版本**：`git revert HEAD && git revert -m 1 0125601`（或 `git checkout -b fix/rollback v0.17.0`）
+- **已知问题**：游戏内生存/创造背包在不同窗口宽度下的三档左侧药水自适应视觉观感、10 套主题标准/毛玻璃切换与设置页交互体验待所有者实机手测验收。
+- **下一步**：所有者进游戏手测有药水状态打开背包（恒定居中 + 左侧自适应药水卡片）、ClickGUI 设置页与配置档切换弹窗、原版主菜单/选项滑块与 HUD 双材质表现，确认无误后决定是否推送远程仓库。
+
+---
+
 ## 2026-11-22 · 落花星雨（超级床の战争）Jarvis 对局与队伍识别修复（v0.13.1）
 
 - **做了什么**：修复落花星雨（`wdsj.net` · `超级床の战争`）对局中 Jarvis 始终停留 `待命中 / 等待进入起床战争对局` 的问题，零新增 Mixin、保持热路径零分配，版本号同步至 `0.13.1`：
