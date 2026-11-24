@@ -1041,21 +1041,7 @@ public final class JarvisHudRenderer {
         ThemeData theme,
         float alpha
     ) {
-        if (width <= 0.0F || height <= 0.0F || alpha <= 0.0F) {
-            return;
-        }
-        if (theme.style().isCardBorder()) {
-            HudRenderHelper.drawHudCard(x, y, width, height, theme, alpha);
-        } else {
-            RenderUtil.drawRoundedRect(
-                x,
-                y,
-                width,
-                height,
-                theme.radiusCard(),
-                RenderUtil.withAlpha(theme.hudBackground(), alpha)
-            );
-        }
+        HudRenderHelper.drawHudCard(x, y, width, height, theme, alpha);
     }
 
     private static ThemeData resolveEffectiveTheme(ThemeData theme, boolean followTheme) {

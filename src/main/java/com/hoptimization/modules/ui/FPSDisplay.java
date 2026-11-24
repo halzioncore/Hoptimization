@@ -131,7 +131,7 @@ public class FPSDisplay extends Module implements HudElement {
         cursorX = HudRenderHelper.drawHudText(font, LABEL_FPS, cursorX, textY, theme.textSecondary(), shadow);
         if (pingEnabled) {
             cursorX = HudRenderHelper.drawHudText(font, LABEL_SEP, cursorX, textY, theme.textTertiary(), shadow);
-            cursorX = HudRenderHelper.drawHudText(font, pingStr, cursorX, textY, theme.accent(), shadow);
+            cursorX = HudRenderHelper.drawHudText(font, pingStr, cursorX, textY, theme.textPrimary(), shadow);
             HudRenderHelper.drawHudText(font, LABEL_MS, cursorX, textY, theme.textSecondary(), shadow);
         }
     }

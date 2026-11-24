@@ -54,19 +54,28 @@ public abstract class MixinGuiSlot {
         ci.cancel();
     }
 
+    /**
+     * 目标方法：GuiSlot#overlayBackground(IIII)V
+     * 目的：ModernVanillaUI 背景开启时渲染现代半透明顶底遮罩与 1px 主题分隔细线。
+     */
     @Inject(method = "overlayBackground", at = @At("HEAD"), cancellable = true)
     private void hoptimization$modernOverlayBg(int startY, int endY, int startAlpha, int endAlpha, CallbackInfo ci) {
         if (!ModernVanillaUI.isBackgroundsEnabled()) {
             return;
         }
         ThemeData theme = ThemeManager.current();
+        float h = Math.max(0.0f, endY - startY);
         RenderUtil.drawRect(
             0.0f,
             startY,
             this.width,
-            Math.max(0.0f, endY - startY),
-            RenderUtil.withAlpha(theme.surface0(), 0.72f)
+            h,
+            RenderUtil.withAlpha(theme.surface0(), 0.86f)
         );
+        if (h > 1.0f) {
+            float lineY = startY <= 0 ? (endY - 1.0f) : startY;
+            RenderUtil.drawRect(0.0f, lineY, this.width, 1.0f, theme.border());
+        }
         ci.cancel();
     }
 }

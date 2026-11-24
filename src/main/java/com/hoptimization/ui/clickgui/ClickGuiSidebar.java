@@ -581,7 +581,12 @@ public final class ClickGuiSidebar {
         return listStartY + navIndex * (ITEM_HEIGHT + ITEM_GAP);
     }
 
-    private float getProfileLocalY() {
+    /**
+     * 返回侧边栏底部配置档入口相对窗口顶部的逻辑 Y 坐标。
+     *
+     * @return 配置档入口相对 Y
+     */
+    public float getProfileLocalY() {
         return getItemLocalY(SETTINGS_INDEX) - ITEM_GAP - ITEM_HEIGHT;
     }
 

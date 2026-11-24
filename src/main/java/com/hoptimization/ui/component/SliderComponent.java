@@ -148,7 +148,7 @@ public class SliderComponent extends UiComponent {
 
     private void configureInlineField() {
         this.inlineField.setFontToken(FontToken.CAPTION);
-        this.inlineField.setHeight(18.0f);
+        this.inlineField.setHeight(UiTokens.SPACE_20);
         this.inlineField.setMaxLength(24);
         this.inlineField.setCharFilter(new TextFieldComponent.CharFilter() {
             @Override
@@ -668,7 +668,7 @@ public class SliderComponent extends UiComponent {
 
         float edgePad = THUMB_RADIUS + HALO_EXTRA * 0.5f;
         if (this.layout == Layout.STACKED) {
-            this.valueHitH = 18.0f;
+            this.valueHitH = UiTokens.SPACE_20;
             this.valueHitY = y;
             this.valueHitW = Math.min(width, Math.max(MIN_VALUE_BOX_WIDTH, this.cachedValueReserveWidth));
             this.valueHitX = x + width - this.valueHitW;
@@ -684,8 +684,8 @@ public class SliderComponent extends UiComponent {
             float reserveW = Math.min(width * 0.45f, this.cachedValueReserveWidth);
             this.valueHitW = Math.max(MIN_VALUE_BOX_WIDTH, reserveW);
             this.valueHitX = x + width - this.valueHitW;
-            this.valueHitY = y + (INLINE_HEIGHT - 18.0f) * 0.5f;
-            this.valueHitH = 18.0f;
+            this.valueHitY = y + (INLINE_HEIGHT - UiTokens.SPACE_20) * 0.5f;
+            this.valueHitH = UiTokens.SPACE_20;
 
             float trackAreaW = Math.max(0.0f, width - this.valueHitW - UiTokens.SPACE_8);
             this.trackLeft = x + edgePad;

@@ -61,6 +61,7 @@ public class DropdownComponent extends UiComponent {
     private int highlightedIndex = -1;
     private float scrollOffset = 0.0f;
     private float targetScroll = 0.0f;
+    private long lastScrollNanos = 0L;
 
     private float popupX = 0.0f;
     private float popupY = 0.0f;
@@ -309,6 +310,7 @@ public class DropdownComponent extends UiComponent {
         this.highlightedIndex = getSelectedIndex();
         this.scrollOffset = 0.0f;
         this.targetScroll = 0.0f;
+        this.lastScrollNanos = System.nanoTime();
         this.openAnim.setTarget(1.0f);
         if (this.popupHost != null) {
             this.popupHost.openPopup(this.overlay);
@@ -471,26 +473,34 @@ public class DropdownComponent extends UiComponent {
                 return;
             }
 
-            // Smooth exponential scroll convergence toward targetScroll.
-            DropdownComponent.this.scrollOffset +=
-                (DropdownComponent.this.targetScroll - DropdownComponent.this.scrollOffset) * 0.35f;
-            if (Math.abs(DropdownComponent.this.targetScroll - DropdownComponent.this.scrollOffset) < 0.25f) {
+            long nowNanos = System.nanoTime();
+            float dtMs = DropdownComponent.this.lastScrollNanos > 0L
+                ? Math.min(100.0f, Math.max(0.0f, (nowNanos - DropdownComponent.this.lastScrollNanos) / 1_000_000.0f))
+                : 16.67f;
+            DropdownComponent.this.lastScrollNanos = nowNanos;
+            if (Animation.isReduceMotion()) {
                 DropdownComponent.this.scrollOffset = DropdownComponent.this.targetScroll;
+            } else {
+                float factor = 1.0f - (float) Math.exp(-dtMs / 65.0D);
+                DropdownComponent.this.scrollOffset +=
+                    (DropdownComponent.this.targetScroll - DropdownComponent.this.scrollOffset) * factor;
+                if (Math.abs(DropdownComponent.this.targetScroll - DropdownComponent.this.scrollOffset) < 0.25f) {
+                    DropdownComponent.this.scrollOffset = DropdownComponent.this.targetScroll;
+                }
             }
 
             float radius = theme.radiusCard();
             if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
-                boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
                 RenderUtil.drawFrostedRoundedRectWithShadow(
                     DropdownComponent.this.popupX,
                     DropdownComponent.this.popupY,
                     DropdownComponent.this.popupW,
                     DropdownComponent.this.popupH,
                     radius,
-                    RenderUtil.withAlpha(theme.surface2(), isLight ? 0.74f : 0.66f),
-                    isLight ? theme.borderStrong() : 0x38FFFFFF,
+                    theme.frostedPopupTint(),
+                    theme.frostedBorder(),
                     UiTokens.BORDER_WIDTH,
-                    isLight ? 0.14f : 0.09f,
+                    theme.frostedHighlightStrength(),
                     effAlpha,
                     0.0f,
                     UiTokens.SHADOW_POPUP_OFFSET_Y,

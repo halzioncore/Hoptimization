@@ -1,5 +1,7 @@
 package com.hoptimization.ui.theme;
 
+import com.hoptimization.modules.misc.LanguageModule;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -378,6 +380,23 @@ public final class BuiltinThemes {
         }
 
         public String getName() {
+            return name;
+        }
+
+        public String getNameKey() {
+            return "ui.hoptimization.accent." + id;
+        }
+
+        public String getLocalizedName() {
+            String key = getNameKey();
+            try {
+                String formatted = LanguageModule.format(key);
+                if (formatted != null && !formatted.isEmpty() && !formatted.equals(key)) {
+                    return formatted;
+                }
+            } catch (RuntimeException ignored) {
+                // 未初始化时回退默认显示名
+            }
             return name;
         }
 

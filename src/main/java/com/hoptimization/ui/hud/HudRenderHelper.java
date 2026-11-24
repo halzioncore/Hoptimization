@@ -5,7 +5,6 @@ import com.hoptimization.ui.font.TtfFontRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
-import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -98,28 +97,27 @@ public final class HudRenderHelper {
             return;
         }
         if (ThemeManager.isFrostedGlass()) {
-            boolean isLight = theme.getMode() == ThemeMode.LIGHT;
-            int glassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.56f : 0.46f);
-            int glassBorder = isLight ? theme.borderStrong() : 0x36FFFFFF;
             RenderUtil.drawFrostedRoundedRect(
                 x, y, width, height,
                 theme.radiusCard(),
-                glassTint,
-                glassBorder,
+                theme.frostedHudTint(),
+                theme.frostedBorder(),
                 UiTokens.BORDER_WIDTH,
-                isLight ? 0.14f : 0.10f,
+                theme.frostedHighlightStrength(),
                 alpha
             );
             return;
         }
+        boolean hasBorder = theme.style().isCardBorder();
         int bgColor = RenderUtil.withAlpha(theme.hudBackground(), alpha);
-        int borderColor = RenderUtil.withAlpha(theme.border(), alpha);
+        int borderColor = hasBorder ? RenderUtil.withAlpha(theme.border(), alpha) : 0;
+        float borderWidth = hasBorder ? UiTokens.BORDER_WIDTH : 0.0f;
         RenderUtil.drawRoundedRect(
             x, y, width, height,
             theme.radiusCard(),
             bgColor,
             borderColor,
-            UiTokens.BORDER_WIDTH
+            borderWidth
         );
     }
 
@@ -238,9 +236,15 @@ public final class HudRenderHelper {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             try {
                 // Base face (8,8 -> 16,16 on 64x64)
-                drawTexturedRegion(x, y, size, size, 8.0f / 64.0f, 8.0f / 64.0f, 16.0f / 64.0f, 16.0f / 64.0f, clampedAlpha);
+                drawTexturedRegion(
+                    x, y, size, size,
+                    8.0f / 64.0f, 8.0f / 64.0f, 16.0f / 64.0f, 16.0f / 64.0f, clampedAlpha
+                );
                 // Hat overlay (40,8 -> 48,16 on 64x64)
-                drawTexturedRegion(x, y, size, size, 40.0f / 64.0f, 8.0f / 64.0f, 48.0f / 64.0f, 16.0f / 64.0f, clampedAlpha);
+                drawTexturedRegion(
+                    x, y, size, size,
+                    40.0f / 64.0f, 8.0f / 64.0f, 48.0f / 64.0f, 16.0f / 64.0f, clampedAlpha
+                );
             } finally {
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, prevMinFilter);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, prevMagFilter);

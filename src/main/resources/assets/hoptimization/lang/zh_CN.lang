@@ -43,10 +43,10 @@ module.hoptimization.clickgui.name=ClickGUI
 module.hoptimization.clickgui.desc=配置 ClickGUI 菜单缩放比例与打开快捷键
 module.hoptimization.cheat_mode.name=作弊模式
 module.hoptimization.cheat_mode.desc=解锁高风险功能模块，在多人服务器可能触发反作弊检测
-
-# 模块 - 性能
 module.hoptimization.modern_hotbar.name=现代快捷栏与状态条
 module.hoptimization.modern_hotbar.desc=将原版快捷栏、生命值与饥饿值替换为与当前主题一致的现代卡片与胶囊进度条
+
+# 模块 - 性能
 module.hoptimization.particle_limit.name=粒子限制
 module.hoptimization.particle_limit.desc=限制同屏粒子数量以维持高帧率稳定
 
@@ -131,7 +131,7 @@ setting.hoptimization.atmosphere.sky_preset.option.midnight_indigo=静谧夜空
 setting.hoptimization.atmosphere.sky_preset.option.soft_overcast=阴柔云幕
 setting.hoptimization.atmosphere.sky_preset.option.theme_accent=跟随主题
 setting.hoptimization.atmosphere.show_stars.name=极简星点
-setting.hoptimization.atmosphere.weather.name=自研真实雨天
+setting.hoptimization.atmosphere.weather.name=拟真雨天
 setting.hoptimization.atmosphere.weather.option.off=关闭（原版）
 setting.hoptimization.atmosphere.weather.option.light_rain=细雨忧郁
 setting.hoptimization.atmosphere.weather.option.heavy_rain=滂沱大雨
@@ -217,6 +217,7 @@ ui.hoptimization.profile.new=新建
 ui.hoptimization.profile.duplicate=复制当前
 ui.hoptimization.profile.rename=重命名
 ui.hoptimization.profile.delete=删除
+ui.hoptimization.profile.input_placeholder=输入配置名称
 
 ui.hoptimization.settings.title=设置
 ui.hoptimization.settings.subtitle=外观、主题与全局配置
@@ -229,6 +230,9 @@ ui.hoptimization.settings.theme.duplicate=复制
 ui.hoptimization.settings.theme.rename=重命名
 ui.hoptimization.settings.theme.export=导出到剪贴板
 ui.hoptimization.settings.theme.delete=删除
+ui.hoptimization.settings.theme.imported=已导入主题
+ui.hoptimization.settings.theme.exported=已复制到剪贴板
+ui.hoptimization.settings.theme.import_failed=剪贴板无有效主题 JSON
 ui.hoptimization.settings.accent=强调色
 ui.hoptimization.settings.accent.follow_theme=跟随主题
 ui.hoptimization.settings.accent.custom=自定义
@@ -259,6 +263,16 @@ ui.hoptimization.theme.oled=纯黑 OLED
 ui.hoptimization.theme.forest=松林
 ui.hoptimization.theme.mist=雾白
 ui.hoptimization.theme.sand=暖沙
+ui.hoptimization.theme.copy_suffix= 副本
+
+ui.hoptimization.accent.blue=蓝
+ui.hoptimization.accent.indigo=靛
+ui.hoptimization.accent.purple=紫
+ui.hoptimization.accent.cyan=青
+ui.hoptimization.accent.green=绿
+ui.hoptimization.accent.amber=琥珀
+ui.hoptimization.accent.rose=玫红
+ui.hoptimization.accent.silver=素白
 
 ui.hoptimization.common.save=保存
 ui.hoptimization.common.cancel=取消

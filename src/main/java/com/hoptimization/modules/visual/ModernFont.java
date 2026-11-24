@@ -163,4 +163,22 @@ public class ModernFont extends Module {
     public ModeSetting getShadowSetting() {
         return this.shadow;
     }
+
+    /**
+     * Synchronizes {@link FontManager}'s active font family mode with the loaded configuration on startup.
+     */
+    public static void syncOnStartup() {
+        ModernFont inst = instance;
+        if (inst == null) {
+            return;
+        }
+        String val = inst.family.getValue();
+        if (FAMILY_GOOGLE_SANS.equals(val)) {
+            FontManager.setFontFamilyMode(FontManager.FontFamilyMode.GOOGLE_SANS);
+        } else if (FAMILY_INTER.equals(val)) {
+            FontManager.setFontFamilyMode(FontManager.FontFamilyMode.INTER);
+        } else {
+            FontManager.setFontFamilyMode(FontManager.FontFamilyMode.CRISP_SYSTEM);
+        }
+    }
 }

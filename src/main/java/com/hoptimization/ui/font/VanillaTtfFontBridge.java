@@ -72,11 +72,9 @@ public final class VanillaTtfFontBridge {
         if ((resolvedColor & 0xFC000000) == 0) {
             resolvedColor |= 0xFF000000;
         }
-        boolean forceContainerShadow = false;
         if (com.hoptimization.ui.container.ModernContainerRenderer.isRenderingForeground()
             && (resolvedColor & 0x00FFFFFF) == 0x00404040) {
-            resolvedColor = com.hoptimization.ui.theme.ThemeManager.current().accent();
-            forceContainerShadow = true;
+            resolvedColor = com.hoptimization.ui.theme.ThemeManager.current().textSecondary();
         }
         boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
         boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);
@@ -100,7 +98,7 @@ public final class VanillaTtfFontBridge {
         float drawY = y + verticalOffset;
 
         String shadowMode = ModernFont.getConfiguredShadowMode();
-        boolean drawShadow = (dropShadow || forceContainerShadow) && !ModernFont.SHADOW_OFF.equals(shadowMode);
+        boolean drawShadow = dropShadow && !ModernFont.SHADOW_OFF.equals(shadowMode);
         boolean modernShadow = ModernFont.SHADOW_MODERN.equals(shadowMode);
 
         int prevActiveTex = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
@@ -271,13 +269,14 @@ public final class VanillaTtfFontBridge {
             return 0.0f;
         }
         float rasterScale = Math.max(1.0f, uiScale);
-        TtfFontRenderer normalFont = FontManager.getInstance().getRenderer(FontStyle.of(logicalSize, FontWeight.MEDIUM), rasterScale);
-        TtfFontRenderer boldFont = FontManager.getInstance().getRenderer(FontStyle.of(logicalSize, FontWeight.SEMIBOLD), rasterScale);
+        FontManager fm = FontManager.getInstance();
+        TtfFontRenderer normalFont = fm.getRenderer(FontStyle.of(logicalSize, FontWeight.MEDIUM), rasterScale);
+        TtfFontRenderer boldFont = fm.getRenderer(FontStyle.of(logicalSize, FontWeight.SEMIBOLD), rasterScale);
         return measureFormattedWidthWithFonts(text, normalFont, boldFont, false);
     }
 
     /**
-     * Renders a Minecraft {@code §}-formatted string in HUD logical coordinates at an explicit logical size and UI scale.
+     * Renders a {@code §}-formatted string in HUD logical coordinates at an explicit size and UI scale.
      *
      * @param text         formatted text
      * @param x            logical left X
@@ -305,8 +304,9 @@ public final class VanillaTtfFontBridge {
             return x + measureFormattedUiWidth(text, logicalSize, uiScale);
         }
         float rasterScale = Math.max(1.0f, uiScale);
-        TtfFontRenderer normalFont = FontManager.getInstance().getRenderer(FontStyle.of(logicalSize, FontWeight.MEDIUM), rasterScale);
-        TtfFontRenderer boldFont = FontManager.getInstance().getRenderer(FontStyle.of(logicalSize, FontWeight.SEMIBOLD), rasterScale);
+        FontManager fm = FontManager.getInstance();
+        TtfFontRenderer normalFont = fm.getRenderer(FontStyle.of(logicalSize, FontWeight.MEDIUM), rasterScale);
+        TtfFontRenderer boldFont = fm.getRenderer(FontStyle.of(logicalSize, FontWeight.SEMIBOLD), rasterScale);
 
         boolean wasTexture2D = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
         boolean wasBlend = GL11.glIsEnabled(GL11.GL_BLEND);

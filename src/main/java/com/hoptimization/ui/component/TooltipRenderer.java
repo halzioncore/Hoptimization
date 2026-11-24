@@ -18,8 +18,8 @@ public final class TooltipRenderer {
     public static final float PADDING_H = UiTokens.SPACE_8;
     public static final float PADDING_V = UiTokens.SPACE_6;
     public static final float LINE_GAP = UiTokens.SPACE_2;
-    public static final float CURSOR_OFFSET_X = 10.0f;
-    public static final float CURSOR_OFFSET_Y = 14.0f;
+    public static final float CURSOR_OFFSET_X = UiTokens.SPACE_8;
+    public static final float CURSOR_OFFSET_Y = UiTokens.SPACE_16;
     public static final float VIEWPORT_MARGIN = UiTokens.SPACE_4;
 
     private TooltipRenderer() {
@@ -119,17 +119,16 @@ public final class TooltipRenderer {
 
         float radius = theme.radiusControl();
         if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
-            boolean isLight = theme.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
             RenderUtil.drawFrostedRoundedRectWithShadow(
                 drawX,
                 drawY,
                 boxWidth,
                 boxHeight,
                 radius,
-                RenderUtil.withAlpha(theme.surface4(), isLight ? 0.76f : 0.68f),
-                isLight ? theme.borderStrong() : 0x38FFFFFF,
+                theme.frostedTooltipTint(),
+                theme.frostedBorder(),
                 UiTokens.BORDER_WIDTH,
-                isLight ? 0.14f : 0.09f,
+                theme.frostedHighlightStrength(),
                 alpha,
                 0.0f,
                 UiTokens.SHADOW_POPUP_OFFSET_Y,

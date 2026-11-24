@@ -5,8 +5,10 @@ import com.hoptimization.HoptimizationMod;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
+import java.awt.font.TextAttribute;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -445,14 +447,23 @@ public final class FontManager {
         if (family == null) {
             return null;
         }
-        // On Windows, "Segoe UI Semibold" is a distinct crisp family name for medium/semibold weights.
-        if (weight == FontWeight.SEMIBOLD && "Segoe UI".equalsIgnoreCase(family)) {
-            Font semi = new Font("Segoe UI Semibold", Font.PLAIN, 16);
-            if (!Font.DIALOG.equalsIgnoreCase(semi.getFamily())) {
-                return semi;
+        // Windows 下 Segoe UI 提供原生 Regular / Semibold / Bold 三个独立 TTF，可精确形成三阶字重层级。
+        if ("Segoe UI".equalsIgnoreCase(family)) {
+            if (weight == FontWeight.MEDIUM) {
+                Font semi = new Font("Segoe UI Semibold", Font.PLAIN, 16);
+                if (!Font.DIALOG.equalsIgnoreCase(semi.getFamily())) {
+                    return semi;
+                }
+            } else if (weight == FontWeight.SEMIBOLD) {
+                return new Font("Segoe UI", Font.BOLD, 16);
             }
+            return new Font("Segoe UI", Font.PLAIN, 16);
         }
-        return new Font(family, weight.getAwtFallbackStyle(), 16);
+        Font base = new Font(family, weight.getAwtFallbackStyle(), 16);
+        if (weight == FontWeight.MEDIUM) {
+            return base.deriveFont(Collections.singletonMap(TextAttribute.WEIGHT, TextAttribute.WEIGHT_MEDIUM));
+        }
+        return base;
     }
 
     private static float clampScale(float scale) {

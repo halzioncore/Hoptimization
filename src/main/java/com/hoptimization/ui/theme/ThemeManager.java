@@ -1,6 +1,7 @@
 package com.hoptimization.ui.theme;
 
 import com.hoptimization.HoptimizationMod;
+import com.hoptimization.modules.misc.LanguageModule;
 import net.minecraft.client.Minecraft;
 
 import java.io.File;
@@ -431,9 +432,17 @@ public final class ThemeManager {
         if (source == null) {
             return null;
         }
-        String resolvedName = (newName == null || newName.trim().isEmpty())
-                ? source.getName() + " 副本"
-                : newName.trim();
+        String resolvedName;
+        if (newName == null || newName.trim().isEmpty()) {
+            String suffixKey = "ui.hoptimization.theme.copy_suffix";
+            String suffix = LanguageModule.format(suffixKey);
+            if (suffix == null || suffix.isEmpty() || suffix.equals(suffixKey)) {
+                suffix = " 副本";
+            }
+            resolvedName = source.getLocalizedName() + suffix;
+        } else {
+            resolvedName = newName.trim();
+        }
         String newId = ensureUniqueCustomId(sanitizeId(source.getId() + "_copy"));
         ThemeData copy = source.toBuilder()
                 .id(newId)
@@ -638,7 +647,9 @@ public final class ThemeManager {
             }
         } catch (Throwable t) {
             // 纯单元测试环境下 Minecraft 单例可能尚未启动，回退相对配置路径
-            HoptimizationMod.LOGGER.warn("Minecraft instance unavailable while resolving themes directory, using local path.", t);
+            HoptimizationMod.LOGGER.warn(
+                    "Minecraft instance unavailable while resolving themes directory, using local path.", t
+            );
         }
         return new File("config/hoptimization/themes");
     }

@@ -17,14 +17,12 @@ import com.hoptimization.ui.component.TextFieldComponent;
 import com.hoptimization.ui.component.TooltipManager;
 import com.hoptimization.ui.font.FontManager;
 import com.hoptimization.ui.font.TtfFontRenderer;
-import com.hoptimization.ui.hud.HudOverlayRenderer;
 import com.hoptimization.ui.render.BackdropBlurRenderer;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.render.ScissorStack;
 import com.hoptimization.ui.render.UiScale;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
-import com.hoptimization.ui.theme.ThemeMode;
 import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -79,6 +77,8 @@ public class ClickGuiScreen extends GuiScreen {
     private final ClickGuiContentHeader contentHeader = new ClickGuiContentHeader();
     private final PopupManager popupManager = new PopupManager();
     private final TooltipManager tooltipManager = new TooltipManager();
+    private final ClickGuiSettingsPanel settingsPanel;
+    private final ProfilePopupOverlay profilePopup;
 
     private final Animation openCloseAnim = new Animation(0.0f, 1.0f, AnimDuration.SLOW, Easing.EASE_OUT_QUINT);
     private final Animation scrollbarAlphaAnim = new Animation(0.0f, AnimDuration.FAST, Easing.EASE_OUT_CUBIC);
@@ -137,6 +137,13 @@ public class ClickGuiScreen extends GuiScreen {
             this.cardsByCategory[i] = new ArrayList<ModuleCard>();
             this.groupSlots[i] = new GroupHeaderSlot(CATEGORIES[i]);
         }
+        this.settingsPanel = new ClickGuiSettingsPanel(this, this.popupManager);
+        this.profilePopup = new ProfilePopupOverlay(this.popupManager, new Runnable() {
+            @Override
+            public void run() {
+                onProfileChanged();
+            }
+        });
         this.sidebar.setSearchChangeListener(new TextFieldComponent.TextChangeListener() {
             @Override
             public void onTextChanged(String newText) {
@@ -449,20 +456,22 @@ public class ClickGuiScreen extends GuiScreen {
             popupManager.closeActivePopup();
         }
 
-        if (isSearchActive() || !settingsViewActive) {
-            float contentX = windowX + ClickGuiSidebar.WIDTH;
-            float contentY = windowY + CONTENT_MARGIN;
-            float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
-            float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
-            float listY = contentY + ClickGuiContentHeader.HEIGHT;
-            float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
+        float contentX = windowX + ClickGuiSidebar.WIDTH;
+        float contentY = windowY + CONTENT_MARGIN;
+        float contentW = WINDOW_WIDTH - ClickGuiSidebar.WIDTH - CONTENT_MARGIN;
+        float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
+        float listY = contentY + ClickGuiContentHeader.HEIGHT;
+        float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
 
+        if (isSearchActive() || !settingsViewActive) {
             if (maxScroll > 0.0f && isInside(lMouseX, lMouseY, contentX, listY, contentW, listH)) {
                 float delta = -(wheel / 120.0f) * SCROLL_PER_NOTCH;
                 targetScroll = clamp(targetScroll + delta, 0.0f, maxScroll);
                 lastScrollActivityNanos = System.nanoTime();
                 saveCurrentScrollToSession();
             }
+        } else if (isInside(lMouseX, lMouseY, contentX, listY, contentW, listH)) {
+            settingsPanel.mouseScrolled(wheel);
         }
     }
 
@@ -531,7 +540,10 @@ public class ClickGuiScreen extends GuiScreen {
             if (sidebarClick.getKind() == ClickGuiSidebar.ClickResult.Kind.PROFILE_TRIGGERED) {
                 cancelAllKeybindCaptures();
                 cancelAllInlineNumberEdits();
-                HoptimizationMod.LOGGER.debug("Profile switcher clicked (dropdown scheduled for Step 5).");
+                float triggerX = windowX + UiTokens.SPACE_8;
+                float triggerY = windowY + sidebar.getProfileLocalY();
+                float triggerW = ClickGuiSidebar.WIDTH - UiTokens.SPACE_8 * 2.0f;
+                profilePopup.toggleAt(triggerX, triggerY, triggerW, 32.0f);
                 return;
             }
         }
@@ -557,9 +569,9 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         if (!searchActive && settingsViewActive) {
-            cancelAllKeybindCaptures();
-            cancelAllInlineNumberEdits();
-            handleSettingsViewClick(lMouseX, lMouseY, contentX, contentY, contentW, contentH, mouseButton);
+            float listY = contentY + ClickGuiContentHeader.HEIGHT;
+            float listH = Math.max(0.0f, contentH - ClickGuiContentHeader.HEIGHT - LIST_VIEWPORT_BOTTOM_INSET);
+            settingsPanel.mouseClicked(lMouseX, lMouseY, mouseButton, contentX, listY, contentW, listH);
             return;
         }
 
@@ -647,6 +659,11 @@ public class ClickGuiScreen extends GuiScreen {
             return;
         }
 
+        if (!isSearchActive() && settingsViewActive) {
+            settingsPanel.mouseDragged(lMouseX, lMouseY, clickedMouseButton);
+            return;
+        }
+
         if (activeMouseCard != null) {
             activeMouseCard.mouseDragged(lMouseX, lMouseY, clickedMouseButton);
         }
@@ -673,6 +690,7 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         sidebar.handleSearchMouseReleased(lMouseX, lMouseY, state);
+        settingsPanel.mouseReleased(lMouseX, lMouseY, state);
 
         if (activeMouseCard != null) {
             activeMouseCard.mouseReleased(lMouseX, lMouseY, state);
@@ -711,19 +729,16 @@ public class ClickGuiScreen extends GuiScreen {
         tooltipManager.beginFrame();
 
         boolean frosted = ThemeManager.isFrostedGlass();
-        boolean isLight = theme.getMode() == ThemeMode.LIGHT;
 
         // 主窗口阴影（offsetY=16, blur=48）+ 窗口底板 surface0 + 外沿 1px border
         if (frosted) {
-            int glassTint = RenderUtil.withAlpha(theme.surface0(), isLight ? 0.66f : 0.56f);
-            int glassBorder = RenderUtil.withAlpha(isLight ? theme.borderStrong() : 0x38FFFFFF, 1.0f);
             RenderUtil.drawFrostedRoundedRectWithShadow(
                 windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
                 theme.radiusWindow(),
-                glassTint,
-                glassBorder,
+                theme.frostedWindowTint(),
+                theme.frostedBorder(),
                 UiTokens.BORDER_WIDTH,
-                isLight ? 0.14f : 0.09f,
+                theme.frostedHighlightStrength(),
                 windowAlpha,
                 0.0f,
                 UiTokens.SHADOW_WINDOW_OFFSET_Y,
@@ -751,10 +766,10 @@ public class ClickGuiScreen extends GuiScreen {
         float contentH = WINDOW_HEIGHT - CONTENT_MARGIN * 2.0f;
         float contentRadius = theme.nestedRadius(theme.radiusWindow(), CONTENT_MARGIN);
         int contentBorder = (frosted || theme.style().isCardBorder())
-            ? RenderUtil.withAlpha(frosted ? theme.borderStrong() : theme.border(), windowAlpha * (frosted ? 0.75f : 1.0f))
+            ? RenderUtil.withAlpha(frosted ? theme.frostedBorder() : theme.border(), windowAlpha)
             : 0;
         int contentFill = frosted
-            ? RenderUtil.withAlpha(theme.surface1(), windowAlpha * (isLight ? 0.52f : 0.44f))
+            ? RenderUtil.withAlpha(theme.frostedPanelTint(), windowAlpha)
             : RenderUtil.withAlpha(theme.surface1(), windowAlpha);
 
         RenderUtil.drawRoundedRect(
@@ -763,6 +778,13 @@ public class ClickGuiScreen extends GuiScreen {
             contentFill,
             contentBorder,
             contentBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
+        );
+
+        profilePopup.updateAnchor(
+            windowX + UiTokens.SPACE_8,
+            windowY + sidebar.getProfileLocalY(),
+            ClickGuiSidebar.WIDTH - UiTokens.SPACE_8 * 2.0f,
+            32.0f
         );
 
         ModuleManager moduleManager = HoptimizationMod.getModuleManager();
@@ -802,7 +824,10 @@ public class ClickGuiScreen extends GuiScreen {
                 bgMouseX, bgMouseY, windowAlpha, theme, searchActive
             );
         } else if (settingsViewActive && listH > 0.0f) {
-            renderSettingsQuickView(listX, listY, listW, bgMouseX, bgMouseY, windowAlpha, theme);
+            settingsPanel.render(
+                listX, listY, listW, listH,
+                bgMouseX, bgMouseY, windowAlpha, theme, tooltipManager
+            );
         }
 
         // 最顶层渲染下拉菜单 / 取色器与延迟悬停提示
@@ -1081,6 +1106,8 @@ public class ClickGuiScreen extends GuiScreen {
     public void refreshAllLabels() {
         this.sidebar.refreshLabels();
         this.contentHeader.refreshLabels();
+        this.profilePopup.refreshLabels();
+        this.settingsPanel.refreshLabelsAndState();
         this.emptySearchLabel = LanguageModule.format("ui.hoptimization.search.empty");
         for (int c = 0; c < CATEGORIES.length; c++) {
             this.groupSlots[c].label = LanguageModule.format(CATEGORIES[c].getNameKey());
@@ -1267,6 +1294,9 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private boolean hasActiveKeybindCapture() {
+        if (this.settingsPanel.isListeningKeybind()) {
+            return true;
+        }
         for (int i = 0; i < this.allCards.size(); i++) {
             if (this.allCards.get(i).isListeningKeybind()) {
                 return true;
@@ -1276,12 +1306,17 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private void cancelAllKeybindCaptures() {
+        this.settingsPanel.cancelCaptures();
         for (int i = 0; i < this.allCards.size(); i++) {
             this.allCards.get(i).cancelKeybindListening();
         }
     }
 
     private void dispatchKeyToCapturingCard(char typedChar, int keyCode) {
+        if (this.settingsPanel.isListeningKeybind()) {
+            this.settingsPanel.keyTyped(typedChar, keyCode);
+            return;
+        }
         for (int i = 0; i < this.allCards.size(); i++) {
             ModuleCard card = this.allCards.get(i);
             if (card.isListeningKeybind()) {
@@ -1292,6 +1327,9 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private boolean hasActiveInlineNumberEdit() {
+        if (this.settingsPanel.isEditingInlineNumber()) {
+            return true;
+        }
         for (int i = 0; i < this.allCards.size(); i++) {
             if (this.allCards.get(i).isEditingInlineNumber()) {
                 return true;
@@ -1301,12 +1339,16 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private void cancelAllInlineNumberEdits() {
+        this.settingsPanel.cancelCaptures();
         for (int i = 0; i < this.allCards.size(); i++) {
             this.allCards.get(i).cancelInlineNumberEdit();
         }
     }
 
     private boolean dispatchKeyToEditingCard(char typedChar, int keyCode) {
+        if (this.settingsPanel.isEditingInlineNumber()) {
+            return this.settingsPanel.keyTyped(typedChar, keyCode);
+        }
         for (int i = 0; i < this.allCards.size(); i++) {
             ModuleCard card = this.allCards.get(i);
             if (card.isEditingInlineNumber()) {
@@ -1369,6 +1411,7 @@ public class ClickGuiScreen extends GuiScreen {
     public void selectSettings() {
         saveCurrentScrollToSession();
         popupManager.closeActivePopup();
+        settingsPanel.syncControlsFromConfig();
         if (!settingsViewActive) {
             settingsViewActive = true;
             displayListDirty = true;
@@ -1431,12 +1474,20 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         double candidate = baseScale + direction * ClickGuiModule.SCALE_STEP;
+        applyClickGuiScaleMultiplier((float) candidate);
+    }
+
+    void applyClickGuiScaleMultiplier(float candidateMultiplier) {
+        ModuleManager moduleManager = HoptimizationMod.getModuleManager();
+        ConfigManager configManager = HoptimizationMod.getConfigManager();
+        ClickGuiModule clickGuiModule = moduleManager != null ? moduleManager.getModule(ClickGuiModule.class) : null;
+
         float nextMultiplier;
         if (clickGuiModule != null) {
-            clickGuiModule.getScaleSetting().setSteppedValue(candidate, false);
+            clickGuiModule.getScaleSetting().setSteppedValue(candidateMultiplier, false);
             nextMultiplier = clickGuiModule.getScaleSetting().getFloatValue();
         } else {
-            double snapped = Math.round(candidate / ClickGuiModule.SCALE_STEP) * ClickGuiModule.SCALE_STEP;
+            double snapped = Math.round(candidateMultiplier / ClickGuiModule.SCALE_STEP) * ClickGuiModule.SCALE_STEP;
             if (snapped < UiConfig.MIN_CLICK_GUI_SCALE) {
                 snapped = UiConfig.MIN_CLICK_GUI_SCALE;
             } else if (snapped > UiConfig.MAX_CLICK_GUI_SCALE) {
@@ -1470,6 +1521,20 @@ public class ClickGuiScreen extends GuiScreen {
                 clampWindowPosition(logicalW, logicalH);
             }
         }
+    }
+
+    private void onProfileChanged() {
+        float resolvedUiScale = resolveClickGuiScale();
+        lastUiScale = resolvedUiScale;
+        FontManager.setUiScale(resolvedUiScale);
+        float logicalW = UiScale.getLogicalWidth(resolvedUiScale);
+        float logicalH = UiScale.getLogicalHeight(resolvedUiScale);
+        lastLogicalW = logicalW;
+        lastLogicalH = logicalH;
+        popupManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
+        tooltipManager.setViewport(0.0f, 0.0f, logicalW, logicalH);
+        clampWindowPosition(logicalW, logicalH);
+        refreshAllLabels();
     }
 
     private static float resolveClickGuiScale() {
@@ -1529,101 +1594,6 @@ public class ClickGuiScreen extends GuiScreen {
             return 1.0f;
         }
         return value;
-    }
-
-    private void handleSettingsViewClick(
-        float mouseX,
-        float mouseY,
-        float contentX,
-        float contentY,
-        float contentW,
-        float contentH,
-        int mouseButton
-    ) {
-        if (mouseButton != 0) {
-            return;
-        }
-        float listY = contentY + ClickGuiContentHeader.HEIGHT;
-        float cardX = contentX + UiTokens.SPACE_20;
-        float cardW = Math.max(0.0f, contentW - UiTokens.SPACE_20 * 2.0f);
-        float cardH = 52.0f;
-        if (listY + cardH > contentY + contentH) {
-            return;
-        }
-        String btnLabel = LanguageModule.format("ui.hoptimization.settings.hud.edit_layout");
-        float btnW = Math.max(96.0f, FontManager.caption().getWidth(btnLabel) + UiTokens.SPACE_16 * 2.0f);
-        float btnH = 26.0f;
-        float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
-        float btnY = listY + (cardH - btnH) * 0.5f;
-        if (isInside(mouseX, mouseY, btnX, btnY, btnW, btnH)) {
-            HudOverlayRenderer.openEditor(this);
-        }
-    }
-
-    private void renderSettingsQuickView(
-        float listX,
-        float listY,
-        float listW,
-        float mouseX,
-        float mouseY,
-        float windowAlpha,
-        ThemeData theme
-    ) {
-        float cardX = listX + UiTokens.SPACE_20;
-        float cardW = Math.max(0.0f, listW - UiTokens.SPACE_20 * 2.0f);
-        float cardH = 52.0f;
-        int cardBorder = theme.style().isCardBorder() ? RenderUtil.withAlpha(theme.border(), windowAlpha) : 0;
-
-        RenderUtil.drawRoundedRect(
-            cardX, listY, cardW, cardH,
-            theme.radiusCard(),
-            RenderUtil.withAlpha(theme.surface2(), windowAlpha),
-            cardBorder,
-            cardBorder != 0 ? UiTokens.BORDER_WIDTH : 0.0f
-        );
-
-        String title = LanguageModule.format("ui.hoptimization.settings.hud");
-        String subtitle = LanguageModule.format("ui.hoptimization.settings.about.version")
-            + " " + HoptimizationMod.VERSION;
-        TtfFontRenderer titleFont = FontManager.body();
-        TtfFontRenderer subFont = FontManager.caption();
-
-        String btnLabel = LanguageModule.format("ui.hoptimization.settings.hud.edit_layout");
-        float textX = cardX + UiTokens.SPACE_12;
-        float btnLabelW = subFont.getWidth(btnLabel);
-        float btnW = Math.max(96.0f, btnLabelW + UiTokens.SPACE_16 * 2.0f);
-        float btnH = 26.0f;
-        float btnX = cardX + cardW - UiTokens.SPACE_12 - btnW;
-        float btnY = listY + (cardH - btnH) * 0.5f;
-        boolean hovered = isInside(mouseX, mouseY, btnX, btnY, btnW, btnH);
-
-        float maxTextW = Math.max(0.0f, btnX - UiTokens.SPACE_12 - textX);
-        String elidedTitle = titleFont.trimToWidth(title, maxTextW);
-        String elidedSub = subFont.trimToWidth(subtitle, maxTextW);
-        titleFont.drawString(elidedTitle, textX, listY + 12.0f, RenderUtil.withAlpha(theme.textPrimary(), windowAlpha));
-        subFont.drawString(elidedSub, textX, listY + 29.0f, RenderUtil.withAlpha(theme.textSecondary(), windowAlpha));
-
-        int btnBg = hovered
-            ? RenderUtil.withAlpha(theme.accentMuted(), windowAlpha)
-            : RenderUtil.withAlpha(theme.surface3(), windowAlpha);
-        int btnBorder = hovered
-            ? RenderUtil.withAlpha(theme.accent(), windowAlpha)
-            : RenderUtil.withAlpha(theme.border(), windowAlpha);
-        RenderUtil.drawRoundedRect(
-            btnX, btnY, btnW, btnH,
-            theme.radiusControl(),
-            btnBg,
-            btnBorder,
-            UiTokens.BORDER_WIDTH
-        );
-        float tx = btnX + (btnW - subFont.getWidth(btnLabel)) * 0.5f;
-        float ty = btnY + (btnH - subFont.getHeight()) * 0.5f;
-        subFont.drawString(
-            btnLabel,
-            tx,
-            ty,
-            RenderUtil.withAlpha(hovered ? theme.accent() : theme.textPrimary(), windowAlpha)
-        );
     }
 
     private static final class GroupHeaderSlot {

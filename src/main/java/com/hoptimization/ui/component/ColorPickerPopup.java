@@ -203,17 +203,16 @@ public class ColorPickerPopup implements PopupOverlay {
         }
 
         if (com.hoptimization.ui.theme.ThemeManager.isFrostedGlass()) {
-            boolean isLight = resolved.getMode() == com.hoptimization.ui.theme.ThemeMode.LIGHT;
             RenderUtil.drawFrostedRoundedRectWithShadow(
                 this.popupX,
                 this.popupY,
                 POPUP_WIDTH,
                 this.popupH,
                 resolved.radiusCard(),
-                RenderUtil.withAlpha(resolved.surface2(), isLight ? 0.74f : 0.66f),
-                isLight ? resolved.borderStrong() : 0x38FFFFFF,
+                resolved.frostedPopupTint(),
+                resolved.frostedBorder(),
                 UiTokens.BORDER_WIDTH,
-                isLight ? 0.14f : 0.09f,
+                resolved.frostedHighlightStrength(),
                 effAlpha,
                 0.0f,
                 UiTokens.SHADOW_POPUP_OFFSET_Y,

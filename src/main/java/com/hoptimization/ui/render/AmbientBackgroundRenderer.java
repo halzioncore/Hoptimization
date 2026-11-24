@@ -1,5 +1,6 @@
 package com.hoptimization.ui.render;
 
+import com.hoptimization.ui.anim.Animation;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeMode;
 import net.minecraft.client.renderer.GlStateManager;
@@ -29,7 +30,11 @@ public final class AmbientBackgroundRenderer {
         float dt = lastFrameNanos == 0L ? 0.016F : Math.min(0.05F, (now - lastFrameNanos) / 1_000_000_000.0F);
         lastFrameNanos = now;
 
-        if (smoothMouseX < -500.0F) {
+        boolean reduceMotion = Animation.isReduceMotion();
+        if (reduceMotion) {
+            smoothMouseX = width * 0.5F;
+            smoothMouseY = height * 0.5F;
+        } else if (smoothMouseX < -500.0F) {
             smoothMouseX = mouseX >= 0 ? mouseX : width * 0.5F;
             smoothMouseY = mouseY >= 0 ? mouseY : height * 0.5F;
         } else {
@@ -38,7 +43,7 @@ public final class AmbientBackgroundRenderer {
             smoothMouseY += (mouseY - smoothMouseY) * lerp;
         }
 
-        float time = (now % 3_600_000_000_000L) / 1_000_000_000.0F;
+        float time = reduceMotion ? 0.0F : ((now % 3_600_000_000_000L) / 1_000_000_000.0F);
         boolean lightMode = theme.getMode() == ThemeMode.LIGHT;
         int accent = theme.accent();
         int muted = theme.textSecondary();
@@ -86,7 +91,9 @@ public final class AmbientBackgroundRenderer {
             cy -= normMouseY * 14.0F * depth;
 
             float rotationDeg = (h5 * 360.0F) + time * ((h3 - 0.5F) * 14.0F);
-            float breath = 0.72F + 0.28F * (float) Math.sin(time * (0.55F + h4 * 0.5F) + i * 1.4F);
+            float breath = reduceMotion
+                    ? 0.85F
+                    : (0.72F + 0.28F * (float) Math.sin(time * (0.55F + h4 * 0.5F) + i * 1.4F));
 
             int baseColor = (i % 3 == 0) ? accent : muted;
             float r = ((baseColor >>> 16) & 0xFF) / 255.0F;
@@ -102,7 +109,10 @@ public final class AmbientBackgroundRenderer {
             } else if (kind == 1) {
                 drawCircleOrRing(cx, cy, size * 0.58F, h5 > 0.45F, r, g, b, fillAlpha, strokeAlpha);
             } else {
-                drawRotatedRect(cx, cy, size * 1.18F, size * 0.78F, 5.0F, rotationDeg, baseColor, fillAlpha, strokeAlpha);
+                drawRotatedRect(
+                        cx, cy, size * 1.18F, size * 0.78F, 5.0F,
+                        rotationDeg, baseColor, fillAlpha, strokeAlpha
+                );
             }
         }
 
@@ -194,7 +204,9 @@ public final class AmbientBackgroundRenderer {
         GlStateManager.translate(cx, cy, 0.0F);
         GlStateManager.rotate(rotationDeg, 0.0F, 0.0F, 1.0F);
         RenderUtil.drawRoundedRect(-w * 0.5F, -h * 0.5F, w, h, radius, RenderUtil.withAlpha(baseColor, fillAlpha));
-        RenderUtil.drawRoundedBorder(-w * 0.5F, -h * 0.5F, w, h, radius, 1.15F, RenderUtil.withAlpha(baseColor, strokeAlpha));
+        RenderUtil.drawRoundedBorder(
+                -w * 0.5F, -h * 0.5F, w, h, radius, 1.15F, RenderUtil.withAlpha(baseColor, strokeAlpha)
+        );
         GlStateManager.popMatrix();
     }
 

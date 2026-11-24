@@ -3,10 +3,13 @@ package com.hoptimization.modules.ui;
 import com.hoptimization.core.module.Category;
 import com.hoptimization.core.module.Module;
 import com.hoptimization.core.setting.BooleanSetting;
+import com.hoptimization.ui.anim.Animation;
+import com.hoptimization.ui.anim.ColorAnimation;
 import com.hoptimization.ui.hud.HudRenderHelper;
 import com.hoptimization.ui.render.RenderUtil;
 import com.hoptimization.ui.theme.ThemeData;
 import com.hoptimization.ui.theme.ThemeManager;
+import com.hoptimization.ui.theme.UiTokens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -34,6 +37,39 @@ public class ModernHotbar extends Module {
     private static final float ICON_STEP = 8.8F;
     private static final int HEART_VERTICES = 28;
     private static final int FOOD_VERTICES = 24;
+    private static final int HIGHLIGHT_SEGMENTS = 10;
+
+    private static final float[] HEART_UNIT_X = new float[HEART_VERTICES];
+    private static final float[] HEART_UNIT_Y = new float[HEART_VERTICES];
+    private static final float[] FOOD_UNIT_X = new float[FOOD_VERTICES];
+    private static final float[] FOOD_UNIT_Y = new float[FOOD_VERTICES];
+    private static final float[] HIGHLIGHT_COS = new float[HIGHLIGHT_SEGMENTS + 1];
+    private static final float[] HIGHLIGHT_SIN = new float[HIGHLIGHT_SEGMENTS + 1];
+
+    static {
+        for (int i = 0; i < HEART_VERTICES; i++) {
+            double t = (Math.PI * 2.0 * i) / HEART_VERTICES;
+            double sinT = Math.sin(t);
+            HEART_UNIT_X[i] = (float) (16.0 * sinT * sinT * sinT);
+            HEART_UNIT_Y[i] = (float) (-(13.0 * Math.cos(t)
+                    - 5.0 * Math.cos(2.0 * t)
+                    - 2.0 * Math.cos(3.0 * t)
+                    - Math.cos(4.0 * t)));
+        }
+        for (int i = 0; i < FOOD_VERTICES; i++) {
+            double t = (Math.PI * 2.0 * i) / FOOD_VERTICES;
+            double pinch = 1.0 - 0.28 * Math.sin(t);
+            double px = Math.cos(t) * 0.40 * pinch;
+            double py = Math.sin(t) * 0.42;
+            FOOD_UNIT_X[i] = (float) (px * 0.8829 - py * 0.4695);
+            FOOD_UNIT_Y[i] = (float) (px * 0.4695 + py * 0.8829);
+        }
+        for (int i = 0; i <= HIGHLIGHT_SEGMENTS; i++) {
+            double a = (Math.PI * 2.0 * i) / HIGHLIGHT_SEGMENTS;
+            HIGHLIGHT_COS[i] = (float) Math.cos(a);
+            HIGHLIGHT_SIN[i] = (float) Math.sin(a);
+        }
+    }
 
     private final BooleanSetting modernHotbar = addSetting(
             new BooleanSetting("modern_hotbar", "setting.hoptimization.modern_hotbar.hotbar.name", true));
@@ -116,7 +152,7 @@ public class ModernHotbar extends Module {
         HudRenderHelper.drawHudCard(x, y, HOTBAR_WIDTH, HOTBAR_HEIGHT, theme, 1.0F);
 
         int currentSlot = Math.max(0, Math.min(8, player.inventory.currentItem));
-        if (this.smoothSlot < 0.0F) {
+        if (this.smoothSlot < 0.0F || Animation.isReduceMotion()) {
             this.smoothSlot = currentSlot;
         } else {
             float lerp = 1.0F - (float) Math.exp(-22.0F * dt);
@@ -129,10 +165,10 @@ public class ModernHotbar extends Module {
         float selX = x + 1.5F + this.smoothSlot * 20.0F;
         float selY = y + 1.5F;
         float selSize = 19.0F;
-        int selFill = RenderUtil.withAlpha(theme.accent(), 0.24F);
-        int selBorder = RenderUtil.withAlpha(theme.accent(), 0.90F);
-        RenderUtil.drawRoundedRect(selX, selY, selSize, selSize, 4.5F, selFill);
-        RenderUtil.drawRoundedBorder(selX, selY, selSize, selSize, 4.5F, 1.15F, selBorder);
+        float selRadius = theme.nestedRadius(theme.radiusCard(), 1.5F);
+        int selFill = RenderUtil.withAlpha(theme.accent(), 0.22F);
+        int selBorder = RenderUtil.withAlpha(theme.accent(), 0.88F);
+        RenderUtil.drawRoundedRect(selX, selY, selSize, selSize, selRadius, selFill, selBorder, UiTokens.BORDER_WIDTH);
 
         GlStateManager.enableRescaleNormal();
         GlStateManager.enableBlend();
@@ -170,7 +206,8 @@ public class ModernHotbar extends Module {
         float health = Math.max(0.0F, Math.min(maxHealth, player.getHealth()));
         float absorption = Math.max(0.0F, player.getAbsorptionAmount());
 
-        if (this.smoothHealth < 0.0F) {
+        boolean reduceMotion = Animation.isReduceMotion();
+        if (this.smoothHealth < 0.0F || reduceMotion) {
             this.smoothHealth = health;
         } else {
             float lerp = 1.0F - (float) Math.exp(-14.0F * dt);
@@ -178,7 +215,7 @@ public class ModernHotbar extends Module {
         }
 
         boolean lowHealth = (health / maxHealth) <= 0.25F;
-        float pulse = lowHealth
+        float pulse = (lowHealth && !reduceMotion)
                 ? 1.0F + 0.08F * (float) Math.sin((now / 1_000_000_000.0D) * 7.0D)
                 : 1.0F;
 
@@ -226,7 +263,7 @@ public class ModernHotbar extends Module {
         this.lastFoodNanos = now;
 
         int foodLevel = Math.max(0, Math.min(20, player.getFoodStats().getFoodLevel()));
-        if (this.smoothFood < 0.0F) {
+        if (this.smoothFood < 0.0F || Animation.isReduceMotion()) {
             this.smoothFood = foodLevel;
         } else {
             float lerp = 1.0F - (float) Math.exp(-14.0F * dt);
@@ -236,7 +273,7 @@ public class ModernHotbar extends Module {
         int trackFill = RenderUtil.withAlpha(theme.surface1(), 0.72F);
         int trackBorder = RenderUtil.withAlpha(theme.borderStrong(), 0.75F);
         boolean hasHunger = player.isPotionActive(Potion.hunger);
-        int foodColor = hasHunger ? 0xFF7BB661 : theme.warning();
+        int foodColor = hasHunger ? ColorAnimation.lerpArgb(theme.success(), theme.warning(), 0.35F) : theme.warning();
 
         beginVector2D();
         for (int i = 0; i < ICON_COUNT; i++) {
@@ -322,25 +359,24 @@ public class ModernHotbar extends Module {
 
     private static void drawHeartShape(float cx, float cy, float size, int fillColor, int borderColor) {
         float scale = size * 0.028F;
+        float centerY = cy - size * 0.05F;
         setColor(fillColor);
-        GL11.glBegin(GL11.GL_POLYGON);
-        emitHeartVertices(cx, cy - size * 0.05F, scale);
+        GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+        GL11.glVertex2f(cx, centerY);
+        emitHeartVertices(cx, centerY, scale);
+        GL11.glVertex2f(cx + HEART_UNIT_X[0] * scale, centerY + HEART_UNIT_Y[0] * scale);
         GL11.glEnd();
 
         GL11.glLineWidth(1.05F);
         setColor(borderColor);
         GL11.glBegin(GL11.GL_LINE_LOOP);
-        emitHeartVertices(cx, cy - size * 0.05F, scale);
+        emitHeartVertices(cx, centerY, scale);
         GL11.glEnd();
     }
 
     private static void emitHeartVertices(float cx, float cy, float scale) {
         for (int i = 0; i < HEART_VERTICES; i++) {
-            double t = (Math.PI * 2.0 * i) / HEART_VERTICES;
-            double sinT = Math.sin(t);
-            double x = 16.0 * sinT * sinT * sinT;
-            double y = -(13.0 * Math.cos(t) - 5.0 * Math.cos(2.0 * t) - 2.0 * Math.cos(3.0 * t) - Math.cos(4.0 * t));
-            GL11.glVertex2f(cx + (float) x * scale, cy + (float) y * scale);
+            GL11.glVertex2f(cx + HEART_UNIT_X[i] * scale, cy + HEART_UNIT_Y[i] * scale);
         }
     }
 
@@ -351,39 +387,30 @@ public class ModernHotbar extends Module {
         float hy = cy - size * 0.16F;
         float r = size * 0.12F;
         GL11.glVertex2f(hx, hy);
-        for (int i = 0; i <= 10; i++) {
-            double a = (Math.PI * 2.0 * i) / 10.0;
-            GL11.glVertex2f(hx + (float) Math.cos(a) * r, hy + (float) Math.sin(a) * r * 0.72F);
+        for (int i = 0; i <= HIGHLIGHT_SEGMENTS; i++) {
+            GL11.glVertex2f(hx + HIGHLIGHT_COS[i] * r, hy + HIGHLIGHT_SIN[i] * r * 0.72F);
         }
         GL11.glEnd();
     }
 
     private static void drawFoodShape(float cx, float cy, float size, int fillColor, int borderColor) {
-        float rx = size * 0.40F;
-        float ry = size * 0.42F;
         setColor(fillColor);
-        GL11.glBegin(GL11.GL_POLYGON);
-        emitFoodVertices(cx, cy, rx, ry);
+        GL11.glBegin(GL11.GL_TRIANGLE_FAN);
+        GL11.glVertex2f(cx, cy);
+        emitFoodVertices(cx, cy, size);
+        GL11.glVertex2f(cx + FOOD_UNIT_X[0] * size, cy + FOOD_UNIT_Y[0] * size);
         GL11.glEnd();
 
         GL11.glLineWidth(1.05F);
         setColor(borderColor);
         GL11.glBegin(GL11.GL_LINE_LOOP);
-        emitFoodVertices(cx, cy, rx, ry);
+        emitFoodVertices(cx, cy, size);
         GL11.glEnd();
     }
 
-    private static void emitFoodVertices(float cx, float cy, float rx, float ry) {
+    private static void emitFoodVertices(float cx, float cy, float size) {
         for (int i = 0; i < FOOD_VERTICES; i++) {
-            double t = (Math.PI * 2.0 * i) / FOOD_VERTICES;
-            // Sleek modern teardrop/berry silhouette tilted slightly
-            double pinch = 1.0 - 0.28 * Math.sin(t);
-            double px = Math.cos(t) * rx * pinch;
-            double py = Math.sin(t) * ry;
-            // Rotate -28 degrees for a clean drumstick/droplet angle
-            double rotX = px * 0.8829 - py * 0.4695;
-            double rotY = px * 0.4695 + py * 0.8829;
-            GL11.glVertex2f(cx + (float) rotX, cy + (float) rotY);
+            GL11.glVertex2f(cx + FOOD_UNIT_X[i] * size, cy + FOOD_UNIT_Y[i] * size);
         }
     }
 
@@ -394,9 +421,8 @@ public class ModernHotbar extends Module {
         float hy = cy - size * 0.12F;
         float r = size * 0.11F;
         GL11.glVertex2f(hx, hy);
-        for (int i = 0; i <= 10; i++) {
-            double a = (Math.PI * 2.0 * i) / 10.0;
-            GL11.glVertex2f(hx + (float) Math.cos(a) * r, hy + (float) Math.sin(a) * r);
+        for (int i = 0; i <= HIGHLIGHT_SEGMENTS; i++) {
+            GL11.glVertex2f(hx + HIGHLIGHT_COS[i] * r, hy + HIGHLIGHT_SIN[i] * r);
         }
         GL11.glEnd();
     }
